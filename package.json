@@ -1,0 +1,32 @@
+{
+  "name": "tentaclaw",
+  "version": "0.1.0",
+  "description": "Agent Runtime MVP without web UI",
+  "private": true,
+  "packageManager": "pnpm@10.11.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "agent": "dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli/index.ts",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "commander": "^14.0.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.38.0",
+    "@types/node": "^24.6.0",
+    "eslint": "^9.38.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.2",
+    "vitest": "^3.2.4"
+  }
+}
