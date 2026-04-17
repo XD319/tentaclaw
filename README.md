@@ -1,12 +1,18 @@
-# Tentaclaw Phase 2
+# Tentaclaw Phase 3
 
-Tentaclaw is an Agent Runtime MVP focused on a CLI-first, governance-friendly execution kernel. Phase 2 extends the Phase 1 runtime with a policy plane, approval flow, sandbox enforcement, audit logging, and profile-aware execution without introducing a web UI or framework-heavy agent stack.
+Tentaclaw is an Agent Runtime MVP focused on a CLI-first, governance-friendly execution kernel. Phase 3 extends the Phase 2 runtime with a governed memory plane, selective recall, session compact, snapshotting, and explicit privacy/retention boundaries without introducing a web UI or framework-heavy agent stack.
 
-## Phase 2 Capabilities
+## Phase 3 Capabilities
 
 - TypeScript strict-mode Node.js runtime with a thin CLI entry.
 - Single-agent execution kernel with provider abstraction and a built-in `MockProvider`.
 - Shared runtime skeleton for `planner`, `executor`, and `reviewer` profiles.
+- Memory plane with typed `session`, `project`, and `agent` scopes.
+- Selective recall with source explanation and context policy filtering.
+- Session compact that summarizes long conversations instead of replaying them in full.
+- Snapshot metadata for governed memory inspection and comparison.
+- Memory quality controls with `candidate`, `verified`, `stale`, and `rejected` states.
+- Privacy and retention controls through `sourceType`, `privacyLevel`, and `retentionPolicy`.
 - Structured tool orchestration for:
   - `file_read`: read file, list directory, keyword search
   - `file_write`: write file, update file, simplified patch application
@@ -56,6 +62,10 @@ corepack pnpm dev approve pending
 corepack pnpm dev approve allow <approval_id>
 corepack pnpm dev approve deny <approval_id>
 corepack pnpm dev config doctor
+corepack pnpm dev memory list
+corepack pnpm dev memory show project --cwd .
+corepack pnpm dev memory snapshot create project --cwd . --label phase3-baseline
+corepack pnpm dev memory review <memory_id> verified
 ```
 
 After building, the compiled CLI entry is `dist/cli/index.js` and the binary name is `agent`.
@@ -65,7 +75,7 @@ After building, the compiled CLI entry is `dist/cli/index.js` and the binary nam
 1. CLI parses arguments and delegates to the application service.
 2. The execution kernel creates a persisted task and run metadata record.
 3. The selected agent profile contributes its prompt and tool whitelist.
-4. Provider input is assembled from task context, memory context, tool catalog, and token-budget placeholders.
+4. Provider input is assembled from task context, filtered memory context, tool catalog, and token-budget placeholders.
 5. Tool calls are executed only through the orchestrator, which:
    - validates input,
    - prepares a sandboxed execution plan,
@@ -75,6 +85,67 @@ After building, the compiled CLI entry is `dist/cli/index.js` and the binary nam
    - records trace and audit events.
 6. If approval is needed, the task moves to `waiting_approval`, a checkpoint is stored, and the CLI can later resume the task through `agent approve allow <approval_id>`.
 7. Tool outputs are fed back into the provider loop until the task succeeds, fails, times out, or is rejected.
+
+## Memory Plane
+
+Phase 3 adds three memory scopes:
+
+- `session`
+  - active task goal, compact summaries, recent tool outputs
+- `project`
+  - workspace-level reusable facts and outcomes
+- `agent`
+  - reusable profile/user hints across tasks
+
+Memory is not injected wholesale. Recall is selective and explainable:
+
+- keyword overlap and task semantics drive candidate selection
+- confidence and freshness affect ranking
+- stale memories are downgraded
+- rejected memories are blocked
+- conflicting memories are marked instead of replacing prior records
+- all recalled fragments pass through the context policy filter before prompt assembly
+
+Each memory record includes:
+
+- `memoryId`
+- `scope`
+- `source`
+- `sourceType`
+- `privacyLevel`
+- `retentionPolicy`
+- `confidence`
+- `status`
+- `createdAt`
+- `updatedAt`
+- `lastVerifiedAt`
+- `expiresAt`
+- `supersedes`
+- `conflictsWith`
+
+Memory states:
+
+- `candidate`
+- `verified`
+- `stale`
+- `rejected`
+
+Minimal review flow:
+
+- `agent memory review <memory_id> verified`
+- `agent memory review <memory_id> stale`
+- `agent memory review <memory_id> rejected`
+
+## Context Boundary Rules
+
+Phase 3 makes information boundaries explicit in both persistence and context assembly.
+
+- all memory fragments carry `sourceType`, `privacyLevel`, and `retentionPolicy`
+- restricted content is blocked from automatic long-term (`project` / `agent`) memory writes
+- restricted long-term recall is blocked from model context by default
+- persisted trace/audit previews redact restricted tool output
+- session compact stores distilled summaries instead of replaying all raw turns
+- snapshot metadata is viewable without replaying all memory content
 
 ## Policy Rules
 
@@ -155,6 +226,7 @@ This keeps reviewer behavior controlled without introducing multi-agent swarm lo
 - `web_fetch` is sandboxed behind an allowlist and defaults to `example.com` in the bootstrap config for the MVP.
 - Approval TTL defaults to 5 minutes and is configurable through bootstrap config.
 - See [docs/phase2-governance.md](/D:/Backup/Career/Projects/AgentProject/tentaclaw/docs/phase2-governance.md) for the Phase 2 governance notes.
+- See [docs/phase3-memory.md](/D:/Backup/Career/Projects/AgentProject/tentaclaw/docs/phase3-memory.md) for the Phase 3 memory design.
 
 ## Development Commands
 

@@ -1,5 +1,13 @@
 import type { AgentDoctorReport } from "../runtime";
-import type { ApprovalRecord, AuditLogRecord, TaskRecord, TraceEvent, ToolCallRecord } from "../types";
+import type {
+  ApprovalRecord,
+  AuditLogRecord,
+  MemoryRecord,
+  MemorySnapshotRecord,
+  TaskRecord,
+  TraceEvent,
+  ToolCallRecord
+} from "../types";
 
 import { formatTraceEvent } from "../tracing/trace-formatter";
 
@@ -104,5 +112,68 @@ export function formatDoctorReport(report: AgentDoctorReport): string {
     `Workspace Root: ${report.workspaceRoot}`,
     `Database Path: ${report.databasePath}`,
     `Shell: ${report.shell ?? "-"}`
+  ].join("\n");
+}
+
+export function formatMemoryList(memories: MemoryRecord[]): string {
+  if (memories.length === 0) {
+    return "No memories found.";
+  }
+
+  return memories
+    .map(
+      (memory) =>
+        `${memory.memoryId} | ${memory.scope}:${memory.scopeKey} | ${memory.status} | confidence=${memory.confidence.toFixed(2)} | privacy=${memory.privacyLevel} | ${memory.title}`
+    )
+    .join("\n");
+}
+
+export function formatMemoryScope(
+  scope: string,
+  scopeKey: string,
+  memories: MemoryRecord[],
+  snapshots: MemorySnapshotRecord[]
+): string {
+  const memorySection =
+    memories.length === 0
+      ? "Memories: none"
+      : ["Memories:", ...memories.map((memory) => formatMemoryDetail(memory))].join("\n");
+  const snapshotSection =
+    snapshots.length === 0
+      ? "Snapshots: none"
+      : [
+          "Snapshots:",
+          ...snapshots.map(
+            (snapshot) =>
+              `- ${snapshot.snapshotId} ${snapshot.label} created=${snapshot.createdAt} count=${snapshot.memoryIds.length}`
+          )
+        ].join("\n");
+
+  return [`Scope: ${scope}`, `Scope Key: ${scopeKey}`, memorySection, snapshotSection].join("\n");
+}
+
+export function formatSnapshot(snapshot: MemorySnapshotRecord): string {
+  return [
+    `Snapshot ID: ${snapshot.snapshotId}`,
+    `Scope: ${snapshot.scope}`,
+    `Scope Key: ${snapshot.scopeKey}`,
+    `Label: ${snapshot.label}`,
+    `Created By: ${snapshot.createdBy}`,
+    `Created At: ${snapshot.createdAt}`,
+    `Memory Count: ${snapshot.memoryIds.length}`,
+    `Summary: ${snapshot.summary}`
+  ].join("\n");
+}
+
+function formatMemoryDetail(memory: MemoryRecord): string {
+  const conflicts =
+    memory.conflictsWith.length === 0 ? "-" : memory.conflictsWith.join(",");
+
+  return [
+    `- ${memory.memoryId} ${memory.title}`,
+    `  status=${memory.status} confidence=${memory.confidence.toFixed(2)} privacy=${memory.privacyLevel} source=${memory.sourceType}`,
+    `  created=${memory.createdAt} updated=${memory.updatedAt} verified=${memory.lastVerifiedAt ?? "-"} expires=${memory.expiresAt ?? "-"}`,
+    `  conflicts=${conflicts} supersedes=${memory.supersedes ?? "-"}`,
+    `  summary=${memory.summary}`
   ].join("\n");
 }

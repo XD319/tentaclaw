@@ -1,6 +1,7 @@
 import type {
   AgentProfile,
   ConversationMessage,
+  ContextFragment,
   ProviderInput,
   ProviderToolDescriptor,
   TaskRecord,
@@ -10,7 +11,7 @@ import type {
 export interface ContextAssemblerInput {
   availableTools: ProviderToolDescriptor[];
   iteration: number;
-  memoryContext: string[];
+  memoryContext: ContextFragment[];
   messages: ConversationMessage[];
   signal: AbortSignal;
   task: TaskRecord;

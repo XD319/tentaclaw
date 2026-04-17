@@ -7,6 +7,9 @@ import {
   formatApprovalList,
   formatAuditLog,
   formatDoctorReport,
+  formatMemoryList,
+  formatMemoryScope,
+  formatSnapshot,
   formatTask,
   formatTaskList,
   formatTrace
@@ -154,7 +157,162 @@ async function main(): Promise<void> {
     }
   });
 
+  const memoryCommand = program.command("memory").description("Inspect governed memories");
+
+  memoryCommand.command("list").action(() => {
+    const handle = createApplication(process.cwd());
+    try {
+      console.log(formatMemoryList(handle.service.listMemories()));
+    } finally {
+      handle.close();
+    }
+  });
+
+  memoryCommand
+    .command("show")
+    .argument("<scope>", "Memory scope: session | project | agent")
+    .option("--scope-key <key>", "Explicit scope key")
+    .option("--task-id <taskId>", "Task id for session scope")
+    .option("--cwd <path>", "Workspace path for project scope", process.cwd())
+    .option("--profile <profile>", "Agent profile for agent scope", "executor")
+    .option("--user <user>", "User id for agent scope")
+    .action(
+      (
+        scope: "session" | "project" | "agent",
+        commandOptions: {
+          scopeKey?: string;
+          taskId?: string;
+          cwd: string;
+          profile: string;
+          user?: string;
+        }
+      ) => {
+        const handle = createApplication(commandOptions.cwd);
+        try {
+          const scopeKey = resolveScopeKey(scope, {
+            cwd: commandOptions.cwd,
+            profile: commandOptions.profile,
+            scopeKey: commandOptions.scopeKey,
+            taskId: commandOptions.taskId,
+            user: commandOptions.user
+          });
+          const result = handle.service.showMemoryScope(scope, scopeKey);
+          console.log(formatMemoryScope(scope, scopeKey, result.memories, result.snapshots));
+        } finally {
+          handle.close();
+        }
+      }
+    );
+
+  const snapshotCommand = memoryCommand.command("snapshot").description("Manage memory snapshots");
+
+  snapshotCommand
+    .command("create")
+    .argument("<scope>", "Memory scope: session | project | agent")
+    .option("--label <label>", "Snapshot label", "manual-snapshot")
+    .option("--scope-key <key>", "Explicit scope key")
+    .option("--task-id <taskId>", "Task id for session scope")
+    .option("--cwd <path>", "Workspace path for project scope", process.cwd())
+    .option("--profile <profile>", "Agent profile for agent scope", "executor")
+    .option("--user <user>", "User id for agent scope")
+    .option("--reviewer <reviewer>", "Snapshot creator id")
+    .action(
+      (
+        scope: "session" | "project" | "agent",
+        commandOptions: {
+          cwd: string;
+          label: string;
+          profile: string;
+          reviewer?: string;
+          scopeKey?: string;
+          taskId?: string;
+          user?: string;
+        }
+      ) => {
+        const handle = createApplication(commandOptions.cwd);
+        try {
+          const scopeKey = resolveScopeKey(scope, {
+            cwd: commandOptions.cwd,
+            profile: commandOptions.profile,
+            scopeKey: commandOptions.scopeKey,
+            taskId: commandOptions.taskId,
+            user: commandOptions.user
+          });
+          const reviewer =
+            commandOptions.reviewer ?? process.env.USERNAME ?? process.env.USER ?? "local-reviewer";
+          const snapshot = handle.service.createMemorySnapshot(
+            scope,
+            scopeKey,
+            commandOptions.label,
+            reviewer
+          );
+          console.log(formatSnapshot(snapshot));
+        } finally {
+          handle.close();
+        }
+      }
+    );
+
+  memoryCommand
+    .command("review")
+    .argument("<memory_id>", "Memory identifier")
+    .argument("<status>", "verified | rejected | stale")
+    .option("--reviewer <reviewer>", "Reviewer id")
+    .option("--note <note>", "Review note", "manual memory review")
+    .action(
+      (
+        memoryId: string,
+        status: "verified" | "rejected" | "stale",
+        commandOptions: { note: string; reviewer?: string }
+      ) => {
+        const handle = createApplication(process.cwd());
+        try {
+          const reviewer =
+            commandOptions.reviewer ?? process.env.USERNAME ?? process.env.USER ?? "local-reviewer";
+          const reviewed = handle.service.reviewMemory(
+            memoryId,
+            status,
+            reviewer,
+            commandOptions.note
+          );
+          console.log(formatMemoryList([reviewed]));
+        } finally {
+          handle.close();
+        }
+      }
+    );
+
   await program.parseAsync(process.argv);
 }
 
 void main();
+
+function resolveScopeKey(
+  scope: "session" | "project" | "agent",
+  options: {
+    cwd: string;
+    profile: string;
+    scopeKey: string | undefined;
+    taskId: string | undefined;
+    user: string | undefined;
+  }
+): string {
+  if (options.scopeKey !== undefined) {
+    return options.scopeKey;
+  }
+
+  if (scope === "session") {
+    if (options.taskId === undefined) {
+      throw new Error("Session scope requires --task-id or --scope-key.");
+    }
+
+    return options.taskId;
+  }
+
+  if (scope === "project") {
+    return options.cwd;
+  }
+
+  const userId = options.user ?? process.env.USERNAME ?? process.env.USER ?? "local-user";
+  return `${userId}:${options.profile}`;
+}

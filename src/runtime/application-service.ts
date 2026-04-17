@@ -5,6 +5,9 @@ import type { AuditService } from "../audit/audit-service";
 import type {
   ApprovalRecord,
   AuditLogRecord,
+  MemoryRecord,
+  MemoryScope,
+  MemorySnapshotRecord,
   Provider,
   RuntimeRunOptions,
   TaskRecord,
@@ -12,6 +15,7 @@ import type {
   ToolCallRecord
 } from "../types";
 import type { TraceService } from "../tracing/trace-service";
+import type { MemoryPlane } from "../memory/memory-plane";
 import type { ExecutionKernel } from "./execution-kernel";
 
 import { AppError } from "./app-error";
@@ -38,10 +42,13 @@ export interface AgentDoctorReport {
 }
 
 export interface RuntimeReadModel {
+  findMemory(memoryId: string): MemoryRecord | null;
   findTask(taskId: string): TaskRecord | null;
   listApprovals(taskId: string): ApprovalRecord[];
   listAuditLogs(taskId: string): AuditLogRecord[];
+  listMemorySnapshots(scope: MemoryScope, scopeKey: string): MemorySnapshotRecord[];
   listPendingApprovals(): ApprovalRecord[];
+  listMemories(): MemoryRecord[];
   listTasks(): TaskRecord[];
   listToolCalls(taskId: string): ToolCallRecord[];
   listTrace(taskId: string): TraceEvent[];
@@ -53,6 +60,7 @@ export interface AgentApplicationServiceDependencies extends RuntimeReadModel {
   auditService: AuditService;
   databasePath: string;
   executionKernel: ExecutionKernel;
+  memoryPlane: MemoryPlane;
   provider: Provider;
   runtimeVersion: string;
   traceService: TraceService;
@@ -101,6 +109,45 @@ export class AgentApplicationService {
 
   public listTasks(): TaskRecord[] {
     return this.dependencies.listTasks();
+  }
+
+  public listMemories(): MemoryRecord[] {
+    return this.dependencies.listMemories();
+  }
+
+  public showMemoryScope(scope: MemoryScope, scopeKey: string): {
+    memories: MemoryRecord[];
+    snapshots: MemorySnapshotRecord[];
+  } {
+    return this.dependencies.memoryPlane.showScope(scope, scopeKey);
+  }
+
+  public createMemorySnapshot(
+    scope: MemoryScope,
+    scopeKey: string,
+    label: string,
+    createdBy: string
+  ): MemorySnapshotRecord {
+    return this.dependencies.memoryPlane.createSnapshot({
+      createdBy,
+      label,
+      scope,
+      scopeKey
+    });
+  }
+
+  public reviewMemory(
+    memoryId: string,
+    status: "verified" | "rejected" | "stale",
+    reviewerId: string,
+    note: string
+  ): MemoryRecord {
+    return this.dependencies.memoryPlane.reviewMemory({
+      memoryId,
+      note,
+      reviewerId,
+      status
+    });
   }
 
   public listPendingApprovals(): ApprovalRecord[] {

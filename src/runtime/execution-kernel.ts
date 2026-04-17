@@ -7,6 +7,7 @@ import { tokenBudgetToJson } from "./serialization";
 import type { AgentProfileRegistry } from "../profiles/agent-profile-registry";
 import type {
   ConversationMessage,
+  ContextFragment,
   ExecutionCheckpointRepository,
   Provider,
   ProviderToolCall,
@@ -38,7 +39,7 @@ interface ExecutionLoopState {
   cwd: string;
   managedAbortController: ReturnType<typeof createManagedAbortController>;
   maxIterations: number;
-  memoryContext: string[];
+  memoryContext: ContextFragment[];
   messages: ConversationMessage[];
   pendingToolCalls: ProviderToolCall[];
   task: TaskRecord;
@@ -117,7 +118,8 @@ export class ExecutionKernel {
       });
 
       const profile = this.dependencies.agentProfileRegistry.get(options.agentProfileId);
-      const memoryContext = await this.dependencies.memoryPlane.buildContext(task);
+      this.dependencies.memoryPlane.rememberTaskGoal(task);
+      const memoryContext = this.dependencies.memoryPlane.buildContext(task);
       const availableTools = this.dependencies.toolOrchestrator.listTools(profile.allowedToolNames);
       const messages = this.contextAssembler.buildInitialMessages(task, availableTools, profile);
 
@@ -125,7 +127,7 @@ export class ExecutionKernel {
         cwd: options.cwd,
         managedAbortController,
         maxIterations: options.maxIterations,
-        memoryContext,
+        memoryContext: memoryContext.fragments,
         messages,
         pendingToolCalls: [],
         task,
@@ -342,6 +344,7 @@ export class ExecutionKernel {
             finishedAt: new Date().toISOString(),
             status: "succeeded"
           });
+          this.dependencies.memoryPlane.recordFinalOutcome(task, providerResponse.message);
 
           this.dependencies.traceService.record({
             actor: "runtime.kernel",
@@ -417,6 +420,20 @@ export class ExecutionKernel {
         }
 
         toolCallCount += 1;
+        const toolDescriptor = this.dependencies.toolOrchestrator.describeTool(toolCall.toolName);
+        if (toolDescriptor !== null) {
+          this.dependencies.memoryPlane.recordToolOutcome({
+            output:
+              typeof outcome.result.output === "string"
+                ? outcome.result.output
+                : JSON.stringify(outcome.result.output, null, 2),
+            privacyLevel: toolDescriptor.privacyLevel,
+            summary: outcome.result.summary,
+            task,
+            toolCallId: toolCall.toolCallId,
+            toolName: toolCall.toolName
+          });
+        }
         messages.push(createToolFeedbackMessage(outcome.result.output, toolCall));
       }
 
@@ -438,6 +455,19 @@ export class ExecutionKernel {
         summary: "Loop iteration completed after tool execution",
         taskId: task.taskId
       });
+
+      const compacted = this.dependencies.memoryPlane.compactSession({
+        maxMessagesBeforeCompact: 8,
+        messages,
+        sessionScopeKey: task.taskId,
+        taskId: task.taskId
+      });
+      if (compacted.triggered) {
+        messages.length = 0;
+        messages.push(...compacted.replacementMessages);
+        const refreshedContext = this.dependencies.memoryPlane.buildContext(task);
+        state.memoryContext = refreshedContext.fragments;
+      }
     }
 
     throw new AppError({

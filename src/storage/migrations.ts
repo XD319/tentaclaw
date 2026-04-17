@@ -128,6 +128,47 @@ export function runMigrations(database: DatabaseSync): void {
       pending_tool_calls_json TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS memories (
+      memory_id TEXT PRIMARY KEY,
+      scope TEXT NOT NULL,
+      scope_key TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      source_json TEXT NOT NULL,
+      source_type TEXT NOT NULL,
+      privacy_level TEXT NOT NULL,
+      retention_policy_json TEXT NOT NULL,
+      confidence REAL NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      last_verified_at TEXT,
+      expires_at TEXT,
+      supersedes TEXT,
+      conflicts_with_json TEXT NOT NULL,
+      keywords_json TEXT NOT NULL,
+      metadata_json TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_memories_scope ON memories(scope, scope_key, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_memories_status ON memories(status, expires_at);
+
+    CREATE TABLE IF NOT EXISTS memory_snapshots (
+      snapshot_id TEXT PRIMARY KEY,
+      scope TEXT NOT NULL,
+      scope_key TEXT NOT NULL,
+      label TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      created_by TEXT NOT NULL,
+      memory_ids_json TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      metadata_json TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_memory_snapshots_scope
+      ON memory_snapshots(scope, scope_key, created_at DESC);
   `);
 
   addColumnIfMissing(database, "tasks", "agent_profile_id", "TEXT NOT NULL DEFAULT 'executor'");

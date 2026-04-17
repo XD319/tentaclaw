@@ -1,5 +1,6 @@
 import type { JsonObject, TokenBudget } from "./common";
 import type { ToolCapability, PrivacyLevel } from "./governance";
+import type { ContextFragment } from "./memory";
 import type { AgentProfileId } from "./profile";
 import type { TaskRecord } from "./task";
 import type { ToolSchemaDescriptor } from "./tool";
@@ -40,7 +41,7 @@ export interface ProviderInput {
   messages: ConversationMessage[];
   availableTools: ProviderToolDescriptor[];
   agentProfileId: AgentProfileId;
-  memoryContext: string[];
+  memoryContext: ContextFragment[];
   tokenBudget: TokenBudget;
   signal: AbortSignal;
 }

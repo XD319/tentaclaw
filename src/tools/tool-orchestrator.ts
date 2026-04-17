@@ -5,6 +5,7 @@ import { AppError, toAppError } from "../runtime/app-error";
 import { safePreview } from "../runtime/serialization";
 import type { ApprovalService } from "../approvals/approval-service";
 import type { AuditService } from "../audit/audit-service";
+import type { ContextPolicy } from "../policy/context-policy";
 import type { PolicyEngine } from "../policy/policy-engine";
 import type { TraceService } from "../tracing/trace-service";
 import type {
@@ -25,6 +26,7 @@ export interface ToolOrchestratorDependencies {
   approvalService: ApprovalService;
   artifactRepository: ArtifactRepository;
   auditService: AuditService;
+  contextPolicy: ContextPolicy;
   policyEngine: PolicyEngine;
   toolCallRepository: ToolCallRepository;
   traceService: TraceService;
@@ -67,6 +69,22 @@ export class ToolOrchestrator {
         privacyLevel: tool.privacyLevel,
         riskLevel: tool.riskLevel
       }));
+  }
+
+  public describeTool(toolName: string): ProviderToolDescriptor | null {
+    const tool = this.tools.get(toolName);
+    if (tool === undefined) {
+      return null;
+    }
+
+    return {
+      capability: tool.capability,
+      description: tool.description,
+      inputSchema: tool.inputSchemaDescriptor,
+      name: tool.name,
+      privacyLevel: tool.privacyLevel,
+      riskLevel: tool.riskLevel
+    };
   }
 
   public async execute(
@@ -314,9 +332,14 @@ export class ToolOrchestrator {
         result.artifacts ?? []
       );
 
+      const persistedOutput = sanitizePersistedOutput(
+        result.output,
+        tool.privacyLevel,
+        this.dependencies.contextPolicy
+      );
       const finishedCall = this.dependencies.toolCallRepository.update(toolCall.toolCallId, {
         finishedAt: new Date().toISOString(),
-        output: result.output,
+        output: persistedOutput,
         status: "finished",
         summary: result.summary
       });
@@ -326,7 +349,7 @@ export class ToolOrchestrator {
         eventType: "tool_call_finished",
         payload: {
           iteration: request.iteration,
-          outputPreview: safePreview(result.output),
+          outputPreview: safePreview(persistedOutput),
           summary: result.summary,
           toolCallId: finishedCall.toolCallId,
           toolName: tool.name
@@ -613,4 +636,22 @@ function extractSandboxTarget(sandboxDetails: Record<string, unknown>): string {
   }
 
   return "unknown";
+}
+
+function sanitizePersistedOutput(
+  value: ToolExecutionSuccess["output"],
+  privacyLevel: ToolDefinition["privacyLevel"],
+  contextPolicy: ContextPolicy
+): ToolExecutionSuccess["output"] {
+  if (privacyLevel !== "restricted") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    return contextPolicy.redactText(value, privacyLevel);
+  }
+
+  return {
+    redacted: contextPolicy.redactText(JSON.stringify(value), privacyLevel)
+  };
 }

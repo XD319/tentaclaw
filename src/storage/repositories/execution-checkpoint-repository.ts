@@ -2,6 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 
 import type {
   ConversationMessage,
+  ContextFragment,
   ExecutionCheckpointRecord,
   ExecutionCheckpointRepository,
   ProviderToolCall
@@ -69,7 +70,7 @@ export class SqliteExecutionCheckpointRepository implements ExecutionCheckpointR
 
     return {
       iteration: row.iteration,
-      memoryContext: parseJsonValue<string[]>(row.memory_context_json),
+      memoryContext: parseJsonValue<ContextFragment[]>(row.memory_context_json),
       messages: parseJsonValue<ConversationMessage[]>(row.messages_json),
       pendingToolCalls: parseJsonValue<ProviderToolCall[]>(row.pending_tool_calls_json),
       taskId: row.task_id,
