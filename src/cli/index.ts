@@ -3,6 +3,7 @@ import { Command } from "commander";
 
 import { startLocalWebhookGateway } from "../gateway";
 import { replayTaskById, runBetaReadinessCheck, runEvalReport } from "../diagnostics";
+import type { SupportedProviderName } from "../providers";
 import { createApplication, createDefaultRunOptions } from "../runtime";
 import { formatSmokeSuiteReport, runSmokeSuite } from "../testing";
 import { startTui } from "../tui";
@@ -269,13 +270,13 @@ async function main(): Promise<void> {
 
   evalCommand
     .command("run")
-    .option("--provider <provider>", "Provider to use: scripted-smoke | mock | glm | openai-compatible", "scripted-smoke")
+    .option("--provider <provider>", "Provider to use: scripted-smoke or any registered provider", "scripted-smoke")
     .option("--tasks <taskIds>", "Comma-separated task ids")
     .option("--fixture <path>", "Custom fixture file path")
     .action(
       async (commandOptions: {
         fixture?: string;
-        provider: "glm" | "mock" | "openai-compatible" | "scripted-smoke";
+        provider: SupportedProviderName | "scripted-smoke";
         tasks?: string;
       }) => {
         const report = await runEvalReport({
@@ -295,12 +296,12 @@ async function main(): Promise<void> {
 
   evalCommand
     .command("beta")
-    .option("--provider <provider>", "Provider to use for sample eval: scripted-smoke | mock | glm | openai-compatible", "scripted-smoke")
+    .option("--provider <provider>", "Provider to use for sample eval: scripted-smoke or any registered provider", "scripted-smoke")
     .option("--min-success-rate <number>", "Minimum acceptable task success rate", "0.8")
     .action(
       async (commandOptions: {
         minSuccessRate: string;
-        provider: "glm" | "mock" | "openai-compatible" | "scripted-smoke";
+        provider: SupportedProviderName | "scripted-smoke";
       }) => {
         const report = await runBetaReadinessCheck({
           minimumSuccessRate: Number(commandOptions.minSuccessRate),
@@ -315,7 +316,7 @@ async function main(): Promise<void> {
 
   smokeCommand
     .command("run")
-    .option("--provider <provider>", "Provider to use: scripted-smoke | mock | glm | openai-compatible", "scripted-smoke")
+    .option("--provider <provider>", "Provider to use: scripted-smoke or any registered provider", "scripted-smoke")
     .option("--tasks <taskIds>", "Comma-separated smoke task ids")
     .option("--fixture <path>", "Custom fixture file path")
     .option("--no-auto-approve", "Do not auto-resolve approvals during smoke runs")
@@ -323,7 +324,7 @@ async function main(): Promise<void> {
       async (commandOptions: {
         autoApprove: boolean;
         fixture?: string;
-        provider: "glm" | "mock" | "openai-compatible" | "scripted-smoke";
+        provider: SupportedProviderName | "scripted-smoke";
         tasks?: string;
       }) => {
         const report = await runSmokeSuite({

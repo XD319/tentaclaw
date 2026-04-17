@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { startLocalWebhookGateway } from "../gateway";
 import { ProviderError } from "../providers";
 import { createApplication, createDefaultRunOptions } from "../runtime";
+import type { SupportedProviderName } from "../providers";
 import { runEvalReport } from "./eval";
 import type { Provider, ProviderInput, ProviderResponse } from "../types";
 
@@ -24,7 +25,7 @@ export interface BetaReadinessReport {
 
 export interface BetaReadinessOptions {
   minimumSuccessRate?: number;
-  providerName?: "glm" | "mock" | "openai-compatible" | "scripted-smoke";
+  providerName?: SupportedProviderName | "scripted-smoke";
 }
 
 export async function runBetaReadinessCheck(

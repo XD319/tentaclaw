@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  AnthropicCompatibleProvider,
   GlmProvider,
   ManagedProvider,
   MockProvider,
@@ -31,6 +32,8 @@ describe("Provider contract tests", () => {
   runProviderContractSuite("mock provider", createMockHarness());
   runProviderContractSuite("glm provider mapping", createGlmHarness());
   runProviderContractSuite("openai-compatible provider mapping", createOpenAiCompatibleHarness());
+  runProviderContractSuite("anthropic provider mapping", createAnthropicHarness());
+  runProviderContractSuite("minimax anthropic-compatible mapping", createMiniMaxHarness());
 });
 
 describe("Provider runtime safeguards", () => {
@@ -467,6 +470,291 @@ function createOpenAiCompatibleHarness(): ProviderContractHarness {
   };
 }
 
+function createAnthropicHarness(): ProviderContractHarness {
+  return {
+    createAuthErrorProvider: () =>
+      managedAnthropicCompatible(jsonResponse({
+        error: {
+          message: "invalid api key",
+          type: "authentication_error"
+        },
+        type: "error"
+      }, 401), {
+        model: "claude-sonnet-4-20250514",
+        name: "anthropic"
+      }),
+    createEmptyProvider: () =>
+      managedAnthropicCompatible(jsonResponse({
+        content: [],
+        id: "msg-empty",
+        model: "claude-sonnet-4-20250514",
+        stop_reason: "end_turn",
+        type: "message",
+        usage: {
+          input_tokens: 1,
+          output_tokens: 0
+        }
+      }), {
+        model: "claude-sonnet-4-20250514",
+        name: "anthropic"
+      }),
+    createMalformedResponseProvider: () =>
+      managedAnthropicCompatible(jsonResponse({
+        content: [
+          {
+            id: "call-1",
+            input: "bad-input",
+            name: "file_read",
+            type: "tool_use"
+          }
+        ],
+        id: "msg-malformed",
+        model: "claude-sonnet-4-20250514",
+        stop_reason: "tool_use",
+        type: "message",
+        usage: {
+          input_tokens: 1,
+          output_tokens: 1
+        }
+      }), {
+        model: "claude-sonnet-4-20250514",
+        name: "anthropic"
+      }),
+    createNetworkFailureProvider: (maxRetries = 0) =>
+      managedAnthropicCompatible(async () => {
+        throw new Error("socket hang up");
+      }, {
+        model: "claude-sonnet-4-20250514",
+        name: "anthropic"
+      }, maxRetries),
+    createRateLimitProvider: (maxRetries = 0) =>
+      managedAnthropicCompatible(jsonResponse({
+        error: {
+          message: "too many requests",
+          type: "rate_limit_error"
+        },
+        type: "error"
+      }, 429), {
+        model: "claude-sonnet-4-20250514",
+        name: "anthropic"
+      }, maxRetries),
+    createTextProvider: () =>
+      managedAnthropicCompatible(jsonResponse({
+        content: [
+          {
+            text: "anthropic text",
+            type: "text"
+          }
+        ],
+        id: "msg-text",
+        model: "claude-sonnet-4-20250514",
+        stop_reason: "end_turn",
+        type: "message",
+        usage: {
+          input_tokens: 3,
+          output_tokens: 2
+        }
+      }), {
+        model: "claude-sonnet-4-20250514",
+        name: "anthropic"
+      }),
+    createTimeoutProvider: (maxRetries = 0) =>
+      managedAnthropicCompatible(async () => {
+        throw new DOMException("timeout", "AbortError");
+      }, {
+        model: "claude-sonnet-4-20250514",
+        name: "anthropic"
+      }, maxRetries),
+    createToolCallProvider: () =>
+      managedAnthropicCompatible(jsonResponse({
+        content: [
+          {
+            text: "Need a tool.",
+            type: "text"
+          },
+          {
+            id: "call-1",
+            input: {
+              action: "read_file",
+              path: "README.md"
+            },
+            name: "file_read",
+            type: "tool_use"
+          }
+        ],
+        id: "msg-tool",
+        model: "claude-sonnet-4-20250514",
+        stop_reason: "tool_use",
+        type: "message",
+        usage: {
+          input_tokens: 3,
+          output_tokens: 2
+        }
+      }), {
+        model: "claude-sonnet-4-20250514",
+        name: "anthropic"
+      }),
+    createUnavailableProvider: (maxRetries = 0) =>
+      managedAnthropicCompatible(jsonResponse({
+        error: {
+          message: "service unavailable",
+          type: "service_unavailable"
+        },
+        type: "error"
+      }, 503), {
+        model: "claude-sonnet-4-20250514",
+        name: "anthropic"
+      }, maxRetries)
+  };
+}
+
+function createMiniMaxHarness(): ProviderContractHarness {
+  return {
+    createAuthErrorProvider: () =>
+      managedAnthropicCompatible(jsonResponse({
+        error: {
+          message: "invalid api key",
+          type: "authentication_error"
+        },
+        type: "error"
+      }, 401), {
+        baseUrl: "https://api.minimax.io/anthropic",
+        model: "MiniMax-M2.7",
+        name: "minimax"
+      }),
+    createEmptyProvider: () =>
+      managedAnthropicCompatible(jsonResponse({
+        content: [],
+        id: "msg-empty",
+        model: "MiniMax-M2.7",
+        stop_reason: "end_turn",
+        type: "message",
+        usage: {
+          input_tokens: 1,
+          output_tokens: 0
+        }
+      }), {
+        baseUrl: "https://api.minimax.io/anthropic",
+        model: "MiniMax-M2.7",
+        name: "minimax"
+      }),
+    createMalformedResponseProvider: () =>
+      managedAnthropicCompatible(jsonResponse({
+        content: [
+          {
+            id: "call-1",
+            input: "bad-input",
+            name: "file_read",
+            type: "tool_use"
+          }
+        ],
+        id: "msg-malformed",
+        model: "MiniMax-M2.7",
+        stop_reason: "tool_use",
+        type: "message",
+        usage: {
+          input_tokens: 1,
+          output_tokens: 1
+        }
+      }), {
+        baseUrl: "https://api.minimax.io/anthropic",
+        model: "MiniMax-M2.7",
+        name: "minimax"
+      }),
+    createNetworkFailureProvider: (maxRetries = 0) =>
+      managedAnthropicCompatible(async () => {
+        throw new Error("socket hang up");
+      }, {
+        baseUrl: "https://api.minimax.io/anthropic",
+        model: "MiniMax-M2.7",
+        name: "minimax"
+      }, maxRetries),
+    createRateLimitProvider: (maxRetries = 0) =>
+      managedAnthropicCompatible(jsonResponse({
+        error: {
+          message: "too many requests",
+          type: "rate_limit_error"
+        },
+        type: "error"
+      }, 429), {
+        baseUrl: "https://api.minimax.io/anthropic",
+        model: "MiniMax-M2.7",
+        name: "minimax"
+      }, maxRetries),
+    createTextProvider: () =>
+      managedAnthropicCompatible(jsonResponse({
+        content: [
+          {
+            text: "minimax text",
+            type: "text"
+          }
+        ],
+        id: "msg-text",
+        model: "MiniMax-M2.7",
+        stop_reason: "end_turn",
+        type: "message",
+        usage: {
+          input_tokens: 3,
+          output_tokens: 2
+        }
+      }), {
+        baseUrl: "https://api.minimax.io/anthropic",
+        model: "MiniMax-M2.7",
+        name: "minimax"
+      }),
+    createTimeoutProvider: (maxRetries = 0) =>
+      managedAnthropicCompatible(async () => {
+        throw new DOMException("timeout", "AbortError");
+      }, {
+        baseUrl: "https://api.minimax.io/anthropic",
+        model: "MiniMax-M2.7",
+        name: "minimax"
+      }, maxRetries),
+    createToolCallProvider: () =>
+      managedAnthropicCompatible(jsonResponse({
+        content: [
+          {
+            text: "Need a tool.",
+            type: "text"
+          },
+          {
+            id: "call-1",
+            input: {
+              action: "read_file",
+              path: "README.md"
+            },
+            name: "file_read",
+            type: "tool_use"
+          }
+        ],
+        id: "msg-tool",
+        model: "MiniMax-M2.7",
+        stop_reason: "tool_use",
+        type: "message",
+        usage: {
+          input_tokens: 3,
+          output_tokens: 2
+        }
+      }), {
+        baseUrl: "https://api.minimax.io/anthropic",
+        model: "MiniMax-M2.7",
+        name: "minimax"
+      }),
+    createUnavailableProvider: (maxRetries = 0) =>
+      managedAnthropicCompatible(jsonResponse({
+        error: {
+          message: "service unavailable",
+          type: "service_unavailable"
+        },
+        type: "error"
+      }, 503), {
+        baseUrl: "https://api.minimax.io/anthropic",
+        model: "MiniMax-M2.7",
+        name: "minimax"
+      }, maxRetries)
+  };
+}
+
 function managedMock(
   responder: (input: ProviderInput) => Promise<ProviderResponse> | ProviderResponse,
   maxRetries = 0
@@ -521,6 +809,37 @@ function managedOpenAiCompatible(
         defaultBaseUrl: null,
         defaultDisplayName: "OpenAI Compatible",
         defaultModel: "gpt-4o-mini"
+      }
+    ),
+    { maxRetries } as Pick<ProviderConfig, "maxRetries">
+  );
+}
+
+function managedAnthropicCompatible(
+  fetchImpl: ((input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) | Response,
+  overrides: Partial<ProviderConfig>,
+  maxRetries = 0
+): Provider {
+  const implementation =
+    fetchImpl instanceof Response ? vi.fn(async () => fetchImpl.clone()) : vi.fn(fetchImpl);
+  vi.stubGlobal("fetch", implementation);
+
+  return new ManagedProvider(
+    new AnthropicCompatibleProvider(
+      {
+        apiKey: "anthropic-test-key",
+        baseUrl: "https://anthropic.example.test",
+        maxRetries: 0,
+        model: "claude-sonnet-4-20250514",
+        name: "anthropic",
+        timeoutMs: 5_000,
+        ...overrides
+      },
+      {
+        anthropicVersion: "2023-06-01",
+        defaultBaseUrl: "https://api.anthropic.com",
+        defaultDisplayName: "Anthropic",
+        defaultModel: "claude-sonnet-4-20250514"
       }
     ),
     { maxRetries } as Pick<ProviderConfig, "maxRetries">

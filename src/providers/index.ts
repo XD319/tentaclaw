@@ -1,3 +1,5 @@
+export * from "./anthropic-compatible-provider";
+export * from "./anthropic-provider";
 export * from "./config";
 export * from "./glm-provider";
 export * from "./mock-provider";

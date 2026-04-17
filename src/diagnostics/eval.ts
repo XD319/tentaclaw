@@ -1,5 +1,6 @@
 import { loadSmokeTaskFixtures } from "../testing/smoke-fixtures";
 import { runSmokeSuite } from "../testing/smoke-harness";
+import type { SupportedProviderName } from "../providers";
 
 export interface EvalReport {
   averageDurationMs: number;
@@ -29,7 +30,7 @@ export interface EvalReport {
 
 export interface EvalOptions {
   fixturePath?: string;
-  providerName?: "glm" | "mock" | "openai-compatible" | "scripted-smoke";
+  providerName?: SupportedProviderName | "scripted-smoke";
   taskIds?: string[];
 }
 

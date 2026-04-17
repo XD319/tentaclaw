@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createApplication, createDefaultRunOptions } from "../src/runtime";
 import {
+  AnthropicCompatibleProvider,
   GlmProvider,
   OpenAiCompatibleProvider,
   ProviderError,
@@ -159,6 +160,39 @@ describe("Provider integration", () => {
     expect(resolved.maxRetries).toBe(3);
   });
 
+  it("loads Anthropic provider configuration from provider/model selectors", async () => {
+    const workspaceRoot = await createTempWorkspace();
+    await fs.mkdir(join(workspaceRoot, ".tentaclaw"), { recursive: true });
+    await fs.writeFile(
+      join(workspaceRoot, ".tentaclaw", "provider.config.json"),
+      JSON.stringify(
+        {
+          currentProvider: "claude/claude-sonnet-4-20250514",
+          providers: {
+            claude: {
+              apiKey: "anthropic-test-key",
+              timeoutMs: 14_000
+            }
+          }
+        },
+        null,
+        2
+      ),
+      "utf8"
+    );
+
+    const resolved = resolveProviderConfig(workspaceRoot);
+
+    expect(resolved.name).toBe("anthropic");
+    expect(resolved.apiKey).toBe("anthropic-test-key");
+    expect(resolved.baseUrl).toBe("https://api.anthropic.com");
+    expect(resolved.model).toBe("claude-sonnet-4-20250514");
+    expect(resolved.displayName).toBe("Anthropic");
+    expect(resolved.family).toBe("anthropic-compatible");
+    expect(resolved.transport).toBe("anthropic-compatible");
+    expect(resolved.timeoutMs).toBe(14_000);
+  });
+
   it("resolves provider aliases and provider/model references from config", async () => {
     const workspaceRoot = await createTempWorkspace();
     await fs.mkdir(join(workspaceRoot, ".tentaclaw"), { recursive: true });
@@ -189,6 +223,35 @@ describe("Provider integration", () => {
     expect(resolved.family).toBe("openai-compatible");
     expect(resolved.transport).toBe("openai-compatible");
     expect(resolved.timeoutMs).toBe(9_000);
+  });
+
+  it("includes the first-batch and second-batch providers in the catalog", async () => {
+    const workspaceRoot = await createTempWorkspace();
+    const handle = createApplication(workspaceRoot, {
+      config: {
+        databasePath: join(workspaceRoot, "runtime.db")
+      }
+    });
+
+    try {
+      const providerNames = handle.service.listProviders().map((provider) => provider.name);
+      expect(providerNames).toEqual(
+        expect.arrayContaining([
+          "openai",
+          "anthropic",
+          "gemini",
+          "openrouter",
+          "ollama",
+          "glm",
+          "moonshot",
+          "minimax",
+          "qwen",
+          "xai"
+        ])
+      );
+    } finally {
+      handle.close();
+    }
   });
 
   it("maps GLM tool calls into the unified provider response shape", async () => {
@@ -315,6 +378,85 @@ describe("Provider integration", () => {
     expect(response.message).toBe("compatible text");
     expect(response.metadata?.providerName).toBe("openai-compatible");
     expect(response.metadata?.modelName).toBe("kimi-k2");
+  });
+
+  it("maps Anthropic-compatible responses into the unified provider response shape", async () => {
+    const provider = new AnthropicCompatibleProvider(
+      {
+        apiKey: "anthropic-test-key",
+        baseUrl: "https://anthropic.example.test",
+        maxRetries: 0,
+        model: "claude-sonnet-4-20250514",
+        name: "anthropic",
+        timeoutMs: 5_000
+      },
+      {
+        anthropicVersion: "2023-06-01",
+        defaultBaseUrl: "https://api.anthropic.com",
+        defaultDisplayName: "Anthropic",
+        defaultModel: "claude-sonnet-4-20250514"
+      }
+    );
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        new Response(
+          JSON.stringify({
+            content: [
+              {
+                text: "Need a tool.",
+                type: "text"
+              },
+              {
+                id: "call-1",
+                input: {
+                  action: "read_file",
+                  path: "README.md"
+                },
+                name: "file_read",
+                type: "tool_use"
+              }
+            ],
+            id: "msg-1",
+            model: "claude-sonnet-4-20250514",
+            stop_reason: "tool_use",
+            type: "message",
+            usage: {
+              input_tokens: 10,
+              output_tokens: 4
+            }
+          }),
+          {
+            status: 200
+          }
+        )
+      )
+    );
+
+    const response = await provider.generate(createProviderInput());
+
+    expect(response.kind).toBe("tool_calls");
+    if (response.kind !== "tool_calls") {
+      throw new Error("Expected tool call response.");
+    }
+
+    expect(response.message).toBe("Need a tool.");
+    expect(response.toolCalls[0]).toEqual({
+      input: {
+        action: "read_file",
+        path: "README.md"
+      },
+      raw: {
+        index: 1
+      },
+      reason: "Provider file_read tool call requested.",
+      toolCallId: "call-1",
+      toolName: "file_read"
+    });
+    expect(response.metadata?.providerName).toBe("anthropic");
+    expect(response.metadata?.modelName).toBe("claude-sonnet-4-20250514");
+    expect(response.usage.totalTokens).toBe(14);
   });
 
   it("maps provider failures into unified provider errors", async () => {
