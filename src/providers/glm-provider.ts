@@ -13,6 +13,7 @@ import type {
 } from "../types";
 
 import { ProviderError } from "./provider-error";
+import { classifyProviderHttpError, createProviderError, isRetriableCategory, toProviderError } from "./provider-runtime";
 
 interface OpenAiCompatibleTool {
   function: {
@@ -107,12 +108,15 @@ export class GlmProvider implements Provider {
     );
 
     if (response.error !== undefined) {
-      throw new ProviderError({
-        category: mapErrorCategory(undefined, response.error.type, response.error.code),
+      const category = classifyProviderHttpError(undefined, response.error.type, response.error.code);
+      throw createProviderError({
+        category,
         details: sanitizeErrorDetails(response.error),
         message: response.error.message ?? "GLM returned an unknown error.",
         modelName: this.model,
-        providerName: this.name
+        providerName: this.name,
+        retriable: isRetriableCategory(category),
+        summary: summarizeProviderCategory(category)
       });
     }
 
@@ -195,10 +199,10 @@ export class GlmProvider implements Provider {
         providerName: this.name
       };
     } catch (error) {
-      const providerError = normalizeProviderError(error, this.name, this.model);
+      const providerError = toProviderError(error, this.name, this.model);
       return {
         apiKeyConfigured,
-        endpointReachable: providerError.category !== "network",
+        endpointReachable: providerError.category !== "transient_network_error",
         errorCategory: providerError.category,
         latencyMs: Date.now() - startedAt,
         message: providerError.message,
@@ -213,20 +217,24 @@ export class GlmProvider implements Provider {
 
   private ensureConfigured(): void {
     if (this.config.apiKey === null || this.config.apiKey.length === 0) {
-      throw new ProviderError({
-        category: "authentication",
+      throw createProviderError({
+        category: "auth_error",
         message: "GLM API key is not configured.",
         modelName: this.model,
-        providerName: this.name
+        providerName: this.name,
+        retriable: false,
+        summary: "Authentication is not configured for the GLM provider."
       });
     }
 
     if (this.config.baseUrl === null || this.config.baseUrl.length === 0) {
-      throw new ProviderError({
+      throw createProviderError({
         category: "invalid_request",
         message: "GLM base URL is not configured.",
         modelName: this.model,
-        providerName: this.name
+        providerName: this.name,
+        retriable: false,
+        summary: "The GLM provider configuration is incomplete."
       });
     }
   }
@@ -239,62 +247,54 @@ export class GlmProvider implements Provider {
   ): Promise<TResponse> {
     this.ensureConfigured();
 
-    let lastError: unknown;
-    for (let attempt = 0; attempt <= this.config.maxRetries; attempt += 1) {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => {
-        controller.abort();
-      }, this.config.timeoutMs);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, this.config.timeoutMs);
 
-      try {
-        const init: RequestInit = {
-          headers: {
-            Authorization: `Bearer ${this.config.apiKey}`,
-            "Content-Type": "application/json"
-          },
-          method,
-          signal: composeAbortSignal(signal, controller.signal)
-        };
-        if (body !== undefined) {
-          init.body = JSON.stringify(body);
-        }
-
-        const response = await fetch(
-          new URL(path, ensureTrailingSlash(this.config.baseUrl)).toString(),
-          init
-        );
-
-        clearTimeout(timeout);
-
-        const text = await response.text();
-        const parsed = (text.length === 0 ? {} : JSON.parse(text)) as TResponse;
-
-        if (!response.ok) {
-          throw new ProviderError({
-            category: mapErrorCategory(response.status),
-            details: {
-              status: response.status
-            },
-            message: extractErrorMessage(parsed) ?? `GLM request failed with status ${response.status}.`,
-            modelName: this.model,
-            providerName: this.name,
-            retriable: response.status >= 500 || response.status === 429,
-            statusCode: response.status
-          });
-        }
-
-        return parsed;
-      } catch (error) {
-        clearTimeout(timeout);
-        const normalized = normalizeProviderError(error, this.name, this.model);
-        lastError = normalized;
-        if (!normalized.retriable || attempt >= this.config.maxRetries) {
-          throw normalized;
-        }
+    try {
+      const init: RequestInit = {
+        headers: {
+          Authorization: `Bearer ${this.config.apiKey}`,
+          "Content-Type": "application/json"
+        },
+        method,
+        signal: composeAbortSignal(signal, controller.signal)
+      };
+      if (body !== undefined) {
+        init.body = JSON.stringify(body);
       }
-    }
 
-    throw normalizeProviderError(lastError, this.name, this.model);
+      const response = await fetch(
+        new URL(path, ensureTrailingSlash(this.config.baseUrl)).toString(),
+        init
+      );
+
+      const text = await response.text();
+      const parsed = (text.length === 0 ? {} : JSON.parse(text)) as TResponse;
+
+      if (!response.ok) {
+        const category = classifyProviderHttpError(response.status);
+        throw createProviderError({
+          category,
+          details: {
+            status: response.status
+          },
+          message: extractErrorMessage(parsed) ?? `GLM request failed with status ${response.status}.`,
+          modelName: this.model,
+          providerName: this.name,
+          retriable: isRetriableCategory(category),
+          statusCode: response.status,
+          summary: summarizeProviderCategory(category)
+        });
+      }
+
+      return parsed;
+    } catch (error) {
+      throw toProviderError(error, this.name, this.model);
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 }
 
@@ -374,15 +374,16 @@ function parseToolArguments(rawArguments: string): JsonObject {
     const parsed = JSON.parse(rawArguments) as JsonObject;
     return parsed;
   } catch (error) {
-    throw new ProviderError({
-      category: "invalid_request",
+    throw createProviderError({
+      category: "malformed_response",
       details: {
         rawArguments
       },
       message: "Provider returned invalid tool call arguments.",
       providerName: "glm",
       retriable: false,
-      cause: error
+      cause: error,
+      summary: "The provider returned malformed tool call arguments."
     });
   }
 }
@@ -423,37 +424,6 @@ function sanitizeErrorDetails(error: { code?: string; type?: string }): JsonObje
   };
 }
 
-function mapErrorCategory(
-  statusCode?: number,
-  errorType?: string,
-  errorCode?: string
-): ProviderError["category"] {
-  const normalizedType = errorType?.toLowerCase();
-  const normalizedCode = errorCode?.toLowerCase();
-
-  if (statusCode === 401 || normalizedType?.includes("auth") === true) {
-    return "authentication";
-  }
-
-  if (statusCode === 400 || normalizedType?.includes("invalid") === true) {
-    return "invalid_request";
-  }
-
-  if (statusCode === 408 || normalizedType?.includes("timeout") === true) {
-    return "timeout";
-  }
-
-  if (statusCode === 429 || normalizedType?.includes("rate") === true) {
-    return "rate_limit";
-  }
-
-  if ((statusCode !== undefined && statusCode >= 500) || normalizedCode?.includes("unavailable") === true) {
-    return "unavailable";
-  }
-
-  return "unknown";
-}
-
 function extractErrorMessage(value: unknown): string | null {
   if (typeof value !== "object" || value === null) {
     return null;
@@ -465,46 +435,6 @@ function extractErrorMessage(value: unknown): string | null {
   }
 
   return null;
-}
-
-function normalizeProviderError(
-  error: unknown,
-  providerName: string,
-  modelName: string
-): ProviderError {
-  if (error instanceof ProviderError) {
-    return error;
-  }
-
-  if (error instanceof DOMException && error.name === "AbortError") {
-    return new ProviderError({
-      category: "timeout",
-      cause: error,
-      message: "Provider request timed out.",
-      modelName,
-      providerName,
-      retriable: true
-    });
-  }
-
-  if (error instanceof Error) {
-    return new ProviderError({
-      category: "network",
-      cause: error,
-      message: error.message,
-      modelName,
-      providerName,
-      retriable: true
-    });
-  }
-
-  return new ProviderError({
-    category: "unknown",
-    cause: error,
-    message: "Unknown provider error.",
-    modelName,
-    providerName
-  });
 }
 
 function ensureTrailingSlash(value: string | null): string {
@@ -538,4 +468,27 @@ function composeAbortSignal(
   parent.addEventListener("abort", abort, { once: true });
   timeoutSignal.addEventListener("abort", abort, { once: true });
   return controller.signal;
+}
+
+function summarizeProviderCategory(category: ProviderError["category"]): string {
+  switch (category) {
+    case "auth_error":
+      return "Authentication failed for the provider request.";
+    case "invalid_request":
+      return "The provider rejected the request payload.";
+    case "malformed_response":
+      return "The provider response could not be interpreted safely.";
+    case "provider_unavailable":
+      return "The provider endpoint is unavailable.";
+    case "rate_limit":
+      return "The provider rejected the request because of rate limits.";
+    case "timeout_error":
+      return "The provider request timed out.";
+    case "transient_network_error":
+      return "A transient network error interrupted the provider request.";
+    case "unsupported_capability":
+      return "The provider does not support the requested capability.";
+    default:
+      return "The provider request failed.";
+  }
 }

@@ -215,7 +215,7 @@ describe("Provider integration", () => {
     );
 
     await expect(provider.generate(createProviderInput())).rejects.toMatchObject({
-      category: "authentication",
+      category: "auth_error",
       providerName: "glm"
     } satisfies Partial<ProviderError>);
   });
@@ -297,7 +297,8 @@ describe("Provider integration", () => {
             message: "provider throttled",
             modelName: "scripted-model",
             providerName: "scripted-provider",
-            retriable: true
+            retriable: true,
+            summary: "provider throttled"
           });
         }
 
@@ -343,11 +344,14 @@ describe("Provider integration", () => {
         failedTrace.some(
           (event) =>
             event.eventType === "provider_request_failed" &&
-            event.payload.errorCategory === "rate_limit"
+            event.payload.errorCategory === "rate_limit" &&
+            event.payload.retryCount === 0
         )
       ).toBe(true);
       expect(failed.error?.code).toBe("provider_error");
       expect(failed.error?.details?.providerCategory).toBe("rate_limit");
+      expect(handle.service.providerStats()?.failedRequests).toBe(1);
+      expect(handle.service.providerStats()?.successfulRequests).toBe(1);
     } finally {
       handle.close();
     }

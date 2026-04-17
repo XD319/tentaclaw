@@ -311,7 +311,7 @@ export class ExecutionKernel {
               latencyMs: Date.now() - startedAt,
               modelName: providerError.modelName ?? this.dependencies.provider.model ?? null,
               providerName: this.dependencies.provider.name,
-              retryCount: 0
+              retryCount: providerError.retryCount
             },
             stage: "planning",
             summary: `Provider request failed with ${providerError.category}`,
@@ -372,10 +372,10 @@ export class ExecutionKernel {
 
         if (providerResponse.kind === "retry") {
           this.dependencies.traceService.record({
-            actor: "runtime.kernel",
-            eventType: "retry",
-            payload: {
-              delayMs: providerResponse.delayMs,
+      actor: "runtime.kernel",
+      eventType: "retry",
+      payload: {
+        delayMs: providerResponse.delayMs,
               iteration,
               reason: providerResponse.reason
             },
@@ -637,20 +637,22 @@ function normalizeProviderFailure(
 
   if (error instanceof Error) {
     return new ProviderError({
-      category: "unknown",
+      category: "unknown_error",
       cause: error,
       message: error.message,
       modelName: provider.model ?? provider.describe?.().model ?? undefined,
-      providerName: provider.name
+      providerName: provider.name,
+      summary: "The provider failed with an unexpected error."
     });
   }
 
   return new ProviderError({
-    category: "unknown",
+    category: "unknown_error",
     cause: error,
     message: "Unknown provider failure.",
     modelName: provider.model ?? provider.describe?.().model ?? undefined,
-    providerName: provider.name
+    providerName: provider.name,
+    summary: "The provider failed with an unknown error."
   });
 }
 

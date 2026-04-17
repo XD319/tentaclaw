@@ -9,6 +9,7 @@ import { PolicyEngine } from "../policy/policy-engine";
 import { AgentProfileRegistry } from "../profiles/agent-profile-registry";
 import {
   createProvider,
+  ManagedProvider,
   PROVIDER_CATALOG,
   resolveProviderConfig,
   type ProviderCatalogEntry,
@@ -91,7 +92,10 @@ export function createApplication(
     ...resolveAppConfig(cwd),
     ...options.config
   };
-  const provider = options.provider ?? createProvider(config.provider);
+  const provider =
+    options.provider === undefined
+      ? createProvider(config.provider)
+      : new ManagedProvider(options.provider, config.provider);
 
   const storage = new StorageManager({
     databasePath: config.databasePath

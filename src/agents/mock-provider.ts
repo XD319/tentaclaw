@@ -18,7 +18,10 @@ export class MockProvider implements Provider {
   public readonly model: string;
   public readonly name = "mock";
 
-  public constructor(config?: Partial<ProviderConfig>) {
+  public constructor(
+    config?: Partial<ProviderConfig>,
+    private readonly responder?: (input: ProviderRequest) => Promise<ProviderResponse> | ProviderResponse
+  ) {
     this.model = config?.model ?? "mock-default";
   }
 
@@ -46,6 +49,10 @@ export class MockProvider implements Provider {
   }
 
   public generate(input: ProviderRequest): Promise<ProviderResponse> {
+    if (this.responder !== undefined) {
+      return Promise.resolve(this.responder(input));
+    }
+
     const lastToolMessage = [...input.messages]
       .reverse()
       .find((message) => message.role === "tool");

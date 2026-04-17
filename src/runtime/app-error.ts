@@ -25,10 +25,12 @@ export function toAppError(error: unknown): AppError {
       cause: error,
       code: "provider_error",
       details: {
+        providerErrorSummary: error.summary,
         providerCategory: error.category,
         providerName: error.providerName,
         modelName: error.modelName ?? null,
         retriable: error.retriable,
+        retryCount: error.retryCount,
         statusCode: error.statusCode ?? null
       },
       message: error.message

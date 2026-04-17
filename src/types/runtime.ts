@@ -91,13 +91,15 @@ export type ProviderResponse =
   | ProviderToolCallResponse;
 
 export type ProviderErrorCategory =
-  | "authentication"
+  | "auth_error"
   | "invalid_request"
-  | "network"
+  | "malformed_response"
   | "rate_limit"
-  | "timeout"
-  | "unavailable"
-  | "unknown";
+  | "timeout_error"
+  | "transient_network_error"
+  | "provider_unavailable"
+  | "unsupported_capability"
+  | "unknown_error";
 
 export interface ProviderErrorShape {
   category: ProviderErrorCategory;
@@ -106,6 +108,8 @@ export interface ProviderErrorShape {
   modelName?: string | undefined;
   statusCode?: number | undefined;
   retriable?: boolean | undefined;
+  retryCount?: number | undefined;
+  summary?: string | undefined;
   details?: JsonObject | undefined;
   cause?: unknown;
 }
@@ -153,14 +157,32 @@ export interface ProviderConfig {
   timeoutMs: number;
 }
 
+export interface ProviderRetryPolicy {
+  backoffMs: number;
+  maxRetries: number;
+}
+
+export interface ProviderStatsSnapshot {
+  averageLatencyMs: number;
+  failedRequests: number;
+  lastErrorCategory: ProviderErrorCategory | null;
+  lastRequestAt: string | null;
+  providerName: string;
+  retryCount: number;
+  successfulRequests: number;
+  tokenUsage: ProviderUsage;
+  totalRequests: number;
+}
+
 export interface Provider {
   name: string;
-  model?: string;
-  capabilities?: ProviderCapabilities;
-  describe?(): ProviderDescriptor;
+  model?: string | undefined;
+  capabilities?: ProviderCapabilities | undefined;
+  describe?: (() => ProviderDescriptor) | undefined;
   generate(input: ProviderRequest): Promise<ProviderResponse>;
-  streamGenerate?(input: ProviderRequest): AsyncIterable<ProviderStreamEvent>;
-  testConnection?(signal?: AbortSignal): Promise<ProviderHealthCheck>;
+  getStats?: (() => ProviderStatsSnapshot) | undefined;
+  streamGenerate?: ((input: ProviderRequest) => AsyncIterable<ProviderStreamEvent>) | undefined;
+  testConnection?: ((signal?: AbortSignal) => Promise<ProviderHealthCheck>) | undefined;
 }
 
 export interface RuntimeRunOptions {

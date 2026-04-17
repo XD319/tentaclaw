@@ -12,6 +12,7 @@ import type {
   MemorySnapshotRecord,
   Provider,
   ProviderHealthCheck,
+  ProviderStatsSnapshot,
   RuntimeRunOptions,
   TaskRecord,
   TraceEvent,
@@ -286,6 +287,10 @@ export class AgentApplicationService {
 
   public currentProvider(): ResolvedProviderConfig {
     return this.dependencies.providerConfig;
+  }
+
+  public providerStats(): ProviderStatsSnapshot | null {
+    return this.dependencies.provider.getStats?.() ?? null;
   }
 
   public traceTask(taskId: string): TraceEvent[] {

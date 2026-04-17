@@ -4,6 +4,7 @@ import type {
   AuditLogRecord,
   MemoryRecord,
   MemorySnapshotRecord,
+  ProviderStatsSnapshot,
   TaskRecord,
   TraceEvent,
   ToolCallRecord
@@ -187,6 +188,43 @@ export function formatProviderHealth(report: {
     `Error Category: ${report.errorCategory ?? "-"}`,
     `Message: ${report.message}`
   ].join("\n");
+}
+
+export function formatProviderStats(stats: ProviderStatsSnapshot | null): string {
+  if (stats === null) {
+    return "Provider statistics are not available.";
+  }
+
+  return [
+    `Provider: ${stats.providerName}`,
+    `Requests: ${stats.totalRequests}`,
+    `Successes: ${stats.successfulRequests}`,
+    `Failures: ${stats.failedRequests}`,
+    `Average Latency (ms): ${stats.averageLatencyMs}`,
+    `Retries: ${stats.retryCount}`,
+    `Last Error Category: ${stats.lastErrorCategory ?? "-"}`,
+    `Last Request At: ${stats.lastRequestAt ?? "-"}`,
+    `Token Usage: input=${stats.tokenUsage.inputTokens} output=${stats.tokenUsage.outputTokens} total=${stats.tokenUsage.totalTokens ?? stats.tokenUsage.inputTokens + stats.tokenUsage.outputTokens}`
+  ].join("\n");
+}
+
+export function formatRunError(error: {
+  code: string;
+  details?: Record<string, unknown> | undefined;
+  message: string;
+}): string {
+  const category =
+    typeof error.details?.providerCategory === "string" ? error.details.providerCategory : null;
+  const summary =
+    typeof error.details?.providerErrorSummary === "string"
+      ? error.details.providerErrorSummary
+      : error.message;
+  const retryCount =
+    typeof error.details?.retryCount === "number" ? error.details.retryCount : 0;
+
+  return category === null
+    ? `${error.code}: ${error.message}`
+    : `${error.code}: ${summary} category=${category} retries=${retryCount}`;
 }
 
 export function formatMemoryList(memories: MemoryRecord[]): string {

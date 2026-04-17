@@ -14,6 +14,8 @@ import {
   formatMemoryScope,
   formatProviderCatalog,
   formatProviderHealth,
+  formatProviderStats,
+  formatRunError,
   formatSnapshot,
   formatTask,
   formatTaskList,
@@ -49,8 +51,9 @@ async function main(): Promise<void> {
         if (result.output !== null) {
           console.log(result.output);
         }
+        console.log(formatProviderStats(handle.service.providerStats()));
         if (result.error !== undefined) {
-          console.error(`Error: ${result.error.code} ${result.error.message}`);
+          console.error(`Error: ${formatRunError(result.error)}`);
           process.exitCode = 1;
         }
       } finally {
@@ -196,6 +199,15 @@ async function main(): Promise<void> {
       if (!report.ok) {
         process.exitCode = 1;
       }
+    } finally {
+      handle.close();
+    }
+  });
+
+  providerCommand.command("stats").action(() => {
+    const handle = createApplication(process.cwd());
+    try {
+      console.log(formatProviderStats(handle.service.providerStats()));
     } finally {
       handle.close();
     }
