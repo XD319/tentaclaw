@@ -2,6 +2,7 @@
 import { Command } from "commander";
 
 import { createApplication, createDefaultRunOptions } from "../runtime";
+import { startTui } from "../tui";
 
 import {
   formatApprovalList,
@@ -281,6 +282,14 @@ async function main(): Promise<void> {
         }
       }
     );
+
+  program
+    .command("tui")
+    .description("Open the Ink terminal UI for observability and approvals")
+    .option("--cwd <path>", "Workspace path", process.cwd())
+    .action(async (commandOptions: { cwd: string }) => {
+      await startTui(commandOptions.cwd);
+    });
 
   await program.parseAsync(process.argv);
 }

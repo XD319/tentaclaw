@@ -223,6 +223,9 @@ export class FileWriteTool implements ToolDefinition<typeof fileWriteSchema, Pre
         {
           artifactType: "file",
           content: {
+            afterText: clipText(input.content),
+            beforeText: null,
+            diffSummary: summarizeFileChange("", input.content),
             operation: "write_file",
             path: targetPath
           },
@@ -262,6 +265,9 @@ export class FileWriteTool implements ToolDefinition<typeof fileWriteSchema, Pre
         {
           artifactType: "file",
           content: {
+            afterText: clipText(updatedContent),
+            beforeText: clipText(originalContent),
+            diffSummary: summarizeFileChange(originalContent, updatedContent),
             operation: "update_file",
             path: targetPath
           },
@@ -282,7 +288,8 @@ export class FileWriteTool implements ToolDefinition<typeof fileWriteSchema, Pre
     context: ToolExecutionContext
   ): Promise<ToolExecutionResult> {
     const targetPath = input.plan.resolvedPath;
-    let workingContent = await fs.readFile(targetPath, "utf8");
+    const originalContent = await fs.readFile(targetPath, "utf8");
+    let workingContent = originalContent;
     let appliedPatchCount = 0;
 
     for (const patch of input.patches) {
@@ -313,6 +320,9 @@ export class FileWriteTool implements ToolDefinition<typeof fileWriteSchema, Pre
         {
           artifactType: "file",
           content: {
+            afterText: clipText(workingContent),
+            beforeText: clipText(originalContent),
+            diffSummary: summarizeFileChange(originalContent, workingContent),
             operation: "apply_patch",
             path: targetPath
           },
@@ -327,4 +337,35 @@ export class FileWriteTool implements ToolDefinition<typeof fileWriteSchema, Pre
       summary: `Applied ${appliedPatchCount} patches to ${targetPath}`
     };
   }
+}
+
+function summarizeFileChange(beforeText: string, afterText: string): {
+  addedLineCount: number;
+  afterLineCount: number;
+  beforeLineCount: number;
+  changedLineCount: number;
+  removedLineCount: number;
+} {
+  const beforeLines = beforeText.split(/\r?\n/);
+  const afterLines = afterText.split(/\r?\n/);
+  const maxLineCount = Math.max(beforeLines.length, afterLines.length);
+  let changedLineCount = 0;
+
+  for (let index = 0; index < maxLineCount; index += 1) {
+    if ((beforeLines[index] ?? "") !== (afterLines[index] ?? "")) {
+      changedLineCount += 1;
+    }
+  }
+
+  return {
+    addedLineCount: Math.max(afterLines.length - beforeLines.length, 0),
+    afterLineCount: afterLines.length,
+    beforeLineCount: beforeLines.length,
+    changedLineCount,
+    removedLineCount: Math.max(beforeLines.length - afterLines.length, 0)
+  };
+}
+
+function clipText(value: string, maxLength = 4_000): string {
+  return value.length <= maxLength ? value : `${value.slice(0, maxLength)}\n...[truncated]`;
 }

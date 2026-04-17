@@ -13,16 +13,20 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/cli/index.ts",
+    "dev:tui": "tsx src/tui/index.ts",
     "lint": "eslint .",
     "test": "vitest run"
   },
   "dependencies": {
     "commander": "^14.0.0",
+    "ink": "^3.2.0",
+    "react": "^17.0.2",
     "zod": "^4.1.12"
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
     "@types/node": "^24.6.0",
+    "@types/react": "^17.0.89",
     "eslint": "^9.38.0",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",

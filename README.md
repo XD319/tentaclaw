@@ -1,10 +1,11 @@
-# Tentaclaw Phase 3
+# Tentaclaw Phase 4
 
-Tentaclaw is an Agent Runtime MVP focused on a CLI-first, governance-friendly execution kernel. Phase 3 extends the Phase 2 runtime with a governed memory plane, selective recall, session compact, snapshotting, and explicit privacy/retention boundaries without introducing a web UI or framework-heavy agent stack.
+Tentaclaw is an Agent Runtime MVP focused on a CLI-first, governance-friendly execution kernel. Phase 4 keeps the same runtime core and adds an Ink-based terminal UI so tasks, approvals, diffs, trace, memory hits, and failure states can be observed and governed without introducing a web UI.
 
-## Phase 3 Capabilities
+## Phase 4 Capabilities
 
 - TypeScript strict-mode Node.js runtime with a thin CLI entry.
+- Ink-based TUI with panel navigation and timed refresh.
 - Single-agent execution kernel with provider abstraction and a built-in `MockProvider`.
 - Shared runtime skeleton for `planner`, `executor`, and `reviewer` profiles.
 - Memory plane with typed `session`, `project`, and `agent` scopes.
@@ -22,6 +23,7 @@ Tentaclaw is an Agent Runtime MVP focused on a CLI-first, governance-friendly ex
 - Approval flow with persisted pending approvals, reviewer identity, timestamps, and timeouts.
 - SQLite persistence for tasks, traces, tool calls, approvals, audit logs, artifacts, checkpoints, and run metadata.
 - Separate trace and audit views so execution reconstruction and governance inspection stay distinct.
+- TUI query models that expose runtime state without letting Ink components touch repositories directly.
 
 ## Project Layout
 
@@ -37,6 +39,7 @@ src/
   runtime/
   sandbox/
   storage/
+  tui/
   tools/
   tracing/
   types/
@@ -54,6 +57,7 @@ corepack pnpm install
 
 ```bash
 corepack pnpm dev run "write notes.txt :: hello" --profile executor
+corepack pnpm dev tui
 corepack pnpm dev task list
 corepack pnpm dev task show <task_id>
 corepack pnpm dev trace <task_id>
@@ -69,6 +73,62 @@ corepack pnpm dev memory review <memory_id> verified
 ```
 
 After building, the compiled CLI entry is `dist/cli/index.js` and the binary name is `agent`.
+
+## TUI Usage
+
+Start the Ink TUI from the same workspace database used by the CLI:
+
+```bash
+corepack pnpm dev:tui
+# or
+corepack pnpm dev tui --cwd .
+```
+
+The TUI polls runtime state on a short interval and also supports manual refresh.
+
+Keyboard controls:
+
+- `1-6`: jump to a panel
+- `Tab` / `Shift+Tab`: switch panels
+- `Up` / `Down`: move within the current list
+- `[` / `]`: switch selected task from any panel
+- `a`: approve the selected approval
+- `d`: deny the selected approval
+- `r`: refresh immediately
+- `q`: quit
+
+Panels:
+
+- `tasks`
+  - task list, current status, current stage, recent events, final summary, base metadata
+- `approvals`
+  - pending approvals, risk level, source task, allow/deny actions
+- `diff`
+  - `file_write` artifacts with before/after previews, changed-line summary, simplified risk highlight
+- `trace`
+  - structured trace entries, key stages, tool call chain labels, retries, failures
+- `memory`
+  - recalled memory records with scope, source, confidence, status, and filter/downrank reasons
+- `errors`
+  - task failure reason, recent retry or interrupt reason, policy deny and sandbox reject signals
+
+## CLI And TUI Responsibilities
+
+CLI remains the command surface for explicit operations such as:
+
+- running tasks
+- listing and showing tasks
+- viewing raw trace and audit output
+- scripting approval and memory workflows
+
+TUI remains the observation and governance surface for:
+
+- watching task state change over time
+- spotting failed or approval-blocked runs quickly
+- resolving approvals interactively
+- reviewing trace, diff, memory-hit, and error summaries in one place
+
+The runtime core, storage, policy, memory, and tool orchestration logic still live outside the TUI. Ink components only render view models and invoke application-service actions.
 
 ## Runtime Flow
 
@@ -225,6 +285,9 @@ This keeps reviewer behavior controlled without introducing multi-agent swarm lo
 - The runtime still uses Node's experimental `node:sqlite` module to keep SQL inside repository boundaries.
 - `web_fetch` is sandboxed behind an allowlist and defaults to `example.com` in the bootstrap config for the MVP.
 - Approval TTL defaults to 5 minutes and is configurable through bootstrap config.
+- The current TUI is intentionally lightweight: it is a read-heavy dashboard with approval actions, not a full task authoring environment.
+- Diff inspection is summary-first. It highlights risky change shapes but does not yet implement a full unified diff viewer.
+- TUI state refresh is polling-based for the MVP; there is no event-stream transport yet.
 - See [docs/phase2-governance.md](/D:/Backup/Career/Projects/AgentProject/tentaclaw/docs/phase2-governance.md) for the Phase 2 governance notes.
 - See [docs/phase3-memory.md](/D:/Backup/Career/Projects/AgentProject/tentaclaw/docs/phase3-memory.md) for the Phase 3 memory design.
 

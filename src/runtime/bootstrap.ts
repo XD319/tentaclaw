@@ -136,6 +136,7 @@ export function createApplication(
       executionKernel,
       findMemory: (memoryId) => storage.memories.findById(memoryId),
       listApprovals: (taskId) => storage.approvals.listByTaskId(taskId),
+      listArtifacts: (taskId) => storage.artifacts.listByTaskId(taskId),
       listAuditLogs: (taskId) => storage.auditLogs.listByTaskId(taskId),
       listMemories: () => storage.memories.list({ includeExpired: true, includeRejected: true }),
       listMemorySnapshots: (scope, scopeKey) => storage.memorySnapshots.listByScope(scope, scopeKey),

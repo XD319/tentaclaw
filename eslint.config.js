@@ -3,7 +3,7 @@ const tseslint = require("typescript-eslint");
 
 const typedConfigs = tseslint.configs.recommendedTypeChecked.map((config) => ({
   ...config,
-  files: ["**/*.ts"],
+  files: ["**/*.ts", "**/*.tsx"],
   languageOptions: {
     ...config.languageOptions,
     parserOptions: {
@@ -25,7 +25,7 @@ module.exports = tseslint.config(
   js.configs.recommended,
   ...typedConfigs,
   {
-    files: ["**/*.ts"],
+    files: ["**/*.ts", "**/*.tsx"],
     rules: {
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-floating-promises": "error",

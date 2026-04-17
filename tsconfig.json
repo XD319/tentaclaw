@@ -5,6 +5,7 @@
     "moduleResolution": "Node",
     "rootDir": "src",
     "outDir": "dist",
+    "jsx": "react",
     "strict": true,
     "noImplicitOverride": true,
     "noUncheckedIndexedAccess": true,
@@ -20,7 +21,7 @@
       "vitest/globals"
     ]
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": [
     "dist",
     "node_modules"

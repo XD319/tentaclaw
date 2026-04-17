@@ -4,6 +4,7 @@ import type { ApprovalService } from "../approvals/approval-service";
 import type { AuditService } from "../audit/audit-service";
 import type {
   ApprovalRecord,
+  ArtifactRecord,
   AuditLogRecord,
   MemoryRecord,
   MemoryScope,
@@ -45,6 +46,7 @@ export interface RuntimeReadModel {
   findMemory(memoryId: string): MemoryRecord | null;
   findTask(taskId: string): TaskRecord | null;
   listApprovals(taskId: string): ApprovalRecord[];
+  listArtifacts(taskId: string): ArtifactRecord[];
   listAuditLogs(taskId: string): AuditLogRecord[];
   listMemorySnapshots(scope: MemoryScope, scopeKey: string): MemorySnapshotRecord[];
   listPendingApprovals(): ApprovalRecord[];
@@ -243,6 +245,7 @@ export class AgentApplicationService {
 
   public showTask(taskId: string): {
     approvals: ApprovalRecord[];
+    artifacts: ArtifactRecord[];
     task: TaskRecord | null;
     toolCalls: ToolCallRecord[];
     trace: TraceEvent[];
@@ -251,10 +254,15 @@ export class AgentApplicationService {
 
     return {
       approvals: task === null ? [] : this.dependencies.listApprovals(taskId),
+      artifacts: task === null ? [] : this.dependencies.listArtifacts(taskId),
       task,
       toolCalls: task === null ? [] : this.dependencies.listToolCalls(taskId),
       trace: task === null ? [] : this.dependencies.listTrace(taskId)
     };
+  }
+
+  public listArtifacts(taskId: string): ArtifactRecord[] {
+    return this.dependencies.listArtifacts(taskId);
   }
 
   public traceTask(taskId: string): TraceEvent[] {
