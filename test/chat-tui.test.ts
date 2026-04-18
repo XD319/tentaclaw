@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { mergeTraceMessages } from "../src/tui/hooks/use-chat-controller";
-import { deletePreviousWord, moveCursorVertical } from "../src/tui/hooks/use-text-input";
+import {
+  deletePreviousWord,
+  moveCursorVertical
+} from "../src/tui/hooks/use-text-input";
 import {
   resolveApprovalMessage,
   toApprovalMessage,
@@ -82,6 +85,12 @@ describe("use-text-input helpers", () => {
     const result = deletePreviousWord("hello brave world", "hello brave world".length);
     expect(result.value).toBe("hello brave ");
     expect(result.cursorIndex).toBe("hello brave ".length);
+  });
+
+  it("deletes trailing whitespace and previous word", () => {
+    const result = deletePreviousWord("hello brave   ", "hello brave   ".length);
+    expect(result.value).toBe("hello ");
+    expect(result.cursorIndex).toBe("hello ".length);
   });
 });
 

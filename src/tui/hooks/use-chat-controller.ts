@@ -17,7 +17,9 @@ export interface UseChatControllerOptions {
 }
 
 export interface ChatController {
+  addSystemMessage: (text: string) => void;
   busy: boolean;
+  clearConversation: () => void;
   hasPendingApproval: boolean;
   messages: ChatMessage[];
   pendingApproval: ApprovalRecord | null;
@@ -49,6 +51,30 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     tasks: 0
   });
   const [pendingApproval, setPendingApproval] = React.useState<ApprovalRecord | null>(null);
+  const addSystemMessage = React.useCallback((text: string) => {
+    setMessages((current) => [
+      ...current,
+      {
+        id: `system:${Date.now()}`,
+        kind: "system",
+        text,
+        timestamp: new Date().toISOString()
+      }
+    ]);
+  }, []);
+
+  const clearConversation = React.useCallback(() => {
+    setMessages([
+      {
+        id: "system:welcome",
+        kind: "system",
+        text: "Welcome to auto-talon chat mode. Type a prompt and press Meta+Enter to send.",
+        timestamp: new Date().toISOString()
+      }
+    ]);
+    setStatusLine("conversation cleared");
+  }, []);
+
   const startedAtRef = React.useRef(Date.now());
   const activeTaskIdRef = React.useRef<string | null>(null);
   const lastSequenceByTaskRef = React.useRef<Record<string, number>>({});
@@ -218,7 +244,9 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
   );
 
   return {
+    addSystemMessage,
     busy,
+    clearConversation,
     hasPendingApproval: pendingApproval !== null,
     messages,
     pendingApproval,

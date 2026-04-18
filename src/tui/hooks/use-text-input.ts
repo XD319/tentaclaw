@@ -2,6 +2,8 @@ import React from "react";
 import { useInput } from "ink";
 
 export interface UseTextInputOptions {
+  onHistoryNext: () => string | null;
+  onHistoryPrevious: () => string | null;
   onToggleActivityCollapse: () => void;
   onScrollEnd: () => void;
   onScrollStart: () => void;
@@ -59,6 +61,26 @@ export function useTextInput(options: UseTextInputOptions): TextInputController 
 
     if (key.ctrl && input === "t") {
       options.onToggleActivityCollapse();
+      return;
+    }
+
+    if (key.ctrl && input === "p") {
+      const previous = options.onHistoryPrevious();
+      if (previous !== null) {
+        setValue(previous);
+        setCursorIndex(previous.length);
+        preferredColumnRef.current = null;
+      }
+      return;
+    }
+
+    if (key.ctrl && input === "n") {
+      const next = options.onHistoryNext();
+      if (next !== null) {
+        setValue(next);
+        setCursorIndex(next.length);
+        preferredColumnRef.current = null;
+      }
       return;
     }
 

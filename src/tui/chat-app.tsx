@@ -21,6 +21,8 @@ export interface ChatTuiAppProps {
 export function ChatTuiApp({ config, cwd, reviewerId, service }: ChatTuiAppProps): React.ReactElement {
   const { exit } = useApp();
   const [collapseActivities, setCollapseActivities] = React.useState(false);
+  const historyRef = React.useRef<string[]>([]);
+  const historyIndexRef = React.useRef<number | null>(null);
   const controller = useChatController({
     config,
     cwd,
@@ -29,9 +31,67 @@ export function ChatTuiApp({ config, cwd, reviewerId, service }: ChatTuiAppProps
   });
   const scrollback = useScrollback(controller.messages.length, 10);
   const visibleMessages = controller.messages.slice(scrollback.startIndex, scrollback.endIndexExclusive);
+  const navigateHistoryPrevious = React.useCallback((): string | null => {
+    const history = historyRef.current;
+    if (history.length === 0) {
+      return null;
+    }
+    if (historyIndexRef.current === null) {
+      historyIndexRef.current = history.length - 1;
+      return history[historyIndexRef.current] ?? null;
+    }
+    historyIndexRef.current = Math.max(0, historyIndexRef.current - 1);
+    return history[historyIndexRef.current] ?? null;
+  }, []);
+
+  const navigateHistoryNext = React.useCallback((): string | null => {
+    const history = historyRef.current;
+    if (history.length === 0 || historyIndexRef.current === null) {
+      return "";
+    }
+    historyIndexRef.current = Math.min(history.length, historyIndexRef.current + 1);
+    if (historyIndexRef.current === history.length) {
+      historyIndexRef.current = null;
+      return "";
+    }
+    return history[historyIndexRef.current] ?? "";
+  }, []);
+
+  const handleSlashCommand = React.useCallback(
+    (text: string): boolean => {
+      if (!text.startsWith("/")) {
+        return false;
+      }
+
+      if (text === "/help") {
+        controller.addSystemMessage(
+          "Commands: /help, /clear, /new. Shortcuts: Ctrl+P/N history, Ctrl+T toggle activity, Ctrl+G/J top/bottom."
+        );
+        return true;
+      }
+
+      if (text === "/clear") {
+        controller.clearConversation();
+        return true;
+      }
+
+      if (text === "/new") {
+        controller.clearConversation();
+        controller.addSystemMessage("Started a new chat session.");
+        return true;
+      }
+
+      controller.addSystemMessage(`Unknown command: ${text}. Try /help.`);
+      return true;
+    },
+    [controller]
+  );
+
   const textInput = useTextInput({
     busy: controller.busy,
     hasPendingApproval: controller.hasPendingApproval,
+    onHistoryNext: navigateHistoryNext,
+    onHistoryPrevious: navigateHistoryPrevious,
     onApprovalAction: (action) => {
       void controller.resolvePendingApproval(action);
     },
@@ -44,6 +104,15 @@ export function ChatTuiApp({ config, cwd, reviewerId, service }: ChatTuiAppProps
       setCollapseActivities((current) => !current);
     },
     onSubmit: (text) => {
+      historyRef.current.push(text);
+      if (historyRef.current.length > 200) {
+        historyRef.current = historyRef.current.slice(-200);
+      }
+      historyIndexRef.current = null;
+
+      if (handleSlashCommand(text)) {
+        return;
+      }
       void controller.submitPrompt(text);
       scrollback.scrollToBottom();
     }
