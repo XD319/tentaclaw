@@ -24,5 +24,9 @@ export async function startTui(cwd = process.cwd()): Promise<void> {
 }
 
 if (require.main === module) {
-  void startTui();
+  void startTui().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Fatal TUI error: ${message}`);
+    process.exitCode = 1;
+  });
 }

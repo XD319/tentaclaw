@@ -512,7 +512,11 @@ async function main(): Promise<void> {
   await program.parseAsync(process.argv);
 }
 
-void main();
+void main().catch((error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`Fatal CLI error: ${message}`);
+  process.exitCode = 1;
+});
 
 function resolveScopeKey(
   scope: "session" | "project" | "agent",
