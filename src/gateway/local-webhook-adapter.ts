@@ -8,6 +8,8 @@ import type {
   GatewayRuntimeApi,
   GatewayTaskRequest,
   InboundMessageAdapter,
+  JsonObject,
+  JsonValue,
   OutboundResponseAdapter
 } from "../types";
 
@@ -276,8 +278,19 @@ async function readJsonBody<T>(request: IncomingMessage): Promise<T> {
 }
 
 const adapterCapabilityRequirementSchema = z.enum(["preferred", "required"]);
+const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(jsonValueSchema),
+    jsonObjectSchema
+  ])
+);
+const jsonObjectSchema: z.ZodType<JsonObject> = z.record(z.string(), jsonValueSchema);
 
-const adapterCapabilityNames = new Set<AdapterCapabilityName>([
+const adapterCapabilityNameSchema = z.enum([
   "approvalInteraction",
   "fileCapability",
   "streamingCapability",
@@ -289,15 +302,9 @@ const gatewayTaskRequestSchema = z.object({
   agentProfileId: z.enum(["executor", "planner", "reviewer"]).optional(),
   cwd: z.string().min(1).optional(),
   interactionRequirements: z
-    .record(z.string(), adapterCapabilityRequirementSchema)
-    .optional()
-    .refine(
-      (requirements) =>
-        requirements === undefined ||
-        Object.keys(requirements).every((capability) => adapterCapabilityNames.has(capability)),
-      "interactionRequirements includes unsupported capability keys"
-    ),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+    .partialRecord(adapterCapabilityNameSchema, adapterCapabilityRequirementSchema)
+    .optional(),
+  metadata: z.record(z.string(), jsonValueSchema).optional(),
   requester: z.object({
     externalSessionId: z.string().min(1),
     externalUserId: z.string().min(1).nullable(),
@@ -305,7 +312,7 @@ const gatewayTaskRequestSchema = z.object({
   }),
   taskInput: z.string().min(1),
   timeoutMs: z.number().positive().optional()
-}) satisfies z.ZodType<GatewayTaskRequest>;
+});
 
 function parseGatewayTaskRequest(input: unknown): GatewayTaskRequest {
   const parsed = gatewayTaskRequestSchema.safeParse(input);
@@ -316,7 +323,30 @@ function parseGatewayTaskRequest(input: unknown): GatewayTaskRequest {
     );
   }
 
-  return parsed.data;
+  const request: GatewayTaskRequest = {
+    requester: parsed.data.requester,
+    taskInput: parsed.data.taskInput
+  };
+
+  if (parsed.data.agentProfileId !== undefined) {
+    request.agentProfileId = parsed.data.agentProfileId;
+  }
+  if (parsed.data.cwd !== undefined) {
+    request.cwd = parsed.data.cwd;
+  }
+  if (parsed.data.interactionRequirements !== undefined) {
+    request.interactionRequirements = parsed.data.interactionRequirements as Partial<
+      Record<AdapterCapabilityName, "preferred" | "required">
+    >;
+  }
+  if (parsed.data.metadata !== undefined) {
+    request.metadata = parsed.data.metadata;
+  }
+  if (parsed.data.timeoutMs !== undefined) {
+    request.timeoutMs = parsed.data.timeoutMs;
+  }
+
+  return request;
 }
 
 class RequestValidationError extends Error {

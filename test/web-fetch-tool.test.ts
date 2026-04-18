@@ -12,7 +12,7 @@ describe("WebFetchTool", () => {
     });
     let requestInit: RequestInit | null = null;
     const tool = new WebFetchTool(sandboxService, {
-      fetch: async (_input, init) => {
+      fetch: (_input, init) => {
         requestInit = init;
         return new Response("ok", {
           status: 200
@@ -37,7 +37,7 @@ describe("WebFetchTool", () => {
       workspaceRoot: process.cwd()
     });
     const tool = new WebFetchTool(sandboxService, {
-      fetch: async () =>
+      fetch: () =>
         new Response("not found", {
           status: 404
         })
