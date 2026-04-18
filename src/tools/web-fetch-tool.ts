@@ -78,6 +78,7 @@ export class WebFetchTool implements ToolDefinition<typeof webFetchSchema, Prepa
   ): Promise<ToolExecutionResult> {
     const response = await this.client.fetch(input.plan.url, {
       method: input.plan.method,
+      redirect: "manual",
       signal: context.signal
     });
 
