@@ -23,6 +23,7 @@ export interface ChatController {
   hasPendingApproval: boolean;
   messages: ChatMessage[];
   pendingApproval: ApprovalRecord | null;
+  requestInterrupt: () => boolean;
   runDurationLabel: string;
   statusLine: string;
   submitPrompt: (text: string) => Promise<void>;
@@ -76,6 +77,7 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
   }, []);
 
   const startedAtRef = React.useRef(Date.now());
+  const activeAbortControllerRef = React.useRef<AbortController | null>(null);
   const activeTaskIdRef = React.useRef<string | null>(null);
   const lastSequenceByTaskRef = React.useRef<Record<string, number>>({});
   const seenApprovalMessageIdsRef = React.useRef<Set<string>>(new Set());
@@ -139,6 +141,9 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
 
       try {
         const runOptions = createDefaultRunOptions(text, input.cwd, input.config);
+        const abortController = new AbortController();
+        activeAbortControllerRef.current = abortController;
+        runOptions.signal = abortController.signal;
         const result = await input.service.runTask(runOptions);
         activeTaskIdRef.current = result.task.taskId;
         appendNewTraceEvents(result.task.taskId);
@@ -171,6 +176,18 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
         ]);
         setStatusLine(result.task.status);
       } catch (error) {
+        const aborted =
+          error instanceof Error &&
+          (error.name === "AbortError" ||
+            error.message.toLowerCase().includes("abort") ||
+            error.message.toLowerCase().includes("aborted"));
+
+        if (aborted) {
+          addSystemMessage("Interrupted current task.");
+          setStatusLine("interrupted");
+          return;
+        }
+
         setMessages((current) => [
           ...current,
           {
@@ -184,11 +201,12 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
         ]);
         setStatusLine("failed to run task");
       } finally {
+        activeAbortControllerRef.current = null;
         setBusy(false);
         refresh();
       }
     },
-    [appendNewTraceEvents, input.config, input.cwd, input.service, refresh]
+    [addSystemMessage, appendNewTraceEvents, input.config, input.cwd, input.service, refresh]
   );
 
   const resolvePendingApproval = React.useCallback(
@@ -243,6 +261,15 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     [appendNewTraceEvents, busy, input.reviewerId, input.service, pendingApproval, refresh]
   );
 
+  const requestInterrupt = React.useCallback((): boolean => {
+    const controller = activeAbortControllerRef.current;
+    if (controller === null) {
+      return false;
+    }
+    controller.abort();
+    return true;
+  }, []);
+
   return {
     addSystemMessage,
     busy,
@@ -250,6 +277,7 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     hasPendingApproval: pendingApproval !== null,
     messages,
     pendingApproval,
+    requestInterrupt,
     resolvePendingApproval,
     runDurationLabel,
     statusLine,

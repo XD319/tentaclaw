@@ -93,9 +93,14 @@ export function ChatTuiApp({ config, cwd, reviewerId, service }: ChatTuiAppProps
     onHistoryNext: navigateHistoryNext,
     onHistoryPrevious: navigateHistoryPrevious,
     onInterruptRequest: () => {
-      controller.addSystemMessage(
-        "Interrupt requested. Press Ctrl+C again within 2s to force exit. Runtime cancellation is not wired yet."
-      );
+      const requested = controller.requestInterrupt();
+      if (requested) {
+        controller.addSystemMessage(
+          "Interrupt requested. Press Ctrl+C again within 2s to force exit if shutdown is needed."
+        );
+      } else {
+        controller.addSystemMessage("No running task to interrupt.");
+      }
     },
     onApprovalAction: (action) => {
       void controller.resolvePendingApproval(action);
