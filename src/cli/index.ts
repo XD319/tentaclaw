@@ -6,7 +6,7 @@ import { replayTaskById, runBetaReadinessCheck, runEvalReport } from "../diagnos
 import type { SupportedProviderName } from "../providers";
 import { createApplication, createDefaultRunOptions } from "../runtime";
 import { formatSmokeSuiteReport, runSmokeSuite } from "../testing";
-import { startTui } from "../tui";
+import { startDashboardTui, startTui } from "../tui";
 
 import {
   formatApprovalList,
@@ -470,10 +470,18 @@ async function main(): Promise<void> {
 
   program
     .command("tui")
-    .description("Open the Ink terminal UI for observability and approvals")
+    .description("Open chat-style terminal UI")
     .option("--cwd <path>", "Workspace path", process.cwd())
     .action(async (commandOptions: { cwd: string }) => {
       await startTui(commandOptions.cwd);
+    });
+
+  program
+    .command("dashboard")
+    .description("Open dashboard terminal UI for observability and approvals")
+    .option("--cwd <path>", "Workspace path", process.cwd())
+    .action(async (commandOptions: { cwd: string }) => {
+      await startDashboardTui(commandOptions.cwd);
     });
 
   program

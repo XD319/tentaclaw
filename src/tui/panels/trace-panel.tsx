@@ -16,7 +16,7 @@ export function TracePanel({ trace }: TracePanelProps): React.ReactElement {
       ) : (
         trace.map((entry) => (
           <Text
-            key={`${entry.sequence}-${entry.eventType}`}
+            key={`${entry.sequence}-${entry.eventType}-${entry.timestamp}`}
             {...traceTextProps(entry.emphasis)}
           >
             #{entry.sequence} [{entry.stage}] {entry.eventType} {entry.chainLabel ?? ""} {entry.summary}

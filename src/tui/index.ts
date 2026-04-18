@@ -3,30 +3,40 @@ import { render } from "ink";
 
 import { createApplication } from "../runtime";
 
-import { AgentTuiApp } from "./app";
+import { ChatTuiApp } from "./chat-app";
+import { AgentTuiApp } from "./dashboard-app";
 import { RuntimeDashboardQueryService } from "./view-models/runtime-dashboard";
 
 export async function startTui(cwd = process.cwd()): Promise<void> {
   const handle = createApplication(cwd);
-  const app = render(
-    React.createElement(AgentTuiApp, {
-      queryService: new RuntimeDashboardQueryService(handle.service),
-      reviewerId: process.env.USERNAME ?? process.env.USER ?? "local-reviewer"
-    })
-  );
-
   try {
+    const app = render(
+      React.createElement(ChatTuiApp, {
+        config: handle.config,
+        cwd,
+        reviewerId: process.env.USERNAME ?? process.env.USER ?? "local-reviewer",
+        service: handle.service
+      })
+    );
     await app.waitUntilExit();
-  } finally {
     app.unmount();
+  } finally {
     handle.close();
   }
 }
 
-if (require.main === module) {
-  void startTui().catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`Fatal TUI error: ${message}`);
-    process.exitCode = 1;
-  });
+export async function startDashboardTui(cwd = process.cwd()): Promise<void> {
+  const handle = createApplication(cwd);
+  try {
+    const app = render(
+      React.createElement(AgentTuiApp, {
+        queryService: new RuntimeDashboardQueryService(handle.service),
+        reviewerId: process.env.USERNAME ?? process.env.USER ?? "local-reviewer"
+      })
+    );
+    await app.waitUntilExit();
+    app.unmount();
+  } finally {
+    handle.close();
+  }
 }

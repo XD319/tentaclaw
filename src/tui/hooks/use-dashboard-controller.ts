@@ -33,7 +33,7 @@ export function useDashboardController(input: {
   const [selectedApprovalIndex, setSelectedApprovalIndex] = React.useState(0);
   const [busy, setBusy] = React.useState(false);
   const [statusLine, setStatusLine] = React.useState(
-    "Keys: 1-6 panels, tab switch, arrows browse, a allow, d deny, r refresh, q quit"
+    `Keys: 1-${PANEL_ORDER.length} panels, tab switch, arrows browse, a allow, d deny, r refresh, q quit`
   );
   const [snapshot, setSnapshot] = React.useState(() =>
     input.queryService.getDashboard({
@@ -44,19 +44,23 @@ export function useDashboardController(input: {
 
   React.useEffect(() => {
     const runRefresh = (): void => {
-      setSnapshot((previousSnapshot) => {
-        const currentTaskId =
-          previousSnapshot.tasks[selectedTaskIndex]?.taskId ?? previousSnapshot.selectedTaskId ?? null;
-        const nextSnapshot = input.queryService.getDashboard({
-          selectedPanel,
-          selectedTaskId: currentTaskId
+      try {
+        setSnapshot((previousSnapshot) => {
+          const currentTaskId =
+            previousSnapshot.tasks[selectedTaskIndex]?.taskId ?? previousSnapshot.selectedTaskId ?? null;
+          const nextSnapshot = input.queryService.getDashboard({
+            selectedPanel,
+            selectedTaskId: currentTaskId
+          });
+          setSelectedTaskIndex((currentIndex) => clampIndex(currentIndex, nextSnapshot.tasks.length));
+          setSelectedApprovalIndex((currentIndex) =>
+            clampIndex(currentIndex, nextSnapshot.pendingApprovals.length)
+          );
+          return nextSnapshot;
         });
-        setSelectedTaskIndex((currentIndex) => clampIndex(currentIndex, nextSnapshot.tasks.length));
-        setSelectedApprovalIndex((currentIndex) =>
-          clampIndex(currentIndex, nextSnapshot.pendingApprovals.length)
-        );
-        return nextSnapshot;
-      });
+      } catch (error) {
+        setStatusLine(error instanceof Error ? `Refresh failed: ${error.message}` : "Refresh failed.");
+      }
     };
 
     runRefresh();
@@ -68,17 +72,21 @@ export function useDashboardController(input: {
   }, [input.queryService, input.refreshIntervalMs, selectedPanel, selectedTaskIndex]);
 
   const refresh = (): void => {
-    const currentTaskId = snapshot.tasks[selectedTaskIndex]?.taskId ?? snapshot.selectedTaskId ?? null;
-    const nextSnapshot = input.queryService.getDashboard({
-      selectedPanel,
-      selectedTaskId: currentTaskId
-    });
-    setSnapshot(nextSnapshot);
-    setSelectedTaskIndex((currentIndex) => clampIndex(currentIndex, nextSnapshot.tasks.length));
-    setSelectedApprovalIndex((currentIndex) =>
-      clampIndex(currentIndex, nextSnapshot.pendingApprovals.length)
-    );
-    setStatusLine(`Refreshed at ${new Date().toLocaleTimeString("en-GB", { hour12: false })}`);
+    try {
+      const currentTaskId = snapshot.tasks[selectedTaskIndex]?.taskId ?? snapshot.selectedTaskId ?? null;
+      const nextSnapshot = input.queryService.getDashboard({
+        selectedPanel,
+        selectedTaskId: currentTaskId
+      });
+      setSnapshot(nextSnapshot);
+      setSelectedTaskIndex((currentIndex) => clampIndex(currentIndex, nextSnapshot.tasks.length));
+      setSelectedApprovalIndex((currentIndex) =>
+        clampIndex(currentIndex, nextSnapshot.pendingApprovals.length)
+      );
+      setStatusLine(`Refreshed at ${new Date().toLocaleTimeString("en-GB", { hour12: false })}`);
+    } catch (error) {
+      setStatusLine(error instanceof Error ? `Refresh failed: ${error.message}` : "Refresh failed.");
+    }
   };
 
   const selectedApproval = snapshot.pendingApprovals[selectedApprovalIndex] ?? null;

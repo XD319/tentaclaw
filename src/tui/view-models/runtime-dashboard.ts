@@ -228,10 +228,9 @@ function toApprovalItem(
   tasks: TaskRecord[],
   service: AgentApplicationService
 ): ApprovalListItemViewModel {
-  const task = tasks.find((item) => item.taskId === approval.taskId) ?? service.showTask(approval.taskId).task;
-  const toolCall = service
-    .showTask(approval.taskId)
-    .toolCalls.find((item) => item.toolCallId === approval.toolCallId);
+  const detail = service.showTask(approval.taskId);
+  const task = tasks.find((item) => item.taskId === approval.taskId) ?? detail.task;
+  const toolCall = detail.toolCalls.find((item) => item.toolCallId === approval.toolCallId);
 
   return {
     approvalId: approval.approvalId,
@@ -467,6 +466,7 @@ function collectDiffRiskReasons(
 ): string[] {
   const reasons: string[] = [];
   const lowerPath = path.toLowerCase();
+  const normalizedPath = lowerPath.replace(/\\/gu, "/");
   const combinedPreview = `${beforePreview}\n${afterPreview}`.toLowerCase();
 
   if (
@@ -479,7 +479,7 @@ function collectDiffRiskReasons(
     reasons.push("sensitive project or execution file");
   }
 
-  if (lowerPath.includes("\\src\\policy\\") || lowerPath.includes("\\src\\runtime\\")) {
+  if (normalizedPath.includes("/src/policy/") || normalizedPath.includes("/src/runtime/")) {
     reasons.push("runtime or policy surface changed");
   }
 
