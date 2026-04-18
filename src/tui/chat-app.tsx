@@ -65,7 +65,7 @@ export function ChatTuiApp({ config, cwd, reviewerId, service }: ChatTuiAppProps
 
       if (text === "/help") {
         controller.addSystemMessage(
-          "Commands: /help, /clear, /new. Shortcuts: Ctrl+P/N history, Ctrl+T toggle activity, Ctrl+G/J top/bottom."
+          "Commands: /help, /clear, /new, /stop. Shortcuts: Ctrl+P/N history, Ctrl+T toggle activity, Ctrl+G/J top/bottom."
         );
         return true;
       }
@@ -78,6 +78,16 @@ export function ChatTuiApp({ config, cwd, reviewerId, service }: ChatTuiAppProps
       if (text === "/new") {
         controller.clearConversation();
         controller.addSystemMessage("Started a new chat session.");
+        return true;
+      }
+
+      if (text === "/stop") {
+        const requested = controller.requestInterrupt();
+        if (requested) {
+          controller.addSystemMessage("Stop requested for current task.");
+        } else {
+          controller.addSystemMessage("No running task to stop.");
+        }
         return true;
       }
 
