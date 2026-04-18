@@ -83,6 +83,17 @@ export class WebFetchTool implements ToolDefinition<typeof webFetchSchema, Prepa
 
     const body = await response.text();
     const truncatedBody = body.slice(0, input.maxBytes);
+    if (!response.ok) {
+      return {
+        details: {
+          status: response.status,
+          url: input.plan.url
+        },
+        errorCode: "tool_execution_error",
+        errorMessage: `Web fetch failed with HTTP status ${response.status}.`,
+        success: false
+      };
+    }
 
     return {
       artifacts: [
