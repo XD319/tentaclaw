@@ -56,7 +56,7 @@ export class LocalWebhookAdapter implements InboundMessageAdapter, OutboundRespo
   public async start(context: { runtimeApi: GatewayRuntimeApi }): Promise<void> {
     this.runtimeApi = context.runtimeApi;
     this.server = createServer((request, response) => {
-      void this.handleRequest(request, response);
+      void this.handleRequestSafely(request, response);
     });
 
     await new Promise<void>((resolve, reject) => {
@@ -94,6 +94,21 @@ export class LocalWebhookAdapter implements InboundMessageAdapter, OutboundRespo
 
   public sendResult(): Promise<void> {
     return Promise.resolve();
+  }
+
+  private async handleRequestSafely(
+    request: IncomingMessage,
+    response: ServerResponse
+  ): Promise<void> {
+    try {
+      await this.handleRequest(request, response);
+    } catch {
+      if (response.headersSent) {
+        response.end();
+        return;
+      }
+      this.respondJson(response, 500, { error: "internal_error" });
+    }
   }
 
   private async handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
