@@ -33,9 +33,9 @@ export class ShellExecutor {
 
   public constructor(config: ShellExecutorConfig = {}) {
     this.maxOutputBytes = config.maxOutputBytes ?? 200_000;
-    this.shellExecutable =
-      config.shellExecutable ?? "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
-    this.shellArgs = config.shellArgs ?? ["-NoProfile", "-Command"];
+    const defaultShell = resolveDefaultShellConfig();
+    this.shellExecutable = config.shellExecutable ?? defaultShell.executable;
+    this.shellArgs = config.shellArgs ?? defaultShell.args;
   }
 
   public execute(request: ShellExecutionRequest): Promise<ShellExecutionResult> {
@@ -127,6 +127,20 @@ export class ShellExecutor {
       });
     });
   }
+}
+
+function resolveDefaultShellConfig(): { args: string[]; executable: string } {
+  if (process.platform === "win32") {
+    return {
+      args: ["-NoProfile", "-Command"],
+      executable: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+    };
+  }
+
+  return {
+    args: ["-lc"],
+    executable: "/bin/sh"
+  };
 }
 
 function appendWithLimit(

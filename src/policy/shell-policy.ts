@@ -16,6 +16,7 @@ export class ShellPolicy {
   public constructor(config: ShellPolicyConfig = {}) {
     this.allowedCommands = new Set(
       (config.allowedCommands ?? [
+        "cat",
         "dir",
         "echo",
         "findstr",

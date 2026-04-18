@@ -50,6 +50,7 @@ export class SandboxService {
     this.allowedEnvKeys = new Set(config.allowedEnvKeys ?? []);
     this.allowedShellCommands = new Set(
       (config.allowedShellCommands ?? [
+        "cat",
         "dir",
         "echo",
         "findstr",

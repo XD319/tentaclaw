@@ -131,7 +131,7 @@ export class ScriptedSmokeProvider implements Provider {
           return Promise.resolve(toolCallResponse("Run a shell check to inspect the verification state.", [
             shell(
               `multi-fix-check-1-${iteration}`,
-              "Get-Content config\\verification.txt",
+              readVerificationCommand(),
               "Inspect whether verification currently reports FAIL or PASS."
             )
           ]));
@@ -153,7 +153,7 @@ export class ScriptedSmokeProvider implements Provider {
           return Promise.resolve(toolCallResponse("Re-run the verification check after the fix.", [
             shell(
               `multi-fix-check-2-${iteration}`,
-              "Get-Content config\\verification.txt",
+              readVerificationCommand(),
               "Confirm the verification marker changed to PASS."
             )
           ]));
@@ -400,4 +400,10 @@ function extractStdout(content: string | undefined): string {
   } catch {
     return content.trim() || "unknown";
   }
+}
+
+function readVerificationCommand(): string {
+  return process.platform === "win32"
+    ? "Get-Content config\\verification.txt"
+    : "cat config/verification.txt";
 }

@@ -148,7 +148,7 @@ describe("Phase 4 Ink TUI query models", () => {
               input: {
                 action: "write_file",
                 content: "escape",
-                path: "..\\outside.txt"
+                path: "../outside.txt"
               },
               reason: "Trigger sandbox denial.",
               toolCallId: "sandbox-deny",

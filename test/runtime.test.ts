@@ -146,11 +146,11 @@ describe("Phase 2 governance runtime", () => {
         message: "Attempt to write outside the workspace.",
         toolCalls: [
           {
-            input: {
-              action: "write_file",
-              content: "denied",
-              path: "..\\outside.txt"
-            },
+              input: {
+                action: "write_file",
+                content: "denied",
+                path: "../outside.txt"
+              },
             reason: "Verify sandbox path enforcement.",
             toolCallId: "outside-write",
             toolName: "file_write"
