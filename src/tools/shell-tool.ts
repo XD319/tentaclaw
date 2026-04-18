@@ -102,7 +102,9 @@ export class ShellTool implements ToolDefinition<typeof shellToolSchema, Prepare
           content: {
             command: input.command,
             stderr: result.stderr,
-            stdout: result.stdout
+            stderrTruncated: result.stderrTruncated,
+            stdout: result.stdout,
+            stdoutTruncated: result.stdoutTruncated
           },
           uri: `shell:${input.command}`
         }
@@ -112,7 +114,9 @@ export class ShellTool implements ToolDefinition<typeof shellToolSchema, Prepare
         durationMs: result.durationMs,
         exitCode: result.exitCode,
         stderr: result.stderr,
-        stdout: result.stdout
+        stderrTruncated: result.stderrTruncated,
+        stdout: result.stdout,
+        stdoutTruncated: result.stdoutTruncated
       },
       success: true,
       summary: `Executed shell command "${input.command}"`

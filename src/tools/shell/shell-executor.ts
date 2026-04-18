@@ -14,20 +14,25 @@ export interface ShellExecutionResult {
   durationMs: number;
   exitCode: number;
   stderr: string;
+  stderrTruncated: boolean;
   stdout: string;
+  stdoutTruncated: boolean;
   timedOut: boolean;
 }
 
 export interface ShellExecutorConfig {
+  maxOutputBytes?: number;
   shellExecutable?: string;
   shellArgs?: string[];
 }
 
 export class ShellExecutor {
+  private readonly maxOutputBytes: number;
   private readonly shellExecutable: string;
   private readonly shellArgs: string[];
 
   public constructor(config: ShellExecutorConfig = {}) {
+    this.maxOutputBytes = config.maxOutputBytes ?? 200_000;
     this.shellExecutable =
       config.shellExecutable ?? "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
     this.shellArgs = config.shellArgs ?? ["-NoProfile", "-Command"];
@@ -48,6 +53,8 @@ export class ShellExecutor {
 
       let stdout = "";
       let stderr = "";
+      let stdoutTruncated = false;
+      let stderrTruncated = false;
       let timedOut = false;
       let settled = false;
 
@@ -82,11 +89,15 @@ export class ShellExecutor {
       request.signal.addEventListener("abort", onAbort);
 
       child.stdout.on("data", (chunk: Buffer) => {
-        stdout += chunk.toString("utf8");
+        const updated = appendWithLimit(stdout, chunk, this.maxOutputBytes);
+        stdout = updated.value;
+        stdoutTruncated = stdoutTruncated || updated.truncated;
       });
 
       child.stderr.on("data", (chunk: Buffer) => {
-        stderr += chunk.toString("utf8");
+        const updated = appendWithLimit(stderr, chunk, this.maxOutputBytes);
+        stderr = updated.value;
+        stderrTruncated = stderrTruncated || updated.truncated;
       });
 
       child.once("error", (error) => {
@@ -107,11 +118,32 @@ export class ShellExecutor {
             durationMs: Date.now() - startedAt,
             exitCode: exitCode ?? -1,
             stderr,
+            stderrTruncated,
             stdout,
+            stdoutTruncated,
             timedOut
           });
         });
       });
     });
   }
+}
+
+function appendWithLimit(
+  current: string,
+  chunk: Buffer,
+  maxOutputBytes: number
+): { value: string; truncated: boolean } {
+  const combined = current + chunk.toString("utf8");
+  if (combined.length <= maxOutputBytes) {
+    return {
+      truncated: false,
+      value: combined
+    };
+  }
+
+  return {
+    truncated: true,
+    value: combined.slice(0, maxOutputBytes)
+  };
 }
