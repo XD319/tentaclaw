@@ -222,6 +222,26 @@ async function main(): Promise<void> {
       }
     });
 
+  program
+    .command("rollback")
+    .description("Rollback a file_write checkpoint")
+    .argument("<artifact_id>", "Rollback artifact id or last")
+    .option("--cwd <path>", "Workspace path", process.cwd())
+    .action(async (artifactId: string, commandOptions: { cwd: string }) => {
+      const handle = createApplication(commandOptions.cwd);
+      try {
+        const result = await handle.service.rollbackFileArtifact(artifactId);
+        console.log(
+          result.deleted
+            ? `Rolled back by deleting ${result.path}`
+            : `Rolled back by restoring ${result.path}`
+        );
+        console.log(`Artifact: ${result.artifact.artifactId}`);
+      } finally {
+        handle.close();
+      }
+    });
+
   const providerCommand = program.command("provider").description("Inspect and test providers");
 
   providerCommand.command("list").action(() => {

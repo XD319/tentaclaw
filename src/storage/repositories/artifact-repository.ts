@@ -73,4 +73,32 @@ export class SqliteArtifactRepository implements ArtifactRepository {
       uri: row.uri
     }));
   }
+
+  public findById(artifactId: string): ArtifactRecord | null {
+    const row = this.database
+      .prepare("SELECT * FROM artifacts WHERE artifact_id = ?")
+      .get(artifactId) as unknown as ArtifactRow | undefined;
+
+    return row === undefined ? null : toArtifactRecord(row);
+  }
+
+  public findLatestByType(artifactType: string): ArtifactRecord | null {
+    const row = this.database
+      .prepare("SELECT * FROM artifacts WHERE artifact_type = ? ORDER BY created_at DESC LIMIT 1")
+      .get(artifactType) as unknown as ArtifactRow | undefined;
+
+    return row === undefined ? null : toArtifactRecord(row);
+  }
+}
+
+function toArtifactRecord(row: ArtifactRow): ArtifactRecord {
+  return {
+    artifactId: row.artifact_id,
+    artifactType: row.artifact_type,
+    content: parseJsonValue<JsonValue>(row.content_json),
+    createdAt: row.created_at,
+    taskId: row.task_id,
+    toolCallId: row.tool_call_id,
+    uri: row.uri
+  };
 }

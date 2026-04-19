@@ -28,6 +28,7 @@ import type {
   TokenBudget
 } from "../types";
 import { FileReadTool, FileWriteTool, ShellTool, ToolOrchestrator, WebFetchTool } from "../tools";
+import { DockerShellExecutor } from "../tools/shell/docker-shell-executor";
 import { ShellExecutor } from "../tools/shell/shell-executor";
 
 import { AgentApplicationService } from "./application-service";
@@ -139,11 +140,23 @@ export function createApplication(
   const sandboxService = new SandboxService({
     allowedEnvKeys: ["CI", "FORCE_COLOR", "NODE_ENV", "NO_COLOR"],
     allowedFetchHosts: config.allowedFetchHosts,
+    ...(config.sandbox.shellAllowlist.length > 0
+      ? { allowedShellCommands: config.sandbox.shellAllowlist }
+      : {}),
     readRoots: config.sandbox.readRoots,
     maxShellTimeoutMs: 30_000,
     workspaceRoot: config.workspaceRoot,
     writeRoots: config.sandbox.writeRoots
   });
+  const shellExecutor =
+    config.sandbox.mode === "docker"
+      ? new DockerShellExecutor({
+          dockerImage: config.sandbox.dockerImage ?? "alpine:3.20",
+          readRoots: config.sandbox.readRoots,
+          workspaceRoot: config.workspaceRoot,
+          writeRoots: config.sandbox.writeRoots
+        })
+      : new ShellExecutor();
   const toolOrchestrator = new ToolOrchestrator({
     approvalService,
     artifactRepository: storage.artifacts,
@@ -154,7 +167,7 @@ export function createApplication(
     tools: [
       new FileReadTool(sandboxService),
       new FileWriteTool(sandboxService),
-      new ShellTool(new ShellExecutor(), sandboxService),
+      new ShellTool(shellExecutor, sandboxService),
       new WebFetchTool(sandboxService)
     ],
     traceService
@@ -182,6 +195,8 @@ export function createApplication(
   const service = new AgentApplicationService({
     databasePath: config.databasePath,
     executionKernel,
+    findArtifact: (artifactId) => storage.artifacts.findById(artifactId),
+    findLatestArtifactByType: (artifactType) => storage.artifacts.findLatestByType(artifactType),
     findMemory: (memoryId) => storage.memories.findById(memoryId),
     listApprovals: (taskId) => storage.approvals.listByTaskId(taskId),
     listArtifacts: (taskId) => storage.artifacts.listByTaskId(taskId),

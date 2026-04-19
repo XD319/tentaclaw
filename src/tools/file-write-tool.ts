@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs";
+import { createHash } from "node:crypto";
 import { dirname } from "node:path";
 
 import { z } from "zod";
@@ -6,6 +7,7 @@ import { z } from "zod";
 import { AppError } from "../runtime/app-error";
 import type { SandboxService } from "../sandbox/sandbox-service";
 import type {
+  ArtifactDraft,
   SandboxFileAccessPlan,
   ToolDefinition,
   ToolExecutionContext,
@@ -199,6 +201,7 @@ export class FileWriteTool implements ToolDefinition<typeof fileWriteSchema, Pre
     input: Extract<PreparedFileWriteInput, { action: "write_file" }>
   ): Promise<ToolExecutionResult> {
     const targetPath = input.plan.resolvedPath;
+    const checkpoint = await createRollbackArtifact(targetPath, input.action);
 
     await fs.mkdir(dirname(targetPath), { recursive: true });
 
@@ -220,6 +223,7 @@ export class FileWriteTool implements ToolDefinition<typeof fileWriteSchema, Pre
 
     return {
       artifacts: [
+        checkpoint,
         {
           artifactType: "file",
           content: {
@@ -246,6 +250,7 @@ export class FileWriteTool implements ToolDefinition<typeof fileWriteSchema, Pre
   ): Promise<ToolExecutionResult> {
     const targetPath = input.plan.resolvedPath;
     const originalContent = await fs.readFile(targetPath, "utf8");
+    const checkpoint = createRollbackArtifactFromContent(targetPath, input.action, originalContent);
 
     if (!originalContent.includes(input.targetText)) {
       throw new AppError({
@@ -262,6 +267,7 @@ export class FileWriteTool implements ToolDefinition<typeof fileWriteSchema, Pre
 
     return {
       artifacts: [
+        checkpoint,
         {
           artifactType: "file",
           content: {
@@ -289,6 +295,7 @@ export class FileWriteTool implements ToolDefinition<typeof fileWriteSchema, Pre
   ): Promise<ToolExecutionResult> {
     const targetPath = input.plan.resolvedPath;
     const originalContent = await fs.readFile(targetPath, "utf8");
+    const checkpoint = createRollbackArtifactFromContent(targetPath, input.action, originalContent);
     let workingContent = originalContent;
     let appliedPatchCount = 0;
 
@@ -317,6 +324,7 @@ export class FileWriteTool implements ToolDefinition<typeof fileWriteSchema, Pre
 
     return {
       artifacts: [
+        checkpoint,
         {
           artifactType: "file",
           content: {
@@ -337,6 +345,48 @@ export class FileWriteTool implements ToolDefinition<typeof fileWriteSchema, Pre
       summary: `Applied ${appliedPatchCount} patches to ${targetPath}`
     };
   }
+}
+
+async function createRollbackArtifact(
+  targetPath: string,
+  operation: "apply_patch" | "update_file" | "write_file"
+): Promise<ArtifactDraft> {
+  try {
+    const originalContent = await fs.readFile(targetPath, "utf8");
+    return createRollbackArtifactFromContent(targetPath, operation, originalContent);
+  } catch {
+    return {
+      artifactType: "file_rollback",
+      content: {
+        createdAt: new Date().toISOString(),
+        originalContent: null,
+        originalExists: false,
+        operation,
+        path: targetPath,
+        sha256: null
+      },
+      uri: `rollback:${targetPath}`
+    };
+  }
+}
+
+function createRollbackArtifactFromContent(
+  targetPath: string,
+  operation: "apply_patch" | "update_file" | "write_file",
+  originalContent: string
+): ArtifactDraft {
+  return {
+    artifactType: "file_rollback",
+    content: {
+      createdAt: new Date().toISOString(),
+      originalContent: clipText(originalContent, 1_000_000),
+      originalExists: true,
+      operation,
+      path: targetPath,
+      sha256: createHash("sha256").update(originalContent, "utf8").digest("hex")
+    },
+    uri: `rollback:${targetPath}`
+  };
 }
 
 function summarizeFileChange(beforeText: string, afterText: string): {

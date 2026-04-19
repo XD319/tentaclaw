@@ -5,6 +5,7 @@ export const AUDIT_ACTIONS = [
   "gateway_request",
   "approval_requested",
   "approval_resolved",
+  "file_rollback",
   "file_write",
   "high_risk_tool_requested",
   "policy_decision",

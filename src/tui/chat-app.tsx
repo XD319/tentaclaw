@@ -106,7 +106,7 @@ export function ChatTuiApp({
       if (text === "/help") {
         controller.addSystemMessage(
           [
-            "Commands: /help /clear /new /stop /title <name> /history /status /sandbox /cost /context /diff /sessions",
+            "Commands: /help /clear /new /stop /title <name> /history /status /sandbox /rollback <id|last> /cost /context /diff /sessions",
             "Shortcuts: Enter send · Alt+Enter / Ctrl+J newline · Ctrl+Shift+V paste · Tab slash-complete · Ctrl+P/N history · Ctrl+T activity · PageUp/Down scroll · Ctrl+G top",
             "Session files: .auto-talon/sessions/<id>.json · resume: agent tui --resume <id>",
             "Token pricing estimate: AGENT_TOKEN_PRICE_IN_PER_M / AGENT_TOKEN_PRICE_OUT_PER_M (optional)",
@@ -226,6 +226,29 @@ export function ChatTuiApp({
         return true;
       }
 
+      if (text.startsWith("/rollback ")) {
+        const artifactId = text.slice("/rollback ".length).trim();
+        if (artifactId.length === 0) {
+          controller.addSystemMessage("Usage: /rollback last|<artifact_id>");
+          return true;
+        }
+
+        void service
+          .rollbackFileArtifact(artifactId)
+          .then((result) => {
+            controller.addSystemMessage(
+              result.deleted
+                ? `Rolled back by deleting ${result.path}`
+                : `Rolled back by restoring ${result.path}`
+            );
+          })
+          .catch((error: unknown) => {
+            const message = error instanceof Error ? error.message : String(error);
+            controller.addSystemMessage(`Rollback failed: ${message}`);
+          });
+        return true;
+      }
+
       if (text.startsWith("/title ")) {
         const nextTitle = text.slice("/title ".length).trim();
         if (nextTitle.length === 0) {
@@ -250,6 +273,7 @@ export function ChatTuiApp({
       controller,
       cwd,
       reviewerId,
+      service,
       scrollback.atBottom,
       sessionId,
       sessionTitle
@@ -313,6 +337,7 @@ export function ChatTuiApp({
           "/help",
           "/history",
           "/new",
+          "/rollback ",
           "/sessions",
           "/sandbox",
           "/status",

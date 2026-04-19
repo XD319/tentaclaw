@@ -323,6 +323,122 @@ describe("Phase 2 governance runtime", () => {
     }
   });
 
+  it("rolls back a newly created file using the latest rollback artifact", async () => {
+    const workspaceRoot = await createTempWorkspace();
+    const handle = createApprovalWriteApplication(workspaceRoot);
+
+    try {
+      const initial = await handle.service.runTask(
+        createDefaultRunOptions("create governed file", workspaceRoot, handle.config)
+      );
+      const approval = handle.service.listPendingApprovals()[0];
+      await handle.service.resolveApproval(approval?.approvalId ?? "", "allow", "reviewer-rollback");
+      const targetPath = join(workspaceRoot, "governed.txt");
+      expect(await fs.readFile(targetPath, "utf8")).toBe("phase-2-governed");
+
+      const rollback = await handle.service.rollbackFileArtifact("last");
+
+      expect(rollback.deleted).toBe(true);
+      await expect(fs.access(targetPath)).rejects.toThrow();
+      expect(handle.service.traceTask(initial.task.taskId).some((event) => event.eventType === "file_rollback")).toBe(true);
+      expect(handle.service.auditTask(initial.task.taskId).some((entry) => entry.action === "file_rollback")).toBe(true);
+    } finally {
+      handle.close();
+    }
+  });
+
+  it("rolls back an updated file to its original content", async () => {
+    const workspaceRoot = await createTempWorkspace();
+    const targetPath = join(workspaceRoot, "existing.txt");
+    await fs.writeFile(targetPath, "before", "utf8");
+    const handle = createApplication(workspaceRoot, {
+      config: {
+        databasePath: join(workspaceRoot, "runtime.db")
+      },
+      provider: new ScriptedProvider((input) => {
+        const toolMessages = input.messages.filter((message) => message.role === "tool");
+
+        if (toolMessages.length === 0) {
+          return {
+            kind: "tool_calls",
+            message: "Update existing file.",
+            toolCalls: [
+              {
+                input: {
+                  action: "update_file",
+                  newText: "after",
+                  path: "existing.txt",
+                  targetText: "before"
+                },
+                reason: "Update existing file after review.",
+                toolCallId: "update-existing",
+                toolName: "file_write"
+              }
+            ],
+            usage: {
+              inputTokens: 10,
+              outputTokens: 5
+            }
+          };
+        }
+
+        return {
+          kind: "final",
+          message: "updated",
+          usage: {
+            inputTokens: 4,
+            outputTokens: 4
+          }
+        };
+      })
+    });
+
+    try {
+      await handle.service.runTask(
+        createDefaultRunOptions("update existing file", workspaceRoot, handle.config)
+      );
+      const approval = handle.service.listPendingApprovals()[0];
+      await handle.service.resolveApproval(approval?.approvalId ?? "", "allow", "reviewer-rollback");
+      expect(await fs.readFile(targetPath, "utf8")).toBe("after");
+
+      const rollbackArtifact = handle.service
+        .showTask(approval?.taskId ?? "")
+        .artifacts.find((artifact) => artifact.artifactType === "file_rollback");
+      expect(rollbackArtifact).toBeDefined();
+
+      await handle.service.rollbackFileArtifact(rollbackArtifact?.artifactId ?? "");
+
+      expect(await fs.readFile(targetPath, "utf8")).toBe("before");
+    } finally {
+      handle.close();
+    }
+  });
+
+  it("rejects rollback for non-rollback artifacts", async () => {
+    const workspaceRoot = await createTempWorkspace();
+    const handle = createApprovalWriteApplication(workspaceRoot);
+
+    try {
+      await handle.service.runTask(
+        createDefaultRunOptions("create governed file", workspaceRoot, handle.config)
+      );
+      const approval = handle.service.listPendingApprovals()[0];
+      await handle.service.resolveApproval(approval?.approvalId ?? "", "allow", "reviewer-rollback");
+      const fileArtifact = handle.service
+        .showTask(approval?.taskId ?? "")
+        .artifacts.find((artifact) => artifact.artifactType === "file");
+      expect(fileArtifact).toBeDefined();
+
+      await expect(
+        handle.service.rollbackFileArtifact(fileArtifact?.artifactId ?? "")
+      ).rejects.toMatchObject({
+        code: "tool_validation_error"
+      });
+    } finally {
+      handle.close();
+    }
+  });
+
   it("records audit logs for policy, approvals, sandbox, and file writes", async () => {
     const workspaceRoot = await createTempWorkspace();
     const handle = createApprovalWriteApplication(workspaceRoot);

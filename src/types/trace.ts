@@ -20,6 +20,7 @@ export const TRACE_EVENT_TYPES = [
   "policy_decision",
   "approval_requested",
   "approval_resolved",
+  "file_rollback",
   "sandbox_enforced",
   "tool_call_requested",
   "tool_call_started",
@@ -282,6 +283,14 @@ export interface ReviewerTracePayload extends JsonObject {
   blockingReason: string | null;
 }
 
+export interface FileRollbackPayload extends JsonObject {
+  artifactId: string;
+  operation: string;
+  originalExists: boolean;
+  path: string;
+  restoredHash: string | null;
+}
+
 export type TraceEvent =
   | TraceEventBase<"gateway_request_received", GatewayRequestReceivedPayload>
   | TraceEventBase<"gateway_capability_degraded", GatewayCapabilityDegradedPayload>
@@ -295,6 +304,7 @@ export type TraceEvent =
   | TraceEventBase<"policy_decision", PolicyDecisionPayload>
   | TraceEventBase<"approval_requested", ApprovalRequestedPayload>
   | TraceEventBase<"approval_resolved", ApprovalResolvedPayload>
+  | TraceEventBase<"file_rollback", FileRollbackPayload>
   | TraceEventBase<"sandbox_enforced", SandboxEnforcedPayload>
   | TraceEventBase<"tool_call_requested", ToolCallRequestedPayload>
   | TraceEventBase<"tool_call_started", ToolCallStartedPayload>

@@ -8,7 +8,7 @@ import type {
   ToolPreparation
 } from "../types";
 
-import type { ShellExecutor } from "./shell/shell-executor";
+import type { ShellCommandExecutor } from "./shell/shell-executor";
 
 const shellToolSchema = z.object({
   command: z.string().min(1),
@@ -44,7 +44,7 @@ export class ShellTool implements ToolDefinition<typeof shellToolSchema, Prepare
   };
 
   public constructor(
-    private readonly executor: ShellExecutor,
+    private readonly executor: ShellCommandExecutor,
     private readonly sandboxService: SandboxService
   ) {}
 

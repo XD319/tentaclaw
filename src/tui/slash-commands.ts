@@ -6,6 +6,7 @@ export const SLASH_COMMANDS = [
   "/help",
   "/history",
   "/new",
+  "/rollback ",
   "/sessions",
   "/sandbox",
   "/status",

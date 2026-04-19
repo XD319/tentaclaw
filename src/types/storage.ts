@@ -51,6 +51,8 @@ export interface ArtifactRepository {
     toolCallId: string | null,
     artifacts: ArtifactDraft[]
   ): ArtifactRecord[];
+  findById(artifactId: string): ArtifactRecord | null;
+  findLatestByType(artifactType: string): ArtifactRecord | null;
   listByTaskId(taskId: string): ArtifactRecord[];
 }
 

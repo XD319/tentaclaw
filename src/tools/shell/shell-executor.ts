@@ -26,7 +26,11 @@ export interface ShellExecutorConfig {
   shellArgs?: string[];
 }
 
-export class ShellExecutor {
+export interface ShellCommandExecutor {
+  execute(request: ShellExecutionRequest): Promise<ShellExecutionResult>;
+}
+
+export class ShellExecutor implements ShellCommandExecutor {
   private readonly maxOutputBytes: number;
   private readonly shellExecutable: string;
   private readonly shellArgs: string[];
