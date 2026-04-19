@@ -148,19 +148,20 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
         activeTaskIdRef.current = result.task.taskId;
         appendNewTraceEvents(result.task.taskId);
 
-        if (result.error !== undefined) {
+        const runError = result.error;
+        if (runError !== undefined) {
           setMessages((current) => [
             ...current,
             {
-              code: result.error.code,
+              code: runError.code,
               id: `error:${result.task.taskId}:${Date.now()}`,
               kind: "error",
-              message: result.error.message,
+              message: runError.message,
               source: "runtime",
               timestamp: new Date().toISOString()
             }
           ]);
-          setStatusLine(`failed: ${result.error.code}`);
+          setStatusLine(`failed: ${runError.code}`);
           return;
         }
 
@@ -234,7 +235,7 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
             {
               id: `agent:${result.task.taskId}:${Date.now()}`,
               kind: "agent",
-              text: result.output,
+              text: result.output ?? "",
               timestamp: new Date().toISOString()
             }
           ]);

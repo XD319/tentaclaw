@@ -141,13 +141,14 @@ export function useTextInput(options: UseTextInputOptions): TextInputController 
       return;
     }
 
-    if (key.home) {
+    const navKey = key as { end?: boolean; home?: boolean };
+    if (navKey.home === true) {
       setCursorIndex(getLineStartIndex(value, cursorIndex));
       preferredColumnRef.current = null;
       return;
     }
 
-    if (key.end) {
+    if (navKey.end === true) {
       setCursorIndex(getLineEndIndex(value, cursorIndex));
       preferredColumnRef.current = null;
       return;
