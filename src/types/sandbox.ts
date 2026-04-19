@@ -7,6 +7,7 @@ export interface SandboxFileAccessPlan extends JsonObject {
   requestedPath: string;
   resolvedPath: string;
   pathScope: PathScope;
+  withinExtraWriteRoot?: boolean;
 }
 
 export interface SandboxShellPlan extends JsonObject {
@@ -33,3 +34,18 @@ export type SandboxExecutionPlan =
   | SandboxFileAccessPlan
   | SandboxShellPlan
   | SandboxWebPlan;
+
+export type SandboxMode = "local" | "docker";
+
+export interface SandboxProfile extends JsonObject {
+  mode: SandboxMode;
+  workspaceRoot: string;
+  readRoots: string[];
+  writeRoots: string[];
+  dockerImage: string | null;
+  network: "disabled" | "controlled";
+  shellAllowlist: string[];
+  profileName: string | null;
+  configPath: string | null;
+  configSource: "defaults" | "env" | "file" | "cli";
+}

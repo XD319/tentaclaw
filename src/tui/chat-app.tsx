@@ -106,7 +106,7 @@ export function ChatTuiApp({
       if (text === "/help") {
         controller.addSystemMessage(
           [
-            "Commands: /help /clear /new /stop /title <name> /history /status /cost /context /diff /sessions",
+            "Commands: /help /clear /new /stop /title <name> /history /status /sandbox /cost /context /diff /sessions",
             "Shortcuts: Enter send · Alt+Enter / Ctrl+J newline · Ctrl+Shift+V paste · Tab slash-complete · Ctrl+P/N history · Ctrl+T activity · PageUp/Down scroll · Ctrl+G top",
             "Session files: .auto-talon/sessions/<id>.json · resume: agent tui --resume <id>",
             "Token pricing estimate: AGENT_TOKEN_PRICE_IN_PER_M / AGENT_TOKEN_PRICE_OUT_PER_M (optional)",
@@ -191,6 +191,8 @@ export function ChatTuiApp({
           `session: ${sessionTitle}`,
           `session_id: ${sessionId}`,
           `cwd: ${cwd}`,
+          `sandbox_mode: ${config.sandbox.mode}`,
+          `write_roots: ${config.sandbox.writeRoots.join(", ")}`,
           `model: ${config.provider.model ?? config.provider.name}`,
           `provider: ${config.provider.name}`,
           `reviewer: ${reviewerId}`,
@@ -206,6 +208,21 @@ export function ChatTuiApp({
           `context_pct: ${controller.tokenHud.contextPercent} est_cost_usd: ${controller.tokenHud.estimatedCostUsd.toFixed(4)}`
         ];
         controller.addSystemMessage(lines.join("\n"));
+        return true;
+      }
+
+      if (text === "/sandbox") {
+        const sandbox = config.sandbox;
+        controller.addSystemMessage(
+          [
+            `sandbox_mode: ${sandbox.mode}`,
+            `sandbox_profile: ${sandbox.profileName ?? "(default)"}`,
+            `sandbox_source: ${sandbox.configSource}`,
+            `workspace: ${sandbox.workspaceRoot}`,
+            `write_roots: ${sandbox.writeRoots.join(", ")}`,
+            `read_roots: ${sandbox.readRoots.join(", ")}`
+          ].join("\n")
+        );
         return true;
       }
 
@@ -227,6 +244,7 @@ export function ChatTuiApp({
       collapseActivities,
       config.provider.model,
       config.provider.name,
+      config.sandbox,
       config.tokenBudget,
       config.workspaceRoot,
       controller,
@@ -296,6 +314,7 @@ export function ChatTuiApp({
           "/history",
           "/new",
           "/sessions",
+          "/sandbox",
           "/status",
           "/stop",
           "/title "

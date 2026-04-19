@@ -1,4 +1,5 @@
-import { join, resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { delimiter, join, resolve } from "node:path";
 
 import { ApprovalService } from "../approvals/approval-service";
 import { AuditService } from "../audit/audit-service";
@@ -18,7 +19,14 @@ import {
 import { SandboxService } from "../sandbox/sandbox-service";
 import { StorageManager } from "../storage/database";
 import { TraceService } from "../tracing/trace-service";
-import type { LocalPolicyConfig, Provider, RuntimeRunOptions, TokenBudget } from "../types";
+import type {
+  LocalPolicyConfig,
+  Provider,
+  RuntimeRunOptions,
+  SandboxMode,
+  SandboxProfile,
+  TokenBudget
+} from "../types";
 import { FileReadTool, FileWriteTool, ShellTool, ToolOrchestrator, WebFetchTool } from "../tools";
 import { ShellExecutor } from "../tools/shell/shell-executor";
 
@@ -34,13 +42,21 @@ export interface AppConfig {
   defaultTimeoutMs: number;
   provider: ResolvedProviderConfig;
   runtimeVersion: string;
+  sandbox: SandboxProfile;
   tokenBudget: TokenBudget;
   workspaceRoot: string;
 }
 
-export function resolveAppConfig(cwd = process.cwd()): AppConfig {
+export interface ResolveAppConfigOptions {
+  sandboxMode?: SandboxMode;
+  sandboxProfile?: string;
+  writeRoots?: string[];
+}
+
+export function resolveAppConfig(cwd = process.cwd(), options: ResolveAppConfigOptions = {}): AppConfig {
   const workspaceRoot = resolve(process.env.AGENT_WORKSPACE_ROOT ?? cwd);
   const provider = resolveProviderConfig(workspaceRoot);
+  const sandbox = resolveSandboxProfile(workspaceRoot, options);
 
   return {
     approvalTtlMs: 5 * 60_000,
@@ -53,6 +69,7 @@ export function resolveAppConfig(cwd = process.cwd()): AppConfig {
     defaultTimeoutMs: 30_000,
     provider,
     runtimeVersion: "phase5",
+    sandbox,
     tokenBudget: {
       inputLimit: 8_000,
       outputLimit: 2_000,
@@ -82,15 +99,26 @@ export interface CreateApplicationOptions {
   policyConfig?: LocalPolicyConfig;
   provider?: Provider;
   providerCatalog?: ProviderCatalogEntry[];
+  sandbox?: ResolveAppConfigOptions;
 }
 
 export function createApplication(
   cwd = process.cwd(),
   options: CreateApplicationOptions = {}
 ): AppRuntimeHandle {
+  const resolvedConfig = resolveAppConfig(cwd, options.sandbox);
+  const configuredWorkspaceRoot = options.config?.workspaceRoot ?? resolvedConfig.workspaceRoot;
+  const resolvedSandbox =
+    configuredWorkspaceRoot === resolvedConfig.workspaceRoot
+      ? resolvedConfig.sandbox
+      : resolveSandboxProfile(configuredWorkspaceRoot, options.sandbox ?? {});
   const config = {
-    ...resolveAppConfig(cwd),
-    ...options.config
+    ...resolvedConfig,
+    ...options.config,
+    sandbox: {
+      ...resolvedSandbox,
+      ...options.config?.sandbox
+    }
   };
   const provider =
     options.provider === undefined
@@ -111,8 +139,10 @@ export function createApplication(
   const sandboxService = new SandboxService({
     allowedEnvKeys: ["CI", "FORCE_COLOR", "NODE_ENV", "NO_COLOR"],
     allowedFetchHosts: config.allowedFetchHosts,
+    readRoots: config.sandbox.readRoots,
     maxShellTimeoutMs: 30_000,
-    workspaceRoot: config.workspaceRoot
+    workspaceRoot: config.workspaceRoot,
+    writeRoots: config.sandbox.writeRoots
   });
   const toolOrchestrator = new ToolOrchestrator({
     approvalService,
@@ -188,6 +218,108 @@ export function createApplication(
     },
     service
   };
+}
+
+interface SandboxConfigFile {
+  defaultProfile?: string;
+  profiles?: Record<string, Partial<SandboxProfile>>;
+}
+
+function resolveSandboxProfile(
+  workspaceRoot: string,
+  options: ResolveAppConfigOptions
+): SandboxProfile {
+  const configPath = join(workspaceRoot, ".auto-talon", "sandbox.config.json");
+  const fileConfig = loadSandboxConfigFile(configPath);
+  const profileName =
+    options.sandboxProfile ??
+    process.env.AGENT_SANDBOX_PROFILE ??
+    fileConfig.defaultProfile ??
+    null;
+  const fileProfile =
+    profileName !== null && fileConfig.profiles !== undefined
+      ? fileConfig.profiles[profileName]
+      : undefined;
+  const envWriteRoots = splitRootList(process.env.AGENT_WRITE_ROOTS);
+  const cliWriteRoots = options.writeRoots ?? [];
+  const mode =
+    options.sandboxMode ??
+    parseSandboxMode(process.env.AGENT_SANDBOX_MODE) ??
+    fileProfile?.mode ??
+    "local";
+  const writeRoots = normalizeRootList([
+    workspaceRoot,
+    ...(fileProfile?.writeRoots ?? []),
+    ...envWriteRoots,
+    ...cliWriteRoots
+  ]);
+
+  return {
+    configPath: existsSync(configPath) ? configPath : null,
+    configSource:
+      options.sandboxMode !== undefined || options.sandboxProfile !== undefined || cliWriteRoots.length > 0
+        ? "cli"
+        : process.env.AGENT_SANDBOX_MODE !== undefined ||
+            process.env.AGENT_SANDBOX_PROFILE !== undefined ||
+            process.env.AGENT_WRITE_ROOTS !== undefined ||
+            process.env.AGENT_DOCKER_IMAGE !== undefined
+          ? "env"
+          : fileProfile !== undefined
+            ? "file"
+            : "defaults",
+    dockerImage:
+      process.env.AGENT_DOCKER_IMAGE ??
+      fileProfile?.dockerImage ??
+      null,
+    mode,
+    network: fileProfile?.network === "controlled" ? "controlled" : "disabled",
+    profileName,
+    readRoots: normalizeRootList([
+      workspaceRoot,
+      ...(fileProfile?.readRoots ?? []),
+      ...writeRoots
+    ]),
+    shellAllowlist: fileProfile?.shellAllowlist ?? [],
+    workspaceRoot,
+    writeRoots
+  };
+}
+
+function loadSandboxConfigFile(configPath: string): SandboxConfigFile {
+  if (!existsSync(configPath)) {
+    return {};
+  }
+
+  const content = readFileSync(configPath, "utf8").trim();
+  if (content.length === 0) {
+    return {};
+  }
+
+  return JSON.parse(content) as SandboxConfigFile;
+}
+
+function splitRootList(value: string | undefined): string[] {
+  if (value === undefined || value.trim().length === 0) {
+    return [];
+  }
+
+  return value
+    .split(delimiter)
+    .flatMap((entry) => entry.split(","))
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function normalizeRootList(paths: string[]): string[] {
+  return [...new Set(paths.map((entry) => resolve(entry)))];
+}
+
+function parseSandboxMode(value: string | undefined): SandboxMode | undefined {
+  if (value === "local" || value === "docker") {
+    return value;
+  }
+
+  return undefined;
 }
 
 export function createDefaultRunOptions(

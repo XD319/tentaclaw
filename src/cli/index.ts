@@ -4,7 +4,7 @@ import { Command } from "commander";
 import { startLocalWebhookGateway } from "../gateway";
 import { replayTaskById, runBetaReadinessCheck, runEvalReport } from "../diagnostics";
 import type { SupportedProviderName } from "../providers";
-import { createApplication, createDefaultRunOptions } from "../runtime";
+import { createApplication, createDefaultRunOptions, type ResolveAppConfigOptions } from "../runtime";
 import { formatSmokeSuiteReport, runSmokeSuite } from "../testing";
 import { startDashboardTui, startTui } from "../tui";
 
@@ -37,11 +37,16 @@ async function main(): Promise<void> {
     .command("run")
     .argument("<task>", "Task prompt to execute")
     .option("--cwd <path>", "Working directory", process.cwd())
+    .option("--write-root <path>", "Additional writable root (repeatable)", collectOption, [])
+    .option("--sandbox-profile <name>", "Sandbox profile from .auto-talon/sandbox.config.json")
+    .option("--sandbox-mode <mode>", "Sandbox mode: local | docker")
     .option("--profile <profile>", "Agent profile", "executor")
     .option("--max-iterations <number>", "Maximum loop iterations")
     .option("--timeout-ms <number>", "Task timeout in milliseconds")
-    .action(async (task: string, commandOptions: { cwd: string; profile: string; maxIterations?: string; timeoutMs?: string }) => {
-      const handle = createApplication(commandOptions.cwd);
+    .action(async (task: string, commandOptions: RunCommandOptions) => {
+      const handle = createApplication(commandOptions.cwd, {
+        sandbox: resolveSandboxCliOptions(commandOptions)
+      });
       try {
         const runOptions = createDefaultRunOptions(task, commandOptions.cwd, handle.config);
         runOptions.agentProfileId = commandOptions.profile as typeof runOptions.agentProfileId;
@@ -188,6 +193,30 @@ async function main(): Promise<void> {
       const handle = createApplication(process.cwd());
       try {
         console.log(formatDoctorReport(await handle.service.configDoctor()));
+      } finally {
+        handle.close();
+      }
+    });
+
+  program
+    .command("sandbox")
+    .description("Show the resolved sandbox configuration")
+    .option("--cwd <path>", "Workspace path", process.cwd())
+    .option("--write-root <path>", "Additional writable root (repeatable)", collectOption, [])
+    .option("--sandbox-profile <name>", "Sandbox profile from .auto-talon/sandbox.config.json")
+    .option("--sandbox-mode <mode>", "Sandbox mode: local | docker")
+    .action((commandOptions: SandboxCommandOptions) => {
+      const handle = createApplication(commandOptions.cwd, {
+        sandbox: resolveSandboxCliOptions(commandOptions)
+      });
+      try {
+        const sandbox = handle.config.sandbox;
+        console.log(`Mode: ${sandbox.mode}`);
+        console.log(`Profile: ${sandbox.profileName ?? "(default)"}`);
+        console.log(`Source: ${sandbox.configSource}`);
+        console.log(`Workspace: ${sandbox.workspaceRoot}`);
+        console.log(`Write Roots: ${sandbox.writeRoots.join(", ")}`);
+        console.log(`Read Roots: ${sandbox.readRoots.join(", ")}`);
       } finally {
         handle.close();
       }
@@ -472,10 +501,14 @@ async function main(): Promise<void> {
     .command("tui")
     .description("Open chat-style terminal UI")
     .option("--cwd <path>", "Workspace path", process.cwd())
+    .option("--write-root <path>", "Additional writable root (repeatable)", collectOption, [])
+    .option("--sandbox-profile <name>", "Sandbox profile from .auto-talon/sandbox.config.json")
+    .option("--sandbox-mode <mode>", "Sandbox mode: local | docker")
     .option("--resume <sessionId>", "Resume a saved session from .auto-talon/sessions")
-    .action(async (commandOptions: { cwd: string; resume?: string }) => {
+    .action(async (commandOptions: SandboxCommandOptions & { resume?: string }) => {
       await startTui({
         cwd: commandOptions.cwd,
+        sandbox: resolveSandboxCliOptions(commandOptions),
         ...(commandOptions.resume !== undefined ? { resumeSessionId: commandOptions.resume } : {})
       });
     });
@@ -484,8 +517,11 @@ async function main(): Promise<void> {
     .command("dashboard")
     .description("Open dashboard terminal UI for observability and approvals")
     .option("--cwd <path>", "Workspace path", process.cwd())
-    .action(async (commandOptions: { cwd: string }) => {
-      await startDashboardTui(commandOptions.cwd);
+    .option("--write-root <path>", "Additional writable root (repeatable)", collectOption, [])
+    .option("--sandbox-profile <name>", "Sandbox profile from .auto-talon/sandbox.config.json")
+    .option("--sandbox-mode <mode>", "Sandbox mode: local | docker")
+    .action(async (commandOptions: SandboxCommandOptions) => {
+      await startDashboardTui(commandOptions.cwd, resolveSandboxCliOptions(commandOptions));
     });
 
   program
@@ -493,10 +529,15 @@ async function main(): Promise<void> {
     .description("Run minimal external gateway adapters")
     .command("serve-webhook")
     .option("--cwd <path>", "Workspace path", process.cwd())
+    .option("--write-root <path>", "Additional writable root (repeatable)", collectOption, [])
+    .option("--sandbox-profile <name>", "Sandbox profile from .auto-talon/sandbox.config.json")
+    .option("--sandbox-mode <mode>", "Sandbox mode: local | docker")
     .option("--host <host>", "Host to bind", "127.0.0.1")
     .option("--port <port>", "Port to bind", "7070")
-    .action(async (commandOptions: { cwd: string; host: string; port: string }) => {
-      const handle = createApplication(commandOptions.cwd);
+    .action(async (commandOptions: SandboxCommandOptions & { host: string; port: string }) => {
+      const handle = createApplication(commandOptions.cwd, {
+        sandbox: resolveSandboxCliOptions(commandOptions)
+      });
       const gatewayHandle = await startLocalWebhookGateway(handle, {
         host: commandOptions.host,
         port: Number(commandOptions.port)
@@ -529,6 +570,33 @@ void main().catch((error: unknown) => {
   console.error(`Fatal CLI error: ${message}`);
   process.exitCode = 1;
 });
+
+interface SandboxCommandOptions {
+  cwd: string;
+  sandboxMode?: string;
+  sandboxProfile?: string;
+  writeRoot?: string[];
+}
+
+interface RunCommandOptions extends SandboxCommandOptions {
+  maxIterations?: string;
+  profile: string;
+  timeoutMs?: string;
+}
+
+function collectOption(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
+
+function resolveSandboxCliOptions(options: SandboxCommandOptions): ResolveAppConfigOptions {
+  return {
+    ...(options.sandboxMode === "local" || options.sandboxMode === "docker"
+      ? { sandboxMode: options.sandboxMode }
+      : {}),
+    ...(options.sandboxProfile !== undefined ? { sandboxProfile: options.sandboxProfile } : {}),
+    ...(options.writeRoot !== undefined ? { writeRoots: options.writeRoot } : {})
+  };
+}
 
 function resolveScopeKey(
   scope: "session" | "project" | "agent",

@@ -248,6 +248,81 @@ describe("Phase 2 governance runtime", () => {
     }
   });
 
+  it("allows explicit workspace-external write roots through approval", async () => {
+    const workspaceRoot = await createTempWorkspace();
+    const writeRoot = await fs.mkdtemp(join(tmpdir(), "auto-talon-write-root-"));
+    tempPaths.push(writeRoot);
+    const targetPath = join(writeRoot, "external.txt");
+    const handle = createApplication(workspaceRoot, {
+      config: {
+        databasePath: join(workspaceRoot, "runtime.db")
+      },
+      provider: new ScriptedProvider((input) => {
+        const toolMessages = input.messages.filter((message) => message.role === "tool");
+
+        if (toolMessages.length === 0) {
+          return {
+            kind: "tool_calls",
+            message: "Create an external write-root file.",
+            toolCalls: [
+              {
+                input: {
+                  action: "write_file",
+                  content: "external-write-root",
+                  path: targetPath
+                },
+                reason: "Persist the external file after review.",
+                toolCallId: "external-write",
+                toolName: "file_write"
+              }
+            ],
+            usage: {
+              inputTokens: 10,
+              outputTokens: 5
+            }
+          };
+        }
+
+        return {
+          kind: "final",
+          message: "external file created",
+          usage: {
+            inputTokens: 4,
+            outputTokens: 4
+          }
+        };
+      }),
+      sandbox: {
+        writeRoots: [writeRoot]
+      }
+    });
+
+    try {
+      const initial = await handle.service.runTask(
+        createDefaultRunOptions("create external governed file", workspaceRoot, handle.config)
+      );
+
+      expect(initial.error).toBeUndefined();
+      expect(initial.task.status).toBe("waiting_approval");
+
+      const approval = handle.service.listPendingApprovals()[0];
+      expect(approval?.reason).toContain(`Resolved path: ${targetPath}`);
+      expect(approval?.reason).toContain("Path scope: write_root");
+      expect(approval?.reason).toContain("Extra write root: yes");
+
+      const resumed = await handle.service.resolveApproval(
+        approval?.approvalId ?? "",
+        "allow",
+        "reviewer-write-root"
+      );
+
+      expect(resumed.task.status).toBe("succeeded");
+      expect(await fs.readFile(targetPath, "utf8")).toBe("external-write-root");
+    } finally {
+      handle.close();
+    }
+  });
+
   it("records audit logs for policy, approvals, sandbox, and file writes", async () => {
     const workspaceRoot = await createTempWorkspace();
     const handle = createApprovalWriteApplication(workspaceRoot);

@@ -1,4 +1,5 @@
-import { resolve } from "node:path";
+import { homedir } from "node:os";
+import { basename, dirname, parse, resolve } from "node:path";
 
 import { AppError } from "../runtime/app-error";
 import type {
@@ -11,6 +12,7 @@ import type {
 
 export interface SandboxConfig {
   workspaceRoot: string;
+  readRoots?: string[];
   writeRoots?: string[];
   allowedEnvKeys?: string[];
   allowedShellCommands?: string[];
@@ -37,6 +39,7 @@ export interface PreparedShellInput {
 
 export class SandboxService {
   private readonly workspaceRoot: string;
+  private readonly readRoots: string[];
   private readonly writeRoots: string[];
   private readonly allowedEnvKeys: Set<string>;
   private readonly allowedShellCommands: Set<string>;
@@ -46,7 +49,11 @@ export class SandboxService {
 
   public constructor(config: SandboxConfig) {
     this.workspaceRoot = resolve(config.workspaceRoot);
-    this.writeRoots = (config.writeRoots ?? [this.workspaceRoot]).map((root) => resolve(root));
+    this.readRoots = normalizeRoots([this.workspaceRoot, ...(config.readRoots ?? [])]);
+    this.writeRoots = normalizeRoots(config.writeRoots ?? [this.workspaceRoot]);
+    for (const root of this.writeRoots) {
+      this.assertSafeRoot(root, "write root");
+    }
     this.allowedEnvKeys = new Set(config.allowedEnvKeys ?? []);
     this.allowedShellCommands = new Set(
       (config.allowedShellCommands ?? [
@@ -95,7 +102,7 @@ export class SandboxService {
     if (pathScope === "outside_workspace") {
       throw this.createSandboxError(
         "sandbox_denied",
-        `Read path ${resolvedPath} is outside the workspace root.`,
+        `Read path ${resolvedPath} is outside the workspace root and configured read roots. Use --cwd for the workspace or add an explicit read root in .auto-talon/sandbox.config.json.`,
         {
           kind: "file",
           operation: "read",
@@ -111,7 +118,8 @@ export class SandboxService {
       operation: "read",
       pathScope,
       requestedPath: candidatePath,
-      resolvedPath
+      resolvedPath,
+      withinExtraWriteRoot: this.isWithinExtraWriteRoot(resolvedPath)
     };
   }
 
@@ -121,7 +129,7 @@ export class SandboxService {
     if (pathScope === "outside_workspace" || pathScope === "outside_write_root") {
       throw this.createSandboxError(
         "sandbox_denied",
-        `Write path ${resolvedPath} is outside the configured write roots.`,
+        `Write path ${resolvedPath} is outside the configured write roots. Use --cwd for workspace writes or pass --write-root ${dirname(resolvedPath)} to authorize this location explicitly.`,
         {
           kind: "file",
           operation: "write",
@@ -137,7 +145,8 @@ export class SandboxService {
       operation: "write",
       pathScope,
       requestedPath: candidatePath,
-      resolvedPath
+      resolvedPath,
+      withinExtraWriteRoot: this.isWithinExtraWriteRoot(resolvedPath)
     };
   }
 
@@ -297,19 +306,23 @@ export class SandboxService {
   }
 
   private classifyReadScope(resolvedPath: string): PathScope {
-    return this.isWithinRoot(resolvedPath, this.workspaceRoot)
-      ? "workspace"
+    if (this.isWithinRoot(resolvedPath, this.workspaceRoot)) {
+      return "workspace";
+    }
+
+    return this.readRoots.some((root) => this.isWithinRoot(resolvedPath, root))
+      ? "write_root"
       : "outside_workspace";
   }
 
   private classifyWriteScope(resolvedPath: string): PathScope {
-    if (!this.isWithinRoot(resolvedPath, this.workspaceRoot)) {
-      return "outside_workspace";
+    if (this.writeRoots.some((root) => this.isWithinRoot(resolvedPath, root))) {
+      return "write_root";
     }
 
-    return this.writeRoots.some((root) => this.isWithinRoot(resolvedPath, root))
-      ? "write_root"
-      : "outside_write_root";
+    return this.isWithinRoot(resolvedPath, this.workspaceRoot)
+      ? "outside_write_root"
+      : "outside_workspace";
   }
 
   private isWithinRoot(candidatePath: string, rootPath: string): boolean {
@@ -336,6 +349,57 @@ export class SandboxService {
       message
     });
   }
+
+  private isWithinExtraWriteRoot(resolvedPath: string): boolean {
+    return this.writeRoots
+      .filter((root) => !this.isWithinRoot(root, this.workspaceRoot))
+      .some((root) => this.isWithinRoot(resolvedPath, root));
+  }
+
+  private assertSafeRoot(rootPath: string, label: string): void {
+    const parsed = parse(rootPath);
+    const normalized = rootPath.toLowerCase();
+    const homeRoot = resolve(homedir()).toLowerCase();
+
+    if (normalized === parsed.root.toLowerCase()) {
+      throw this.createSandboxError("sandbox_denied", `Refusing to use filesystem root as ${label}: ${rootPath}`, {
+        kind: "file",
+        rootPath
+      });
+    }
+
+    if (normalized === homeRoot) {
+      throw this.createSandboxError("sandbox_denied", `Refusing to use the user home directory as ${label}: ${rootPath}`, {
+        kind: "file",
+        rootPath
+      });
+    }
+
+    if (basename(rootPath).toLowerCase() === ".git" || normalized.includes("\\.git\\") || normalized.includes("/.git/")) {
+      throw this.createSandboxError("sandbox_denied", `Refusing to use a Git metadata directory as ${label}: ${rootPath}`, {
+        kind: "file",
+        rootPath
+      });
+    }
+
+    if (basename(rootPath).toLowerCase() === ".ssh" || normalized.includes("\\.ssh\\") || normalized.includes("/.ssh/")) {
+      throw this.createSandboxError("sandbox_denied", `Refusing to use an SSH key directory as ${label}: ${rootPath}`, {
+        kind: "file",
+        rootPath
+      });
+    }
+
+    if (normalized.endsWith("/var/run/docker.sock") || normalized.endsWith("\\var\\run\\docker.sock")) {
+      throw this.createSandboxError("sandbox_denied", `Refusing to use the Docker socket as ${label}: ${rootPath}`, {
+        kind: "file",
+        rootPath
+      });
+    }
+  }
+}
+
+function normalizeRoots(roots: string[]): string[] {
+  return [...new Set(roots.map((root) => resolve(root)))];
 }
 
 function extractExecutable(command: string): string {

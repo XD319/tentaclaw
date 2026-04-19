@@ -206,7 +206,7 @@ export class ToolOrchestrator {
     if (policyDecision.effect === "allow_with_approval") {
       const approvalRequest = this.dependencies.approvalService.ensureApprovalRequest({
         policyDecisionId: policyDecision.decisionId,
-        reason: request.reason,
+        reason: formatApprovalReason(request.reason, prepared.sandbox),
         requesterUserId: context.userId,
         taskId: request.taskId,
         toolCallId: toolCall.toolCallId,
@@ -602,6 +602,20 @@ export class ToolOrchestrator {
 
     throw error;
   }
+}
+
+function formatApprovalReason(reason: string, sandboxPlan: SandboxExecutionPlan): string {
+  if (sandboxPlan.kind !== "file") {
+    return reason;
+  }
+
+  return [
+    reason,
+    `Resolved path: ${sandboxPlan.resolvedPath}`,
+    `Operation: ${sandboxPlan.operation}`,
+    `Path scope: ${sandboxPlan.pathScope}`,
+    `Extra write root: ${sandboxPlan.withinExtraWriteRoot === true ? "yes" : "no"}`
+  ].join("\n");
 }
 
 function getSandboxTarget(sandboxPlan: SandboxExecutionPlan): string {

@@ -3,6 +3,7 @@ import React from "react";
 import { render } from "ink";
 
 import { createApplication } from "../runtime";
+import type { ResolveAppConfigOptions } from "../runtime";
 
 import { ChatTuiApp } from "./chat-app";
 import { AgentTuiApp } from "./dashboard-app";
@@ -13,11 +14,14 @@ import { RuntimeDashboardQueryService } from "./view-models/runtime-dashboard";
 export interface StartTuiOptions {
   cwd?: string;
   resumeSessionId?: string;
+  sandbox?: ResolveAppConfigOptions;
 }
 
 export async function startTui(options: StartTuiOptions = {}): Promise<void> {
   const cwd = options.cwd ?? process.cwd();
-  const handle = createApplication(cwd);
+  const handle = createApplication(cwd, {
+    ...(options.sandbox !== undefined ? { sandbox: options.sandbox } : {})
+  });
   try {
     const sessionId = options.resumeSessionId ?? randomUUID();
     let initialMessages = undefined;
@@ -54,8 +58,13 @@ export async function startTui(options: StartTuiOptions = {}): Promise<void> {
   }
 }
 
-export async function startDashboardTui(cwd = process.cwd()): Promise<void> {
-  const handle = createApplication(cwd);
+export async function startDashboardTui(
+  cwd = process.cwd(),
+  sandbox?: ResolveAppConfigOptions
+): Promise<void> {
+  const handle = createApplication(cwd, {
+    ...(sandbox !== undefined ? { sandbox } : {})
+  });
   try {
     const app = render(
       React.createElement(AgentTuiApp, {
