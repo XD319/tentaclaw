@@ -1,10 +1,26 @@
 import React from "react";
-import { Text } from "ink";
+import { Box, Text } from "ink";
 
-export function AgentMessage({ text }: { text: string }): React.ReactElement {
+import { MarkdownContent } from "./markdown-content";
+
+export function AgentMessage({
+  streaming,
+  text
+}: {
+  streaming?: boolean;
+  text: string;
+}): React.ReactElement {
   return (
-    <Text color="cyan" wrap="wrap">
-      Agent: {text}
-    </Text>
+    <Box flexDirection="column">
+      <Text bold color="cyan">
+        Agent:
+      </Text>
+      <MarkdownContent source={text} />
+      {streaming === true ? (
+        <Text color="gray" dimColor>
+          ▌
+        </Text>
+      ) : null}
+    </Box>
   );
 }

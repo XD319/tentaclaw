@@ -48,6 +48,8 @@ interface ExecutionLoopState {
   memoryContext: ContextFragment[];
   memoryRecall: MemoryRecallResult | null;
   messages: ConversationMessage[];
+  /** Present only when the CLI/TUI requests streamed assistant text. */
+  onAssistantTextDelta?: (delta: string) => void;
   pendingToolCalls: ProviderToolCall[];
   task: TaskRecord;
   tokenBudget: TokenBudget;
@@ -137,6 +139,9 @@ export class ExecutionKernel {
         memoryContext: memoryContext.fragments,
         memoryRecall: memoryContext.recall,
         messages,
+        ...(options.onAssistantTextDelta !== undefined
+          ? { onAssistantTextDelta: options.onAssistantTextDelta }
+          : {}),
         pendingToolCalls: [],
         task,
         tokenBudget: options.tokenBudget
@@ -278,7 +283,13 @@ export class ExecutionKernel {
           state.memoryRecall === null
             ? []
             : buildFilteredContextDebugFragments(state.memoryRecall.decisions);
-        const providerInput = assembled.providerInput;
+        const providerInput =
+          state.onAssistantTextDelta === undefined
+            ? assembled.providerInput
+            : {
+                ...assembled.providerInput,
+                onTextDelta: state.onAssistantTextDelta
+              };
 
         this.dependencies.traceService.record({
           actor: "runtime.context",

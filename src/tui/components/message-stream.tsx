@@ -29,7 +29,13 @@ export function MessageStream({ collapseActivities, messages }: MessageStreamPro
           return <UserMessage key={message.id} text={message.text} />;
         }
         if (message.kind === "agent") {
-          return <AgentMessage key={message.id} text={message.text} />;
+          return (
+            <AgentMessage
+              key={message.id}
+              {...(message.streaming === true ? { streaming: true } : {})}
+              text={message.text}
+            />
+          );
         }
         if (message.kind === "activity") {
           return <ToolActivity key={message.id} text={message.text} />;

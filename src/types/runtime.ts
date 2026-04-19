@@ -49,6 +49,8 @@ export interface ProviderRequest {
   memoryContext: ContextFragment[];
   tokenBudget: TokenBudget;
   signal: AbortSignal;
+  /** When set, OpenAI-compatible providers may stream assistant text deltas before the final response. */
+  onTextDelta?: (delta: string) => void;
 }
 
 export type ProviderInput = ProviderRequest;
@@ -196,6 +198,8 @@ export interface RuntimeRunOptions {
   tokenBudget: TokenBudget;
   signal?: AbortSignal;
   metadata?: JsonObject;
+  /** Forwarded to the provider as `onTextDelta` when supported (e.g. OpenAI-compatible streaming). */
+  onAssistantTextDelta?: (delta: string) => void;
 }
 
 export interface RuntimeRunResult {

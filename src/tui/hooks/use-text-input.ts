@@ -4,6 +4,7 @@ import { useInput } from "ink";
 export interface UseTextInputOptions {
   onHistoryNext: () => string | null;
   onHistoryPrevious: () => string | null;
+  onImagePasteAttempt?: () => void;
   onInterruptRequest: () => void;
   onToggleActivityCollapse: () => void;
   onScrollEnd: () => void;
@@ -15,6 +16,8 @@ export interface UseTextInputOptions {
   onScrollPageDown: () => void;
   onScrollPageUp: () => void;
   onSubmit: (text: string) => void;
+  /** Return replacement value, or null to leave input unchanged. */
+  onTabComplete?: (value: string) => string | null;
 }
 
 export interface TextInputController {
@@ -59,6 +62,18 @@ export function useTextInput(options: UseTextInputOptions): TextInputController 
       return;
     }
 
+    if (key.tab) {
+      if (options.onTabComplete !== undefined) {
+        const completed = options.onTabComplete(value);
+        if (completed !== null) {
+          setValue(completed);
+          setCursorIndex(completed.length);
+          preferredColumnRef.current = null;
+        }
+      }
+      return;
+    }
+
     if (key.pageUp) {
       options.onScrollPageUp();
       return;
@@ -66,6 +81,24 @@ export function useTextInput(options: UseTextInputOptions): TextInputController 
 
     if (key.pageDown) {
       options.onScrollPageDown();
+      return;
+    }
+
+    if (key.ctrl && key.shift && input === "v") {
+      void import("clipboardy")
+        .then(async (m) => {
+          const clip = await m.default.read();
+          setValue((current) => insertAt(current, cursorIndex, clip));
+          setCursorIndex((current) => current + clip.length);
+          preferredColumnRef.current = null;
+        })
+        .catch(() => {});
+      return;
+    }
+
+    const keyAlt = key as { alt?: boolean };
+    if (keyAlt.alt === true && input === "v" && options.onImagePasteAttempt !== undefined) {
+      options.onImagePasteAttempt();
       return;
     }
 

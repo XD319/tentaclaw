@@ -111,6 +111,10 @@ export class OpenAiCompatibleProvider implements Provider {
   public async generate(input: ProviderRequest): Promise<ProviderResponse> {
     this.ensureConfigured();
 
+    if (input.onTextDelta !== undefined) {
+      return this.generateStreaming(input);
+    }
+
     const response = await this.requestJson<OpenAiCompatibleResponse>(
       "chat/completions",
       {
@@ -167,6 +171,209 @@ export class OpenAiCompatibleProvider implements Provider {
       metadata,
       usage
     };
+  }
+
+  private async generateStreaming(input: ProviderRequest): Promise<ProviderResponse> {
+    this.ensureConfigured();
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, this.config.timeoutMs);
+
+    try {
+      const init: RequestInit = {
+        body: JSON.stringify({
+          messages: input.messages.map((message) => toProviderMessage(message)),
+          model: this.model,
+          stream: true,
+          tools: input.availableTools.map((tool) => toProviderTool(tool) as unknown as JsonObject)
+        }),
+        headers: {
+          Authorization: `Bearer ${this.config.apiKey}`,
+          "Content-Type": "application/json"
+        },
+        method: "POST",
+        signal: composeAbortSignal(input.signal, controller.signal)
+      };
+
+      const response = await fetch(
+        new URL("chat/completions", ensureTrailingSlash(this.resolveBaseUrl())).toString(),
+        init
+      );
+
+      if (!response.ok) {
+        const text = await response.text();
+        let parsed: { error?: { message?: string; type?: string; code?: string } } = {};
+        try {
+          parsed = text.length === 0 ? {} : (JSON.parse(text) as typeof parsed);
+        } catch {
+          parsed = {};
+        }
+        const category = classifyProviderHttpError(response.status);
+        throw createProviderError({
+          category,
+          details: { status: response.status },
+          message:
+            extractErrorMessage(parsed) ??
+            `${this.describe().displayName} request failed with status ${response.status}.`,
+          modelName: this.model,
+          providerName: this.name,
+          retriable: isRetriableCategory(category),
+          statusCode: response.status,
+          summary: summarizeProviderCategory(category)
+        });
+      }
+
+      const reader = response.body?.getReader();
+      if (reader === undefined) {
+        throw createProviderError({
+          category: "unknown_error",
+          message: "Streaming response had no body.",
+          modelName: this.model,
+          providerName: this.name,
+          retriable: false,
+          summary: "The provider returned an empty streaming body."
+        });
+      }
+
+      let buffer = "";
+      let fullContent = "";
+      const toolParts = new Map<number, { arguments: string; id: string; name: string }>();
+      let lastUsage: ProviderUsage | undefined;
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.length === 0 || !trimmed.startsWith("data:")) {
+            continue;
+          }
+          const dataStr = trimmed.slice("data:".length).trim();
+          if (dataStr === "[DONE]") {
+            continue;
+          }
+          let chunk: Record<string, unknown>;
+          try {
+            chunk = JSON.parse(dataStr) as Record<string, unknown>;
+          } catch {
+            continue;
+          }
+          const usageRaw = chunk["usage"] as
+            | {
+                completion_tokens?: number;
+                prompt_tokens?: number;
+                total_tokens?: number;
+              }
+            | undefined;
+          if (usageRaw !== undefined) {
+            lastUsage = toUsage(usageRaw);
+          }
+
+          const choices = chunk["choices"] as Array<{ delta?: Record<string, unknown> }> | undefined;
+          const choice = choices?.[0];
+          const delta = choice?.delta as
+            | {
+                content?: string;
+                tool_calls?: Array<{
+                  function?: { arguments?: string; name?: string };
+                  id?: string;
+                  index?: number;
+                }>;
+              }
+            | undefined;
+          if (delta === undefined) {
+            continue;
+          }
+
+          if (typeof delta.content === "string" && delta.content.length > 0) {
+            fullContent += delta.content;
+            input.onTextDelta?.(delta.content);
+          }
+
+          if (Array.isArray(delta.tool_calls)) {
+            for (const tc of delta.tool_calls) {
+              const idx = typeof tc.index === "number" ? tc.index : 0;
+              const cur = toolParts.get(idx) ?? { arguments: "", id: "", name: "" };
+              if (typeof tc.id === "string" && tc.id.length > 0) {
+                cur.id = tc.id;
+              }
+              if (typeof tc.function?.name === "string" && tc.function.name.length > 0) {
+                cur.name = tc.function.name;
+              }
+              if (typeof tc.function?.arguments === "string") {
+                cur.arguments += tc.function.arguments;
+              }
+              toolParts.set(idx, cur);
+            }
+          }
+        }
+      }
+
+      const usage =
+        lastUsage ??
+        ({
+          inputTokens: 0,
+          outputTokens: 0
+        } as ProviderUsage);
+
+      const metadata = {
+        finishReason: null,
+        modelName: this.model,
+        providerName: this.name,
+        raw: { streamed: true },
+        requestId: null,
+        retryCount: 0
+      };
+
+      const sorted = [...toolParts.entries()].sort(([a], [b]) => a - b);
+      const toolCalls: ProviderToolCall[] = [];
+      for (const [, parts] of sorted) {
+        if (parts.name.length === 0 || parts.id.length === 0) {
+          continue;
+        }
+        toolCalls.push({
+          input: parseToolArguments(parts.arguments.length > 0 ? parts.arguments : "{}", this.name),
+          raw: {
+            arguments: parts.arguments,
+            streamed: true
+          },
+          reason: `Provider ${parts.name} tool call requested.`,
+          toolCallId: parts.id,
+          toolName: parts.name
+        });
+      }
+
+      const content = fullContent.trim();
+
+      if (toolCalls.length > 0) {
+        return {
+          kind: "tool_calls",
+          message: content.length > 0 ? content : "Provider requested tool execution.",
+          metadata,
+          toolCalls,
+          usage
+        };
+      }
+
+      return {
+        kind: "final",
+        message: content,
+        metadata,
+        usage
+      };
+    } catch (error) {
+      throw toProviderError(error, this.name, this.model);
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   public async testConnection(signal?: AbortSignal): Promise<ProviderHealthCheck> {

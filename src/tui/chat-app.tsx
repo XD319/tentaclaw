@@ -1,37 +1,76 @@
+import { randomUUID } from "node:crypto";
 import React from "react";
-import { Box, useApp } from "ink";
+import { Box, Text, useApp } from "ink";
 
 import type { AgentApplicationService, AppConfig } from "../runtime";
+import type { ChatMessage } from "./view-models/chat-messages";
 import { Banner } from "./components/banner";
 import { InputBox } from "./components/input-box";
 import { MessageStream } from "./components/message-stream";
 import { Spinner } from "./components/spinner";
 import { StatusBar } from "./components/status-bar";
 import { useChatController } from "./hooks/use-chat-controller";
+import { useMouseScrollUnsupportedNotice } from "./hooks/use-mouse-scroll";
 import { useScrollback } from "./hooks/use-scrollback";
 import { useTextInput } from "./hooks/use-text-input";
+import { listSessionIds, saveSession } from "./session-store";
+import { completeSlashCommand } from "./slash-commands";
 
 export interface ChatTuiAppProps {
   config: AppConfig;
   cwd: string;
+  initialMessages?: ChatMessage[];
+  initialSessionId: string;
   reviewerId: string;
   service: AgentApplicationService;
 }
 
-export function ChatTuiApp({ config, cwd, reviewerId, service }: ChatTuiAppProps): React.ReactElement {
+export function ChatTuiApp({
+  config,
+  cwd,
+  initialMessages,
+  initialSessionId,
+  reviewerId,
+  service
+}: ChatTuiAppProps): React.ReactElement {
+  useMouseScrollUnsupportedNotice();
   const { exit } = useApp();
   const [collapseActivities, setCollapseActivities] = React.useState(false);
   const [sessionTitle, setSessionTitle] = React.useState("chat");
+  const [sessionId, setSessionId] = React.useState(initialSessionId);
   const historyRef = React.useRef<string[]>([]);
   const historyIndexRef = React.useRef<number | null>(null);
+  const saveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const controller = useChatController({
     config,
     cwd,
+    ...(initialMessages !== undefined ? { initialMessages } : {}),
     reviewerId,
     service
   });
+
   const scrollback = useScrollback(controller.messages.length, 10);
   const visibleMessages = controller.messages.slice(scrollback.startIndex, scrollback.endIndexExclusive);
+
+  React.useEffect(() => {
+    if (saveTimerRef.current !== null) {
+      clearTimeout(saveTimerRef.current);
+    }
+    saveTimerRef.current = setTimeout(() => {
+      void saveSession(config.workspaceRoot, {
+        id: sessionId,
+        messages: controller.messages,
+        updatedAt: new Date().toISOString()
+      });
+    }, 600);
+    return () => {
+      if (saveTimerRef.current !== null) {
+        clearTimeout(saveTimerRef.current);
+      }
+    };
+  }, [config.workspaceRoot, controller.messages, sessionId]);
+
   const navigateHistoryPrevious = React.useCallback((): string | null => {
     const history = historyRef.current;
     if (history.length === 0) {
@@ -66,7 +105,13 @@ export function ChatTuiApp({ config, cwd, reviewerId, service }: ChatTuiAppProps
 
       if (text === "/help") {
         controller.addSystemMessage(
-          "Commands: /help /clear /new /stop /title <name> /history /status. Shortcuts: Enter send, Alt+Enter/Ctrl+J newline, Ctrl+P/N history, Ctrl+T activity, PageUp/PageDown scroll, Ctrl+G top."
+          [
+            "Commands: /help /clear /new /stop /title <name> /history /status /cost /context /diff /sessions",
+            "Shortcuts: Enter send · Alt+Enter / Ctrl+J newline · Ctrl+Shift+V paste · Tab slash-complete · Ctrl+P/N history · Ctrl+T activity · PageUp/Down scroll · Ctrl+G top",
+            "Session files: .auto-talon/sessions/<id>.json · resume: agent tui --resume <id>",
+            "Token pricing estimate: AGENT_TOKEN_PRICE_IN_PER_M / AGENT_TOKEN_PRICE_OUT_PER_M (optional)",
+            "Mouse wheel is not wired with Ink 3; use PageUp/PageDown for transcript scroll."
+          ].join("\n")
         );
         return true;
       }
@@ -79,7 +124,9 @@ export function ChatTuiApp({ config, cwd, reviewerId, service }: ChatTuiAppProps
       if (text === "/new") {
         controller.clearConversation();
         setSessionTitle("chat");
-        controller.addSystemMessage("Started a new chat session.");
+        const nextId = randomUUID();
+        setSessionId(nextId);
+        controller.addSystemMessage(`Started a new chat session. id=${nextId}`);
         return true;
       }
 
@@ -106,9 +153,43 @@ export function ChatTuiApp({ config, cwd, reviewerId, service }: ChatTuiAppProps
         return true;
       }
 
+      if (text === "/cost") {
+        const u = controller.tokenHud;
+        controller.addSystemMessage(
+          `Session token estimate (provider telemetry): in=${u.inputTokens} out=${u.outputTokens} · ~$${u.estimatedCostUsd.toFixed(4)}`
+        );
+        return true;
+      }
+
+      if (text === "/context") {
+        const b = config.tokenBudget;
+        controller.addSystemMessage(
+          [
+            `Context vs configured budget: ${controller.tokenHud.contextPercent}% of ~${b.inputLimit + b.outputLimit} tokens (inputLimit=${b.inputLimit} outputLimit=${b.outputLimit}).`,
+            `Used (telemetry): input=${controller.tokenHud.inputTokens} output=${controller.tokenHud.outputTokens}`
+          ].join("\n")
+        );
+        return true;
+      }
+
+      if (text === "/diff") {
+        controller.addSystemMessage(controller.formatDiffSummary());
+        return true;
+      }
+
+      if (text === "/sessions") {
+        void listSessionIds(config.workspaceRoot).then((ids) => {
+          controller.addSystemMessage(
+            ids.length > 0 ? `Saved session ids (newest files under .auto-talon/sessions):\n${ids.join("\n")}` : "No saved sessions yet."
+          );
+        });
+        return true;
+      }
+
       if (text === "/status") {
         const lines = [
           `session: ${sessionTitle}`,
+          `session_id: ${sessionId}`,
           `cwd: ${cwd}`,
           `model: ${config.provider.model ?? config.provider.name}`,
           `provider: ${config.provider.name}`,
@@ -120,7 +201,9 @@ export function ChatTuiApp({ config, cwd, reviewerId, service }: ChatTuiAppProps
           `elapsed: ${controller.runDurationLabel}`,
           `ui_scroll: ${scrollback.atBottom ? "follow" : "paused"}`,
           `activity_feed: ${collapseActivities ? "collapsed" : "expanded"}`,
-          `message_rows: ${controller.messages.length}`
+          `message_rows: ${controller.messages.length}`,
+          `tokens_in: ${controller.tokenHud.inputTokens} tokens_out: ${controller.tokenHud.outputTokens}`,
+          `context_pct: ${controller.tokenHud.contextPercent} est_cost_usd: ${controller.tokenHud.estimatedCostUsd.toFixed(4)}`
         ];
         controller.addSystemMessage(lines.join("\n"));
         return true;
@@ -140,7 +223,19 @@ export function ChatTuiApp({ config, cwd, reviewerId, service }: ChatTuiAppProps
       controller.addSystemMessage(`Unknown command: ${text}. Try /help.`);
       return true;
     },
-    [config.provider.model, config.provider.name, controller, cwd, reviewerId, scrollback.atBottom, collapseActivities, sessionTitle]
+    [
+      collapseActivities,
+      config.provider.model,
+      config.provider.name,
+      config.tokenBudget,
+      config.workspaceRoot,
+      controller,
+      cwd,
+      reviewerId,
+      scrollback.atBottom,
+      sessionId,
+      sessionTitle
+    ]
   );
 
   const textInput = useTextInput({
@@ -148,6 +243,11 @@ export function ChatTuiApp({ config, cwd, reviewerId, service }: ChatTuiAppProps
     hasPendingApproval: controller.hasPendingApproval,
     onHistoryNext: navigateHistoryNext,
     onHistoryPrevious: navigateHistoryPrevious,
+    onImagePasteAttempt: () => {
+      controller.addSystemMessage(
+        "Image paste (Alt+V): multimodal clipboard is not wired to providers in this build. Add an image path or use a vision-capable flow outside the TUI."
+      );
+    },
     onInterruptRequest: () => {
       const requested = controller.requestInterrupt();
       if (requested) {
@@ -166,28 +266,51 @@ export function ChatTuiApp({ config, cwd, reviewerId, service }: ChatTuiAppProps
     onScrollPageUp: scrollback.scrollPageUp,
     onScrollEnd: scrollback.scrollToEnd,
     onScrollStart: scrollback.scrollToStart,
+    onTabComplete: completeSlashCommand,
     onToggleActivityCollapse: () => {
       setCollapseActivities((current) => !current);
     },
-    onSubmit: (text) => {
-      historyRef.current.push(text);
+    onSubmit: (value) => {
+      historyRef.current.push(value);
       if (historyRef.current.length > 200) {
         historyRef.current = historyRef.current.slice(-200);
       }
       historyIndexRef.current = null;
 
-      if (handleSlashCommand(text)) {
+      if (handleSlashCommand(value)) {
         return;
       }
-      void controller.submitPrompt(text);
+      void controller.submitPrompt(value);
       scrollback.scrollToBottom();
     }
   });
 
+  const slashHints =
+    textInput.value.startsWith("/") && textInput.value.length > 0
+      ? [
+          "/clear",
+          "/context",
+          "/cost",
+          "/diff",
+          "/help",
+          "/history",
+          "/new",
+          "/sessions",
+          "/status",
+          "/stop",
+          "/title "
+        ].filter((command) => command.startsWith(textInput.value))
+      : [];
+
   return (
     <Box flexDirection="column">
-      <Banner cwd={cwd} modelLabel={config.provider.model ?? config.provider.name} sessionTitle={sessionTitle} />
-      <Box marginTop={1} flexDirection="column">
+      <Banner
+        cwd={cwd}
+        modelLabel={config.provider.model ?? config.provider.name}
+        sessionId={sessionId}
+        sessionTitle={sessionTitle}
+      />
+      <Box flexDirection="column" marginTop={1}>
         <MessageStream collapseActivities={collapseActivities} messages={visibleMessages} />
       </Box>
       <Box marginTop={1}>
@@ -195,18 +318,30 @@ export function ChatTuiApp({ config, cwd, reviewerId, service }: ChatTuiAppProps
       </Box>
       <StatusBar
         atBottom={scrollback.atBottom}
+        contextPercent={controller.tokenHud.contextPercent}
+        estimatedCostUsd={controller.tokenHud.estimatedCostUsd}
+        inputTokens={controller.tokenHud.inputTokens}
+        outputTokens={controller.tokenHud.outputTokens}
         pendingApprovals={controller.summary.pendingApprovals}
         runDurationLabel={controller.runDurationLabel}
         runningTasks={controller.summary.runningTasks}
         statusLine={controller.statusLine}
         taskCount={controller.summary.tasks}
       />
+      {slashHints.length > 0 ? (
+        <Box flexDirection="column" marginTop={1}>
+          <Text color="gray" dimColor>
+            Slash hints ({slashHints.length})
+          </Text>
+          {slashHints.slice(0, 8).map((line) => (
+            <Text key={line} color="gray">
+              {line}
+            </Text>
+          ))}
+        </Box>
+      ) : null}
       <Box marginTop={1}>
-        <InputBox
-          busy={controller.busy}
-          lines={textInput.lines}
-          value={textInput.value}
-        />
+        <InputBox busy={controller.busy} lines={textInput.lines} value={textInput.value} />
       </Box>
     </Box>
   );

@@ -13,8 +13,27 @@ export interface ScrollbackController {
 }
 
 export function useScrollback(totalItems: number, reservedRows = 8): ScrollbackController {
-  const rows = typeof process.stdout.rows === "number" ? process.stdout.rows : 24;
-  const pageSize = Math.max(rows - reservedRows, 4);
+  const [terminalRows, setTerminalRows] = React.useState(() =>
+    typeof process.stdout.rows === "number" ? process.stdout.rows : 24
+  );
+
+  React.useEffect(() => {
+    const onResize = (): void => {
+      setTerminalRows(typeof process.stdout.rows === "number" ? process.stdout.rows : 24);
+    };
+    if (process.stdout.isTTY) {
+      process.stdout.on("resize", onResize);
+      process.on("SIGWINCH", onResize);
+    }
+    return () => {
+      if (process.stdout.isTTY) {
+        process.stdout.off("resize", onResize);
+        process.off("SIGWINCH", onResize);
+      }
+    };
+  }, []);
+
+  const pageSize = Math.max(terminalRows - reservedRows, 4);
   const [endIndexExclusive, setEndIndexExclusive] = React.useState(totalItems);
 
   React.useEffect(() => {

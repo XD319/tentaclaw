@@ -472,8 +472,12 @@ async function main(): Promise<void> {
     .command("tui")
     .description("Open chat-style terminal UI")
     .option("--cwd <path>", "Workspace path", process.cwd())
-    .action(async (commandOptions: { cwd: string }) => {
-      await startTui(commandOptions.cwd);
+    .option("--resume <sessionId>", "Resume a saved session from .auto-talon/sessions")
+    .action(async (commandOptions: { cwd: string; resume?: string }) => {
+      await startTui({
+        cwd: commandOptions.cwd,
+        ...(commandOptions.resume !== undefined ? { resumeSessionId: commandOptions.resume } : {})
+      });
     });
 
   program

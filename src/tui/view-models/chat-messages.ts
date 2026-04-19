@@ -10,6 +10,7 @@ export type ChatMessage =
   | {
       kind: "agent";
       id: string;
+      streaming?: boolean;
       text: string;
       timestamp: string;
     }

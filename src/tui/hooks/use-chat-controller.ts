@@ -5,6 +5,10 @@ import React from "react";
 import { createDefaultRunOptions, type AgentApplicationService, type AppConfig } from "../../runtime";
 import type { ApprovalRecord, TaskRecord, ToolCallRecord, TraceEvent } from "../../types";
 import {
+  contextWindowPercent,
+  estimateSessionCostUsd
+} from "../token-pricing";
+import {
   resolveApprovalMessage,
   toApprovalMessage,
   toTraceActivityMessage,
@@ -14,8 +18,22 @@ import {
 export interface UseChatControllerOptions {
   config: AppConfig;
   cwd: string;
+  initialMessages?: ChatMessage[];
   reviewerId: string;
   service: AgentApplicationService;
+}
+
+export interface TokenHud {
+  contextPercent: number;
+  estimatedCostUsd: number;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+export interface FileEditEntry {
+  at: string;
+  path: string;
+  taskId: string;
 }
 
 export interface ChatController {
@@ -23,6 +41,8 @@ export interface ChatController {
   addSystemMessage: (text: string) => void;
   busy: boolean;
   clearConversation: () => void;
+  fileEdits: FileEditEntry[];
+  formatDiffSummary: () => string;
   hasPendingApproval: boolean;
   messages: ChatMessage[];
   pendingApproval: ApprovalRecord | null;
@@ -36,17 +56,20 @@ export interface ChatController {
     runningTasks: number;
     tasks: number;
   };
+  tokenHud: TokenHud;
 }
 
+const welcomeMessage: ChatMessage = {
+  id: "system:welcome",
+  kind: "system",
+  text: "Welcome to auto-talon chat mode. Type a prompt and press Enter to send.",
+  timestamp: new Date().toISOString()
+};
+
 export function useChatController(input: UseChatControllerOptions): ChatController {
-  const [messages, setMessages] = React.useState<ChatMessage[]>(() => [
-    {
-      id: "system:welcome",
-      kind: "system",
-      text: "Welcome to auto-talon chat mode. Type a prompt and press Enter to send.",
-      timestamp: new Date().toISOString()
-    }
-  ]);
+  const [messages, setMessages] = React.useState<ChatMessage[]>(() =>
+    input.initialMessages !== undefined && input.initialMessages.length > 0 ? input.initialMessages : [welcomeMessage]
+  );
   const [busy, setBusy] = React.useState(false);
   const [statusLine, setStatusLine] = React.useState("idle");
   const [summary, setSummary] = React.useState({
@@ -56,6 +79,13 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
   });
   const [pendingApproval, setPendingApproval] = React.useState<ApprovalRecord | null>(null);
   const [activeTaskId, setActiveTaskId] = React.useState<string | null>(null);
+  const [fileEdits, setFileEdits] = React.useState<FileEditEntry[]>([]);
+  const [tokenHud, setTokenHud] = React.useState<TokenHud>({
+    contextPercent: 0,
+    estimatedCostUsd: 0,
+    inputTokens: 0,
+    outputTokens: 0
+  });
 
   const startedAtRef = React.useRef(Date.now());
   const activeAbortControllerRef = React.useRef<AbortController | null>(null);
@@ -63,11 +93,27 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
   const lastSequenceByTaskRef = React.useRef<Record<string, number>>({});
   const seenApprovalMessageIdsRef = React.useRef<Set<string>>(new Set());
   const activeTraceUnsubscribeRef = React.useRef<(() => void) | null>(null);
+  const streamingAgentIdRef = React.useRef<string | null>(null);
+  const streamedAnyRef = React.useRef(false);
 
   const stopTraceSubscription = React.useCallback(() => {
     activeTraceUnsubscribeRef.current?.();
     activeTraceUnsubscribeRef.current = null;
   }, []);
+
+  const recordFileWrite = React.useCallback(
+    (taskId: string, toolCallId: string, at: string) => {
+      const detail = input.service.showTask(taskId);
+      const toolCall = detail.toolCalls.find((item) => item.toolCallId === toolCallId);
+      if (toolCall === undefined || toolCall.toolName !== "file_write") {
+        return;
+      }
+      const pathValue = toolCall.input["path"];
+      const path = typeof pathValue === "string" ? pathValue : "?";
+      setFileEdits((current) => [...current, { at, path, taskId }]);
+    },
+    [input.service]
+  );
 
   const startTraceSubscription = React.useCallback(
     (taskId: string) => {
@@ -78,9 +124,12 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
           event.sequence
         );
         setMessages((current) => mergeTraceMessages(current, [event]));
+        if (event.eventType === "tool_call_finished" && event.payload.toolName === "file_write") {
+          recordFileWrite(event.taskId, event.payload.toolCallId, event.timestamp);
+        }
       });
     },
-    [input.service, stopTraceSubscription]
+    [input.service, recordFileWrite, stopTraceSubscription]
   );
 
   const addSystemMessage = React.useCallback((text: string) => {
@@ -96,17 +145,11 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
   }, []);
 
   const clearConversation = React.useCallback(() => {
-    setMessages([
-      {
-        id: "system:welcome",
-        kind: "system",
-        text: "Welcome to auto-talon chat mode. Type a prompt and press Enter to send.",
-        timestamp: new Date().toISOString()
-      }
-    ]);
+    setMessages([welcomeMessage]);
     setStatusLine("conversation cleared");
     setActiveTaskId(null);
     activeTaskIdRef.current = null;
+    setFileEdits([]);
     stopTraceSubscription();
   }, [stopTraceSubscription]);
 
@@ -124,10 +167,31 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
         approvals.find((item) => item.taskId === activeTaskIdRef.current) ?? approvals[0] ?? null;
       setPendingApproval(activeApproval);
       setMessages((current) => appendApprovalMessages(current, approvals, input.service, seenApprovalMessageIdsRef.current));
+
+      const stats = input.service.providerStats();
+      if (stats !== null) {
+        const usage = stats.tokenUsage;
+        const pct = contextWindowPercent(
+          usage,
+          input.config.tokenBudget.inputLimit,
+          input.config.tokenBudget.outputLimit
+        );
+        const cost = estimateSessionCostUsd(
+          stats.providerName,
+          input.config.provider.model ?? undefined,
+          usage
+        );
+        setTokenHud({
+          contextPercent: pct,
+          estimatedCostUsd: cost,
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens
+        });
+      }
     } catch (error) {
       setStatusLine(error instanceof Error ? `refresh failed: ${error.message}` : "refresh failed");
     }
-  }, [input.service]);
+  }, [input.config.provider.model, input.config.tokenBudget.inputLimit, input.config.tokenBudget.outputLimit, input.service]);
 
   React.useEffect(() => {
     refresh();
@@ -150,9 +214,21 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
       }
       lastSequenceByTaskRef.current[taskId] = unseen.at(-1)?.sequence ?? lastSeen;
       setMessages((current) => mergeTraceMessages(current, unseen));
+      for (const event of unseen) {
+        if (event.eventType === "tool_call_finished" && event.payload.toolName === "file_write") {
+          recordFileWrite(event.taskId, event.payload.toolCallId, event.timestamp);
+        }
+      }
     },
-    [input.service]
+    [input.service, recordFileWrite]
   );
+
+  const removeStreamingMessage = React.useCallback((id: string | null) => {
+    if (id === null) {
+      return;
+    }
+    setMessages((current) => current.filter((message) => message.id !== id));
+  }, []);
 
   const submitPrompt = React.useCallback(
     async (text: string) => {
@@ -162,6 +238,9 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
       activeTaskIdRef.current = taskId;
       setActiveTaskId(taskId);
       startTraceSubscription(taskId);
+      streamedAnyRef.current = false;
+      streamingAgentIdRef.current = `agent:stream:${taskId}`;
+
       setMessages((current) => [
         ...current,
         {
@@ -178,13 +257,53 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
         activeAbortControllerRef.current = abortController;
         runOptions.signal = abortController.signal;
         runOptions.taskId = taskId;
+        runOptions.onAssistantTextDelta = (delta: string) => {
+          streamedAnyRef.current = true;
+          const streamId = streamingAgentIdRef.current;
+          if (streamId === null) {
+            return;
+          }
+          setMessages((current) => {
+            const index = current.findIndex((message) => message.id === streamId);
+            if (index === -1) {
+              return [
+                ...current,
+                {
+                  id: streamId,
+                  kind: "agent" as const,
+                  streaming: true,
+                  text: delta,
+                  timestamp: new Date().toISOString()
+                }
+              ];
+            }
+            const message = current[index];
+            if (message === undefined || message.kind !== "agent") {
+              return current;
+            }
+            const next = [...current];
+            next[index] = {
+              ...message,
+              streaming: true,
+              text: `${message.text}${delta}`
+            } satisfies Extract<ChatMessage, { kind: "agent" }>;
+            return next;
+          });
+        };
+
         const result = await input.service.runTask(runOptions);
         activeTaskIdRef.current = result.task.taskId;
         setActiveTaskId(result.task.taskId);
         appendNewTraceEvents(result.task.taskId);
 
+        const streamId = streamingAgentIdRef.current;
+        streamingAgentIdRef.current = null;
+
         const runError = result.error;
         if (runError !== undefined) {
+          if (streamedAnyRef.current) {
+            removeStreamingMessage(streamId);
+          }
           setMessages((current) => [
             ...current,
             {
@@ -201,17 +320,35 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
         }
 
         const messageText = result.output ?? summarizeTaskResult(result.task);
-        setMessages((current) => [
-          ...current,
-          {
-            id: `agent:${result.task.taskId}:${Date.now()}`,
-            kind: "agent",
-            text: messageText,
-            timestamp: new Date().toISOString()
-          }
-        ]);
+        if (streamedAnyRef.current && streamId !== null) {
+          setMessages((current) =>
+            current.map((message) => {
+              if (message.id !== streamId || message.kind !== "agent") {
+                return message;
+              }
+              return { ...message, streaming: false, text: messageText };
+            })
+          );
+        } else {
+          removeStreamingMessage(streamId);
+          setMessages((current) => [
+            ...current,
+            {
+              id: `agent:${result.task.taskId}:${Date.now()}`,
+              kind: "agent",
+              text: messageText,
+              timestamp: new Date().toISOString()
+            }
+          ]);
+        }
         setStatusLine(result.task.status);
       } catch (error) {
+        const streamId = streamingAgentIdRef.current;
+        streamingAgentIdRef.current = null;
+        if (streamedAnyRef.current) {
+          removeStreamingMessage(streamId);
+        }
+
         const aborted =
           error instanceof Error &&
           (error.name === "AbortError" ||
@@ -238,6 +375,8 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
         setStatusLine("failed to run task");
       } finally {
         activeAbortControllerRef.current = null;
+        streamingAgentIdRef.current = null;
+        streamedAnyRef.current = false;
         setBusy(false);
         stopTraceSubscription();
         refresh();
@@ -250,10 +389,19 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
       input.cwd,
       input.service,
       refresh,
+      removeStreamingMessage,
       startTraceSubscription,
       stopTraceSubscription
     ]
   );
+
+  const formatDiffSummary = React.useCallback((): string => {
+    if (fileEdits.length === 0) {
+      return "No file_write operations recorded in this session yet.";
+    }
+    const lines = fileEdits.map((entry, index) => `${String(index + 1).padStart(2, " ")}. ${entry.path} (task ${entry.taskId.slice(0, 8)})`);
+    return `Session file changes (${fileEdits.length}):\n${lines.join("\n")}`;
+  }, [fileEdits]);
 
   const resolvePendingApproval = React.useCallback(
     async (action: "allow" | "deny") => {
@@ -333,6 +481,8 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     addSystemMessage,
     busy,
     clearConversation,
+    fileEdits,
+    formatDiffSummary,
     hasPendingApproval: pendingApproval !== null,
     messages,
     pendingApproval,
@@ -341,7 +491,8 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     runDurationLabel,
     statusLine,
     submitPrompt,
-    summary
+    summary,
+    tokenHud
   };
 }
 
