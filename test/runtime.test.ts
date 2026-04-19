@@ -31,6 +31,72 @@ afterEach(async () => {
 });
 
 describe("Phase 2 governance runtime", () => {
+  it("uses a caller-provided task id when supplied", async () => {
+    const workspaceRoot = await createTempWorkspace();
+    const handle = createApplication(workspaceRoot, {
+      config: {
+        databasePath: join(workspaceRoot, "runtime.db")
+      },
+      provider: new ScriptedProvider(() => ({
+        kind: "final",
+        message: "fixed id complete",
+        usage: {
+          inputTokens: 1,
+          outputTokens: 1
+        }
+      }))
+    });
+
+    try {
+      const options = createDefaultRunOptions("use fixed id", workspaceRoot, handle.config);
+      options.taskId = "task-fixed-for-tui";
+
+      const result = await handle.service.runTask(options);
+
+      expect(result.task.taskId).toBe("task-fixed-for-tui");
+      expect(handle.service.showTask("task-fixed-for-tui").task?.taskId).toBe("task-fixed-for-tui");
+    } finally {
+      handle.close();
+    }
+  });
+
+  it("filters trace subscriptions by task id", async () => {
+    const workspaceRoot = await createTempWorkspace();
+    const handle = createApplication(workspaceRoot, {
+      config: {
+        databasePath: join(workspaceRoot, "runtime.db")
+      },
+      provider: new ScriptedProvider(() => ({
+        kind: "final",
+        message: "subscription complete",
+        usage: {
+          inputTokens: 1,
+          outputTokens: 1
+        }
+      }))
+    });
+    const receivedEventTaskIds: string[] = [];
+    const unsubscribe = handle.service.subscribeToTaskTrace("task-subscription-target", (event) => {
+      receivedEventTaskIds.push(event.taskId);
+    });
+
+    try {
+      const targetOptions = createDefaultRunOptions("target", workspaceRoot, handle.config);
+      targetOptions.taskId = "task-subscription-target";
+      await handle.service.runTask(targetOptions);
+
+      const otherOptions = createDefaultRunOptions("other", workspaceRoot, handle.config);
+      otherOptions.taskId = "task-subscription-other";
+      await handle.service.runTask(otherOptions);
+
+      expect(receivedEventTaskIds.length).toBeGreaterThan(0);
+      expect(new Set(receivedEventTaskIds)).toEqual(new Set(["task-subscription-target"]));
+    } finally {
+      unsubscribe();
+      handle.close();
+    }
+  });
+
   it("routes high-risk tools into approval before execution", async () => {
     const workspaceRoot = await createTempWorkspace();
     const handle = createApprovalWriteApplication(workspaceRoot);

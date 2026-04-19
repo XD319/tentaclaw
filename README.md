@@ -109,7 +109,7 @@ Available endpoints:
 
 ## TUI Usage
 
-Start the Ink TUI from the same workspace database used by the CLI:
+Start the chat-style Ink TUI from the same workspace database used by the CLI:
 
 ```bash
 corepack pnpm dev:tui
@@ -117,9 +117,40 @@ corepack pnpm dev:tui
 corepack pnpm dev tui --cwd .
 ```
 
-The TUI polls runtime state on a short interval and also supports manual refresh.
+The chat TUI is the primary interactive surface. It submits prompts, streams runtime trace activity into the transcript, surfaces approval cards, and keeps CLI-created task state in the same `.auto-talon/agent-runtime.db` database.
 
 Keyboard controls:
+
+- `Enter`: send the current prompt
+- `Alt+Enter` / `Ctrl+J`: insert a newline
+- `Ctrl+C`: interrupt the running task, or exit when idle
+- `Ctrl+P` / `Ctrl+N`: navigate prompt history
+- `PageUp` / `PageDown`: scroll the transcript
+- `Ctrl+G`: jump to the top of the transcript
+- `Ctrl+T`: collapse or expand activity lines
+- `a`: approve the pending approval when the input is empty
+- `d`: deny the pending approval when the input is empty
+- `q`: quit when the input is empty
+
+Slash commands:
+
+- `/help`: show chat commands and shortcuts
+- `/clear`: clear the visible conversation without deleting persisted tasks
+- `/new`: start a fresh visible chat session
+- `/stop`: request interruption of the running task
+- `/title <name>`: set the chat session label in the banner
+- `/history`: show recent prompt history
+- `/status`: show session, provider, task, approval, and scroll state
+
+The dashboard remains available as a separate observability and approval surface:
+
+```bash
+corepack pnpm dev:dashboard
+# or
+corepack pnpm dev dashboard --cwd .
+```
+
+Dashboard controls:
 
 - `1-6`: jump to a panel
 - `Tab` / `Shift+Tab`: switch panels
@@ -129,21 +160,6 @@ Keyboard controls:
 - `d`: deny the selected approval
 - `r`: refresh immediately
 - `q`: quit
-
-Panels:
-
-- `tasks`
-  - task list, current status, current stage, recent events, final summary, base metadata
-- `approvals`
-  - pending approvals, risk level, source task, allow/deny actions
-- `diff`
-  - `file_write` artifacts with before/after previews, changed-line summary, simplified risk highlight
-- `trace`
-  - structured trace entries, key stages, tool call chain labels, retries, failures
-- `memory`
-  - recalled memory records with scope, source, confidence, status, and filter/downrank reasons
-- `errors`
-  - task failure reason, recent retry or interrupt reason, policy deny and sandbox reject signals
 
 ## CLI And TUI Responsibilities
 
@@ -487,7 +503,7 @@ This keeps reviewer behavior controlled without introducing multi-agent swarm lo
 - Approval TTL defaults to 5 minutes and is configurable through bootstrap config.
 - GLM integration currently targets the OpenAI-compatible chat completions flow and reserves a streaming interface, but end-to-end streaming delivery is not yet wired through the runtime loop.
 - Provider health checks rely on the provider `/models` endpoint when available; if an endpoint omits model listing, reachability can still pass while model availability remains unknown.
-- The current TUI is intentionally lightweight: it is a read-heavy dashboard with approval actions, not a full task authoring environment.
+- The current TUI is intentionally lightweight but interactive: chat mode is the primary task authoring surface, while dashboard mode remains focused on observation and approval review.
 - The local webhook adapter is intentionally small and is not a Slack/Telegram/Discord replacement.
 - Phase 5 focuses on extension boundaries first; full chat-platform and MCP integrations are deferred until the adapter contract is proven.
 - Diff inspection is summary-first. It highlights risky change shapes but does not yet implement a full unified diff viewer.

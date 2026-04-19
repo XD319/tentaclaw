@@ -75,7 +75,9 @@ export function useTextInput(options: UseTextInputOptions): TextInputController 
     }
 
     if (key.ctrl && input === "j") {
-      options.onScrollEnd();
+      setValue((current) => insertAt(current, cursorIndex, "\n"));
+      setCursorIndex((current) => current + 1);
+      preferredColumnRef.current = null;
       return;
     }
 
@@ -155,7 +157,11 @@ export function useTextInput(options: UseTextInputOptions): TextInputController 
     }
 
     if (key.return) {
-      if (metaPressedRef.current) {
+      if (metaPressedRef.current || key.meta) {
+        setValue((current) => insertAt(current, cursorIndex, "\n"));
+        setCursorIndex((current) => current + 1);
+        preferredColumnRef.current = null;
+      } else {
         const trimmed = value.trim();
         if (trimmed.length > 0 && !options.busy) {
           options.onSubmit(trimmed);
@@ -163,10 +169,6 @@ export function useTextInput(options: UseTextInputOptions): TextInputController 
           setCursorIndex(0);
           preferredColumnRef.current = null;
         }
-      } else {
-        setValue((current) => insertAt(current, cursorIndex, "\n"));
-        setCursorIndex((current) => current + 1);
-        preferredColumnRef.current = null;
       }
       metaPressedRef.current = false;
       return;
@@ -203,12 +205,20 @@ export function useTextInput(options: UseTextInputOptions): TextInputController 
       return;
     }
 
-    if (key.backspace || key.delete) {
+    if (key.backspace) {
       if (cursorIndex === 0) {
         return;
       }
-      setValue((current) => removeAt(current, cursorIndex - 1));
+      setValue((current) => deleteCharacterBefore(current, cursorIndex).value);
       setCursorIndex((current) => Math.max(0, current - 1));
+      preferredColumnRef.current = null;
+      return;
+    }
+
+    if (key.delete) {
+      const next = deleteCharacterAfter(value, cursorIndex);
+      setValue(next.value);
+      setCursorIndex(next.cursorIndex);
       preferredColumnRef.current = null;
       return;
     }
@@ -233,8 +243,32 @@ function insertAt(value: string, index: number, fragment: string): string {
   return `${value.slice(0, index)}${fragment}${value.slice(index)}`;
 }
 
-function removeAt(value: string, index: number): string {
-  return `${value.slice(0, index)}${value.slice(index + 1)}`;
+export function deleteCharacterBefore(
+  value: string,
+  cursorIndex: number
+): { value: string; cursorIndex: number } {
+  if (cursorIndex <= 0) {
+    return { cursorIndex: 0, value };
+  }
+
+  return {
+    cursorIndex: cursorIndex - 1,
+    value: `${value.slice(0, cursorIndex - 1)}${value.slice(cursorIndex)}`
+  };
+}
+
+export function deleteCharacterAfter(
+  value: string,
+  cursorIndex: number
+): { value: string; cursorIndex: number } {
+  if (cursorIndex >= value.length) {
+    return { cursorIndex, value };
+  }
+
+  return {
+    cursorIndex,
+    value: `${value.slice(0, cursorIndex)}${value.slice(cursorIndex + 1)}`
+  };
 }
 
 function buildLinesWithCursor(value: string, cursorIndex: number): string[] {

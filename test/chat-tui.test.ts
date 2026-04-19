@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { mergeTraceMessages } from "../src/tui/hooks/use-chat-controller";
 import {
+  deleteCharacterAfter,
+  deleteCharacterBefore,
   deletePreviousWord,
   moveCursorVertical
 } from "../src/tui/hooks/use-text-input";
@@ -91,6 +93,18 @@ describe("use-text-input helpers", () => {
     const result = deletePreviousWord("hello brave   ", "hello brave   ".length);
     expect(result.value).toBe("hello ");
     expect(result.cursorIndex).toBe("hello ".length);
+  });
+
+  it("deletes the character before the cursor for backspace", () => {
+    const result = deleteCharacterBefore("abc", 2);
+    expect(result.value).toBe("ac");
+    expect(result.cursorIndex).toBe(1);
+  });
+
+  it("deletes the character after the cursor for delete", () => {
+    const result = deleteCharacterAfter("abc", 1);
+    expect(result.value).toBe("ac");
+    expect(result.cursorIndex).toBe(1);
   });
 });
 

@@ -191,6 +191,7 @@ export interface RuntimeRunOptions {
   userId: string;
   agentProfileId: AgentProfileId;
   maxIterations: number;
+  taskId?: string;
   timeoutMs: number;
   tokenBudget: TokenBudget;
   signal?: AbortSignal;

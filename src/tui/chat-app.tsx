@@ -66,7 +66,7 @@ export function ChatTuiApp({ config, cwd, reviewerId, service }: ChatTuiAppProps
 
       if (text === "/help") {
         controller.addSystemMessage(
-          "Commands: /help /clear /new /stop /title <name> /history /status. Shortcuts: Ctrl+P/N prompt history, Ctrl+T activity, Ctrl+G/J scroll, Meta+Enter send."
+          "Commands: /help /clear /new /stop /title <name> /history /status. Shortcuts: Enter send, Alt+Enter/Ctrl+J newline, Ctrl+P/N history, Ctrl+T activity, PageUp/PageDown scroll, Ctrl+G top."
         );
         return true;
       }
@@ -204,7 +204,6 @@ export function ChatTuiApp({ config, cwd, reviewerId, service }: ChatTuiAppProps
       <Box marginTop={1}>
         <InputBox
           busy={controller.busy}
-          cursorIndex={textInput.cursorIndex}
           lines={textInput.lines}
           value={textInput.value}
         />

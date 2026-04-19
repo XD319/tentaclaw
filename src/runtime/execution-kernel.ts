@@ -59,7 +59,7 @@ export class ExecutionKernel {
   public constructor(private readonly dependencies: ExecutionKernelDependencies) {}
 
   public async run(options: RuntimeRunOptions): Promise<RuntimeRunResult> {
-    const taskId = randomUUID();
+    const taskId = options.taskId ?? randomUUID();
     let task = this.dependencies.taskRepository.create({
       agentProfileId: options.agentProfileId,
       cwd: options.cwd,

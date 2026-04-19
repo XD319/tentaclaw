@@ -14,7 +14,8 @@
     "build": "tsc -p tsconfig.json",
     "check": "npm run lint && npm test && npm run build",
     "dev": "tsx src/cli/index.ts",
-    "dev:tui": "tsx src/tui/index.ts",
+    "dev:tui": "tsx src/cli/index.ts tui",
+    "dev:dashboard": "tsx src/cli/index.ts dashboard",
     "lint": "eslint .",
     "test": "vitest run"
   },

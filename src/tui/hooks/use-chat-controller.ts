@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import React from "react";
 
 import { createDefaultRunOptions, type AgentApplicationService, type AppConfig } from "../../runtime";
@@ -41,7 +43,7 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     {
       id: "system:welcome",
       kind: "system",
-      text: "Welcome to auto-talon chat mode. Type a prompt and press Meta+Enter to send.",
+      text: "Welcome to auto-talon chat mode. Type a prompt and press Enter to send.",
       timestamp: new Date().toISOString()
     }
   ]);
@@ -60,6 +62,26 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
   const activeTaskIdRef = React.useRef<string | null>(null);
   const lastSequenceByTaskRef = React.useRef<Record<string, number>>({});
   const seenApprovalMessageIdsRef = React.useRef<Set<string>>(new Set());
+  const activeTraceUnsubscribeRef = React.useRef<(() => void) | null>(null);
+
+  const stopTraceSubscription = React.useCallback(() => {
+    activeTraceUnsubscribeRef.current?.();
+    activeTraceUnsubscribeRef.current = null;
+  }, []);
+
+  const startTraceSubscription = React.useCallback(
+    (taskId: string) => {
+      stopTraceSubscription();
+      activeTraceUnsubscribeRef.current = input.service.subscribeToTaskTrace(taskId, (event) => {
+        lastSequenceByTaskRef.current[taskId] = Math.max(
+          lastSequenceByTaskRef.current[taskId] ?? 0,
+          event.sequence
+        );
+        setMessages((current) => mergeTraceMessages(current, [event]));
+      });
+    },
+    [input.service, stopTraceSubscription]
+  );
 
   const addSystemMessage = React.useCallback((text: string) => {
     setMessages((current) => [
@@ -78,14 +100,15 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
       {
         id: "system:welcome",
         kind: "system",
-        text: "Welcome to auto-talon chat mode. Type a prompt and press Meta+Enter to send.",
+        text: "Welcome to auto-talon chat mode. Type a prompt and press Enter to send.",
         timestamp: new Date().toISOString()
       }
     ]);
     setStatusLine("conversation cleared");
     setActiveTaskId(null);
     activeTaskIdRef.current = null;
-  }, []);
+    stopTraceSubscription();
+  }, [stopTraceSubscription]);
 
   const refresh = React.useCallback(() => {
     try {
@@ -111,8 +134,9 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     const interval = setInterval(refresh, 1_000);
     return () => {
       clearInterval(interval);
+      stopTraceSubscription();
     };
-  }, [refresh]);
+  }, [refresh, stopTraceSubscription]);
 
   const runDurationLabel = formatDuration(Date.now() - startedAtRef.current);
 
@@ -134,6 +158,10 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     async (text: string) => {
       setBusy(true);
       setStatusLine("running");
+      const taskId = randomUUID();
+      activeTaskIdRef.current = taskId;
+      setActiveTaskId(taskId);
+      startTraceSubscription(taskId);
       setMessages((current) => [
         ...current,
         {
@@ -149,6 +177,7 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
         const abortController = new AbortController();
         activeAbortControllerRef.current = abortController;
         runOptions.signal = abortController.signal;
+        runOptions.taskId = taskId;
         const result = await input.service.runTask(runOptions);
         activeTaskIdRef.current = result.task.taskId;
         setActiveTaskId(result.task.taskId);
@@ -210,10 +239,20 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
       } finally {
         activeAbortControllerRef.current = null;
         setBusy(false);
+        stopTraceSubscription();
         refresh();
       }
     },
-    [addSystemMessage, appendNewTraceEvents, input.config, input.cwd, input.service, refresh]
+    [
+      addSystemMessage,
+      appendNewTraceEvents,
+      input.config,
+      input.cwd,
+      input.service,
+      refresh,
+      startTraceSubscription,
+      stopTraceSubscription
+    ]
   );
 
   const resolvePendingApproval = React.useCallback(
@@ -223,6 +262,7 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
       }
 
       setBusy(true);
+      startTraceSubscription(pendingApproval.taskId);
       try {
         const result = await input.service.resolveApproval(pendingApproval.approvalId, action, input.reviewerId);
         appendNewTraceEvents(result.task.taskId);
@@ -263,10 +303,20 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
         setStatusLine("approval failed");
       } finally {
         setBusy(false);
+        stopTraceSubscription();
         refresh();
       }
     },
-    [appendNewTraceEvents, busy, input.reviewerId, input.service, pendingApproval, refresh]
+    [
+      appendNewTraceEvents,
+      busy,
+      input.reviewerId,
+      input.service,
+      pendingApproval,
+      refresh,
+      startTraceSubscription,
+      stopTraceSubscription
+    ]
   );
 
   const requestInterrupt = React.useCallback((): boolean => {

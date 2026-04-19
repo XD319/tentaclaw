@@ -308,6 +308,14 @@ export class AgentApplicationService {
     return this.dependencies.listTrace(taskId);
   }
 
+  public subscribeToTaskTrace(taskId: string, listener: (event: TraceEvent) => void): () => void {
+    return this.dependencies.traceService.subscribe((event) => {
+      if (event.taskId === taskId) {
+        listener(event);
+      }
+    });
+  }
+
   public traceTaskContext(taskId: string): ContextTraceDebugReport {
     const task = this.dependencies.findTask(taskId);
     const trace = task === null ? [] : this.dependencies.listTrace(taskId);

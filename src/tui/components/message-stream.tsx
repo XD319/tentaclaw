@@ -22,7 +22,7 @@ export function MessageStream({ collapseActivities, messages }: MessageStreamPro
   return (
     <Box flexDirection="column">
       {collapseActivities && activityCount > 0 ? (
-        <Text color="gray">┊ {activityCount} activity lines hidden (Ctrl+T to expand)</Text>
+        <Text color="gray">| {activityCount} activity lines hidden (Ctrl+T to expand)</Text>
       ) : null}
       {visibleMessages.map((message) => {
         if (message.kind === "user") {
