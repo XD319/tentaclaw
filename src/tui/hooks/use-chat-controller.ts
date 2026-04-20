@@ -230,16 +230,49 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     setMessages((current) => current.filter((message) => message.id !== id));
   }, []);
 
+  const upsertStreamingAgentMessage = React.useCallback(
+    (id: string, text: string, streaming: boolean) => {
+      setMessages((current) => {
+        const index = current.findIndex((message) => message.id === id);
+        if (index === -1) {
+          return [
+            ...current,
+            {
+              id,
+              kind: "agent",
+              streaming,
+              text,
+              timestamp: new Date().toISOString()
+            }
+          ];
+        }
+        const message = current[index];
+        if (message === undefined || message.kind !== "agent") {
+          return current;
+        }
+        const next = [...current];
+        next[index] = {
+          ...message,
+          streaming,
+          text
+        } satisfies Extract<ChatMessage, { kind: "agent" }>;
+        return next;
+      });
+    },
+    []
+  );
+
   const submitPrompt = React.useCallback(
     async (text: string) => {
       setBusy(true);
       setStatusLine("running");
       const taskId = randomUUID();
+      const streamId = `agent:stream:${taskId}`;
       activeTaskIdRef.current = taskId;
       setActiveTaskId(taskId);
       startTraceSubscription(taskId);
       streamedAnyRef.current = false;
-      streamingAgentIdRef.current = `agent:stream:${taskId}`;
+      streamingAgentIdRef.current = streamId;
 
       setMessages((current) => [
         ...current,
@@ -247,6 +280,13 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
           id: `user:${Date.now()}`,
           kind: "user",
           text,
+          timestamp: new Date().toISOString()
+        },
+        {
+          id: streamId,
+          kind: "agent",
+          streaming: true,
+          text: "",
           timestamp: new Date().toISOString()
         }
       ]);
@@ -259,36 +299,22 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
         runOptions.taskId = taskId;
         runOptions.onAssistantTextDelta = (delta: string) => {
           streamedAnyRef.current = true;
-          const streamId = streamingAgentIdRef.current;
-          if (streamId === null) {
+          const currentStreamId = streamingAgentIdRef.current;
+          if (currentStreamId === null) {
             return;
           }
-          setMessages((current) => {
-            const index = current.findIndex((message) => message.id === streamId);
-            if (index === -1) {
-              return [
-                ...current,
-                {
-                  id: streamId,
-                  kind: "agent" as const,
-                  streaming: true,
-                  text: delta,
-                  timestamp: new Date().toISOString()
-                }
-              ];
-            }
-            const message = current[index];
-            if (message === undefined || message.kind !== "agent") {
-              return current;
-            }
-            const next = [...current];
-            next[index] = {
-              ...message,
-              streaming: true,
-              text: `${message.text}${delta}`
-            } satisfies Extract<ChatMessage, { kind: "agent" }>;
-            return next;
-          });
+          setMessages((current) =>
+            current.map((message) => {
+              if (message.id !== currentStreamId || message.kind !== "agent") {
+                return message;
+              }
+              return {
+                ...message,
+                streaming: true,
+                text: `${message.text}${delta}`
+              } satisfies Extract<ChatMessage, { kind: "agent" }>;
+            })
+          );
         };
 
         const result = await input.service.runTask(runOptions);
@@ -296,14 +322,12 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
         setActiveTaskId(result.task.taskId);
         appendNewTraceEvents(result.task.taskId);
 
-        const streamId = streamingAgentIdRef.current;
+        const activeStreamId = streamingAgentIdRef.current;
         streamingAgentIdRef.current = null;
 
         const runError = result.error;
         if (runError !== undefined) {
-          if (streamedAnyRef.current) {
-            removeStreamingMessage(streamId);
-          }
+          removeStreamingMessage(activeStreamId);
           setMessages((current) => [
             ...current,
             {
@@ -320,17 +344,9 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
         }
 
         const messageText = result.output ?? summarizeTaskResult(result.task);
-        if (streamedAnyRef.current && streamId !== null) {
-          setMessages((current) =>
-            current.map((message) => {
-              if (message.id !== streamId || message.kind !== "agent") {
-                return message;
-              }
-              return { ...message, streaming: false, text: messageText };
-            })
-          );
+        if (activeStreamId !== null) {
+          upsertStreamingAgentMessage(activeStreamId, messageText, false);
         } else {
-          removeStreamingMessage(streamId);
           setMessages((current) => [
             ...current,
             {
@@ -343,11 +359,9 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
         }
         setStatusLine(result.task.status);
       } catch (error) {
-        const streamId = streamingAgentIdRef.current;
+        const activeStreamId = streamingAgentIdRef.current;
         streamingAgentIdRef.current = null;
-        if (streamedAnyRef.current) {
-          removeStreamingMessage(streamId);
-        }
+        removeStreamingMessage(activeStreamId);
 
         const aborted = activeAbortControllerRef.current?.signal.aborted === true;
 
@@ -375,7 +389,7 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
         streamedAnyRef.current = false;
         setBusy(false);
         stopTraceSubscription();
-        refresh();
+        setTimeout(refresh, 0);
       }
     },
     [
@@ -387,7 +401,8 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
       refresh,
       removeStreamingMessage,
       startTraceSubscription,
-      stopTraceSubscription
+      stopTraceSubscription,
+      upsertStreamingAgentMessage
     ]
   );
 
