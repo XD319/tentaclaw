@@ -557,6 +557,7 @@ function summarizeTrace(trace: TraceEvent[]): string[] {
     [
       "task_created",
       "model_response",
+      "policy_decision",
       "tool_call_requested",
       "tool_call_finished",
       "approval_requested",

@@ -32,13 +32,24 @@ export const DEFAULT_LOCAL_POLICY_CONFIG: LocalPolicyConfig = {
       priority: 80
     },
     {
-      description: "File writes are always approval-gated.",
-      effect: "allow_with_approval",
-      id: "file-write-needs-approval",
+      description: "Workspace file writes are allowed by default.",
+      effect: "allow",
+      id: "workspace-file-write-allow",
       match: {
-        capabilities: ["filesystem.write"]
+        capabilities: ["filesystem.write"],
+        pathScopes: ["workspace"]
       },
       priority: 80
+    },
+    {
+      description: "Extra write-root file writes are approval-gated.",
+      effect: "allow_with_approval",
+      id: "extra-write-root-file-write-needs-approval",
+      match: {
+        capabilities: ["filesystem.write"],
+        pathScopes: ["write_root"]
+      },
+      priority: 75
     },
     {
       description: "Network fetches are approval-gated.",

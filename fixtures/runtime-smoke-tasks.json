@@ -48,7 +48,7 @@
       "mustExplainToolReason": true,
       "mustSummarizeToolResults": true,
       "mustExplainContinuation": false,
-      "expectApproval": true,
+      "expectApproval": false,
       "expectMemoryRecall": false,
       "expectPolicyTrace": true,
       "expectSessionCompact": false
@@ -75,7 +75,7 @@
       "mustExplainToolReason": true,
       "mustSummarizeToolResults": true,
       "mustExplainContinuation": false,
-      "expectApproval": true,
+      "expectApproval": false,
       "expectMemoryRecall": false,
       "expectPolicyTrace": true,
       "expectSessionCompact": false
@@ -131,7 +131,7 @@
       "mustExplainToolReason": true,
       "mustSummarizeToolResults": true,
       "mustExplainContinuation": true,
-      "expectApproval": true,
+      "expectApproval": false,
       "expectMemoryRecall": false,
       "expectPolicyTrace": true,
       "expectSessionCompact": false
@@ -159,7 +159,7 @@
       "mustExplainToolReason": true,
       "mustSummarizeToolResults": true,
       "mustExplainContinuation": true,
-      "expectApproval": true,
+      "expectApproval": false,
       "expectMemoryRecall": false,
       "expectPolicyTrace": true,
       "expectSessionCompact": false
@@ -215,7 +215,7 @@
       "mustExplainToolReason": true,
       "mustSummarizeToolResults": true,
       "mustExplainContinuation": true,
-      "expectApproval": true,
+      "expectApproval": false,
       "expectMemoryRecall": false,
       "expectPolicyTrace": true,
       "expectSessionCompact": false

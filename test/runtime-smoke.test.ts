@@ -60,7 +60,7 @@ describe("runtime smoke harness", () => {
     expect(result).toBeDefined();
     expect(result?.traceChecks.every((check) => check.ok)).toBe(true);
     expect(result?.keyTraceSummary.some((entry) => entry.includes("tool_call_requested"))).toBe(true);
-    expect(result?.keyTraceSummary.some((entry) => entry.includes("approval_requested"))).toBe(true);
+    expect(result?.keyTraceSummary.some((entry) => entry.includes("policy_decision"))).toBe(true);
     expect(result?.keyTraceSummary.some((entry) => entry.includes("final_outcome"))).toBe(true);
   }, 15000);
 

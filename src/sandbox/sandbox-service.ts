@@ -346,13 +346,15 @@ export class SandboxService {
   }
 
   private classifyWriteScope(resolvedPath: string): PathScope {
+    if (this.isWithinRoot(resolvedPath, this.workspaceRoot)) {
+      return "workspace";
+    }
+
     if (this.writeRoots.some((root) => this.isWithinRoot(resolvedPath, root))) {
       return "write_root";
     }
 
-    return this.isWithinRoot(resolvedPath, this.workspaceRoot)
-      ? "outside_write_root"
-      : "outside_workspace";
+    return "outside_workspace";
   }
 
   private isWithinRoot(candidatePath: string, rootPath: string): boolean {

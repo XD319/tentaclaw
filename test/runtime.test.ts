@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createApplication, createDefaultRunOptions } from "../src/runtime";
-import type { Provider, ProviderInput, ProviderResponse } from "../src/types";
+import type { LocalPolicyConfig, Provider, ProviderInput, ProviderResponse } from "../src/types";
 
 class ScriptedProvider implements Provider {
   public readonly name = "scripted-provider";
@@ -20,6 +20,51 @@ class ScriptedProvider implements Provider {
 }
 
 const tempPaths: string[] = [];
+
+const APPROVAL_REQUIRED_POLICY_CONFIG: LocalPolicyConfig = {
+  defaultEffect: "deny",
+  rules: [
+    {
+      description: "Never allow tools to escape the workspace boundary.",
+      effect: "deny",
+      id: "deny-outside-workspace",
+      match: {
+        pathScopes: ["outside_workspace", "outside_write_root"]
+      },
+      priority: 100
+    },
+    {
+      description: "Reviewer profile is read-focused and cannot mutate files or run shell.",
+      effect: "deny",
+      id: "reviewer-read-only",
+      match: {
+        agentProfiles: ["reviewer"],
+        capabilities: ["filesystem.write", "shell.execute"]
+      },
+      priority: 90
+    },
+    {
+      description: "File writes are approval-gated for approval-flow tests.",
+      effect: "allow_with_approval",
+      id: "test-file-write-needs-approval",
+      match: {
+        capabilities: ["filesystem.write"]
+      },
+      priority: 80
+    },
+    {
+      description: "Low-risk internal reads are allowed.",
+      effect: "allow",
+      id: "file-read-allow",
+      match: {
+        capabilities: ["filesystem.read"],
+        pathScopes: ["workspace", "write_root"]
+      },
+      priority: 70
+    }
+  ],
+  source: "local"
+};
 
 afterEach(async () => {
   while (tempPaths.length > 0) {
@@ -93,6 +138,70 @@ describe("Phase 2 governance runtime", () => {
       expect(new Set(receivedEventTaskIds)).toEqual(new Set(["task-subscription-target"]));
     } finally {
       unsubscribe();
+      handle.close();
+    }
+  });
+
+  it("allows workspace file writes by default without approval", async () => {
+    const workspaceRoot = await createTempWorkspace();
+    const handle = createApplication(workspaceRoot, {
+      config: {
+        databasePath: join(workspaceRoot, "runtime.db")
+      },
+      provider: new ScriptedProvider((input) => {
+        const toolMessages = input.messages.filter((message) => message.role === "tool");
+
+        if (toolMessages.length === 0) {
+          return {
+            kind: "tool_calls",
+            message: "Create a workspace file.",
+            toolCalls: [
+              {
+                input: {
+                  action: "write_file",
+                  content: "workspace-write-default",
+                  path: "default-write.md"
+                },
+                reason: "Verify default workspace write behavior.",
+                toolCallId: "default-workspace-write",
+                toolName: "file_write"
+              }
+            ],
+            usage: {
+              inputTokens: 10,
+              outputTokens: 5
+            }
+          };
+        }
+
+        return {
+          kind: "final",
+          message: "default-write.md created",
+          usage: {
+            inputTokens: 4,
+            outputTokens: 4
+          }
+        };
+      })
+    });
+
+    try {
+      const result = await handle.service.runTask(
+        createDefaultRunOptions("create default workspace file", workspaceRoot, handle.config)
+      );
+
+      expect(result.error).toBeUndefined();
+      expect(result.task.status).toBe("succeeded");
+      expect(handle.service.listPendingApprovals()).toHaveLength(0);
+      expect(await fs.readFile(join(workspaceRoot, "default-write.md"), "utf8")).toBe(
+        "workspace-write-default"
+      );
+
+      const policyEvents = handle.service
+        .traceTask(result.task.taskId)
+        .filter((event) => event.eventType === "policy_decision");
+      expect(policyEvents[0]?.payload["matchedRuleId"]).toBe("workspace-file-write-allow");
+    } finally {
       handle.close();
     }
   });
@@ -394,15 +503,13 @@ describe("Phase 2 governance runtime", () => {
     });
 
     try {
-      await handle.service.runTask(
+      const result = await handle.service.runTask(
         createDefaultRunOptions("update existing file", workspaceRoot, handle.config)
       );
-      const approval = handle.service.listPendingApprovals()[0];
-      await handle.service.resolveApproval(approval?.approvalId ?? "", "allow", "reviewer-rollback");
       expect(await fs.readFile(targetPath, "utf8")).toBe("after");
 
       const rollbackArtifact = handle.service
-        .showTask(approval?.taskId ?? "")
+        .showTask(result.task.taskId)
         .artifacts.find((artifact) => artifact.artifactType === "file_rollback");
       expect(rollbackArtifact).toBeDefined();
 
@@ -505,7 +612,8 @@ function createApprovalWriteApplication(workspaceRoot: string) {
           outputTokens: 4
         }
       };
-    })
+    }),
+    policyConfig: APPROVAL_REQUIRED_POLICY_CONFIG
   });
 }
 

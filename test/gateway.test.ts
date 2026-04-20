@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { createGatewayRuntime, startLocalWebhookGateway } from "../src/gateway";
 import { createApplication } from "../src/runtime";
-import type { Provider, ProviderInput, ProviderResponse } from "../src/types";
+import type { LocalPolicyConfig, Provider, ProviderInput, ProviderResponse } from "../src/types";
 
 class ScriptedProvider implements Provider {
   public readonly name = "gateway-scripted-provider";
@@ -23,6 +23,41 @@ class ScriptedProvider implements Provider {
 }
 
 const tempPaths: string[] = [];
+
+const APPROVAL_REQUIRED_POLICY_CONFIG: LocalPolicyConfig = {
+  defaultEffect: "deny",
+  rules: [
+    {
+      description: "Never allow tools to escape the workspace boundary.",
+      effect: "deny",
+      id: "deny-outside-workspace",
+      match: {
+        pathScopes: ["outside_workspace", "outside_write_root"]
+      },
+      priority: 100
+    },
+    {
+      description: "File writes are approval-gated for gateway approval tests.",
+      effect: "allow_with_approval",
+      id: "test-file-write-needs-approval",
+      match: {
+        capabilities: ["filesystem.write"]
+      },
+      priority: 80
+    },
+    {
+      description: "Low-risk internal reads are allowed.",
+      effect: "allow",
+      id: "file-read-allow",
+      match: {
+        capabilities: ["filesystem.read"],
+        pathScopes: ["workspace", "write_root"]
+      },
+      priority: 70
+    }
+  ],
+  source: "local"
+};
 
 afterEach(async () => {
   while (tempPaths.length > 0) {
@@ -372,6 +407,7 @@ function createWaitingApprovalApplication(workspaceRoot: string) {
     config: {
       databasePath: join(workspaceRoot, "runtime.db")
     },
+    policyConfig: APPROVAL_REQUIRED_POLICY_CONFIG,
     provider: new ScriptedProvider((input) => {
       const toolMessages = input.messages.filter((message) => message.role === "tool");
 
