@@ -1,69 +1,62 @@
 import React from "react";
-import { Box, Text } from "ink";
+import { Box, Static, Text } from "ink";
 
 import { sanitizeTerminalText } from "../text-sanitize";
 import type { ChatMessage } from "../view-models/chat-messages";
 import { AgentMessage } from "./agent-message";
 import { ApprovalCard } from "./approval-card";
 import { ErrorMessage } from "./error-message";
-import { ToolActivity } from "./tool-activity";
 import { UserMessage } from "./user-message";
 
 export interface MessageStreamProps {
-  collapseActivities: boolean;
   messages: ChatMessage[];
 }
 
-export function MessageStream({ collapseActivities, messages }: MessageStreamProps): React.ReactElement {
-  const activityCount = messages.filter((message) => message.kind === "activity").length;
-  const visibleMessages = collapseActivities
-    ? messages.filter((message) => message.kind !== "activity")
-    : messages;
-
+export function MessageStream({ messages }: MessageStreamProps): React.ReactElement {
   return (
     <Box flexDirection="column">
-      {collapseActivities && activityCount > 0 ? (
-        <Text color="gray">| {activityCount} activity lines hidden (Ctrl+T to expand)</Text>
-      ) : null}
-      {visibleMessages.map((message) => {
-        if (message.kind === "user") {
-          return <UserMessage key={message.id} text={message.text} />;
-        }
-        if (message.kind === "agent") {
-          return (
-            <AgentMessage
-              key={message.id}
-              {...(message.streaming === true ? { streaming: true } : {})}
-              text={message.text}
-            />
-          );
-        }
-        if (message.kind === "activity") {
-          return <ToolActivity key={message.id} text={message.text} />;
-        }
-        if (message.kind === "approval") {
-          return (
-            <Box key={message.id} marginY={1}>
-              <ApprovalCard approval={message.approval} toolCall={message.toolCall} />
-            </Box>
-          );
-        }
-        if (message.kind === "error") {
-          return (
-            <ErrorMessage
-              key={message.id}
-              code={message.code}
-              message={message.message}
-              source={message.source}
-            />
-          );
-        }
-        return (
-          <Text key={message.id} color="gray">
-            {sanitizeTerminalText(message.text)}
-          </Text>
-        );
-      })}
+      {messages.map((message) => (
+        <MessageItem key={message.id} message={message} />
+      ))}
     </Box>
   );
+}
+
+export function StaticMessageStream({ messages }: MessageStreamProps): React.ReactElement {
+  return (
+    <Static items={messages}>
+      {(message) => <MessageItem key={message.id} message={message} />}
+    </Static>
+  );
+}
+
+function MessageItem({ message }: { message: ChatMessage }): React.ReactElement {
+  if (message.kind === "user") {
+    return <UserMessage text={message.text} />;
+  }
+  if (message.kind === "agent") {
+    return (
+      <AgentMessage
+        {...(message.streaming === true ? { streaming: true } : {})}
+        text={message.text}
+      />
+    );
+  }
+  if (message.kind === "approval") {
+    return (
+      <Box marginY={1}>
+        <ApprovalCard approval={message.approval} toolCall={message.toolCall} />
+      </Box>
+    );
+  }
+  if (message.kind === "error") {
+    return (
+      <ErrorMessage
+        code={message.code}
+        message={message.message}
+        source={message.source}
+      />
+    );
+  }
+  return <Text color="gray">{sanitizeTerminalText(message.text)}</Text>;
 }

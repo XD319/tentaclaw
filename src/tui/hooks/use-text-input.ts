@@ -6,15 +6,10 @@ export interface UseTextInputOptions {
   onHistoryPrevious: () => string | null;
   onImagePasteAttempt?: () => void;
   onInterruptRequest: () => void;
-  onToggleActivityCollapse: () => void;
-  onScrollEnd: () => void;
-  onScrollStart: () => void;
   busy: boolean;
   hasPendingApproval: boolean;
   onApprovalAction: (action: "allow" | "deny") => void;
   onExit: () => void;
-  onScrollPageDown: () => void;
-  onScrollPageUp: () => void;
   onSubmit: (text: string) => void;
   onSubmitBlockedBusy?: () => void;
   /** Return replacement value, or null to leave input unchanged. */
@@ -59,13 +54,7 @@ export function useTextInput(options: UseTextInputOptions): TextInputController 
       return;
     }
 
-    if (key.pageUp) {
-      options.onScrollPageUp();
-      return;
-    }
-
-    if (key.pageDown) {
-      options.onScrollPageDown();
+    if (key.pageUp || key.pageDown) {
       return;
     }
 
@@ -87,20 +76,10 @@ export function useTextInput(options: UseTextInputOptions): TextInputController 
       return;
     }
 
-    if (key.ctrl && input === "g") {
-      options.onScrollStart();
-      return;
-    }
-
     if (key.ctrl && input === "j") {
       setValue((current) => insertAt(current, cursorIndex, "\n"));
       setCursorIndex((current) => current + 1);
       preferredColumnRef.current = null;
-      return;
-    }
-
-    if (key.ctrl && input === "t") {
-      options.onToggleActivityCollapse();
       return;
     }
 

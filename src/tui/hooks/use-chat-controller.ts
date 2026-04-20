@@ -262,6 +262,21 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     []
   );
 
+  const finalizeStreamingAgentMessage = React.useCallback(
+    (id: string, taskId: string, text: string) => {
+      setMessages((current) => [
+        ...current.filter((message) => message.id !== id),
+        {
+          id: `agent:${taskId}:${Date.now()}`,
+          kind: "agent",
+          text,
+          timestamp: new Date().toISOString()
+        }
+      ]);
+    },
+    []
+  );
+
   const submitPrompt = React.useCallback(
     async (text: string) => {
       setBusy(true);
@@ -343,9 +358,12 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
           return;
         }
 
-        const messageText = result.output ?? summarizeTaskResult(result.task);
+        const messageText =
+          result.output !== undefined && result.output !== null && result.output.length > 0
+            ? result.output
+            : summarizeTaskResult(result.task);
         if (activeStreamId !== null) {
-          upsertStreamingAgentMessage(activeStreamId, messageText, false);
+          finalizeStreamingAgentMessage(activeStreamId, result.task.taskId, messageText);
         } else {
           setMessages((current) => [
             ...current,
@@ -395,6 +413,7 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     [
       addSystemMessage,
       appendNewTraceEvents,
+      finalizeStreamingAgentMessage,
       input.config,
       input.cwd,
       input.service,

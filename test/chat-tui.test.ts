@@ -8,6 +8,7 @@ import {
   moveCursorVertical
 } from "../src/tui/hooks/use-text-input";
 import {
+  displayChatMessages,
   resolveApprovalMessage,
   toApprovalMessage,
   toTraceActivityMessage
@@ -35,6 +36,23 @@ describe("chat tui view-models", () => {
 
     expect(resolved.status).toBe("resolved");
     expect(resolved.resolution).toBe("allow");
+  });
+
+  it("keeps agent replies visible when activity rows are collapsed", () => {
+    const agent = {
+      id: "agent-1",
+      kind: "agent" as const,
+      text: "final answer",
+      timestamp: "2026-01-01T00:00:01.000Z"
+    };
+    const activity = toTraceActivityMessage(createTraceEvent("final_outcome", {
+      errorCode: null,
+      errorMessage: null,
+      output: "final answer",
+      status: "succeeded"
+    }));
+
+    expect(displayChatMessages([agent, activity])).toEqual([agent]);
   });
 });
 

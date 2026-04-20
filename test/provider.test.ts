@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApplication, createDefaultRunOptions } from "../src/runtime";
 import {
   AnthropicCompatibleProvider,
+  createProvider,
   GlmProvider,
   OpenAiCompatibleProvider,
   ProviderError,
@@ -194,6 +195,7 @@ describe("Provider integration", () => {
     expect(resolved.transport).toBe("openai-compatible");
     expect(resolved.timeoutMs).toBe(18_000);
     expect(resolved.maxRetries).toBe(5);
+    expect(createProvider(resolved).capabilities?.streaming).toBe(false);
   });
 
   it("loads custom OpenAI-compatible providers from config without code changes", async () => {
@@ -480,6 +482,120 @@ describe("Provider integration", () => {
     expect(response.message).toBe("compatible text");
     expect(response.metadata?.providerName).toBe("openai-compatible");
     expect(response.metadata?.modelName).toBe("kimi-k2");
+  });
+
+  it("uses non-streaming requests when OpenAI-compatible streaming is disabled", async () => {
+    const provider = new OpenAiCompatibleProvider(
+      {
+        apiKey: "compat-test-key",
+        baseUrl: "https://compat.example.test/v1",
+        maxRetries: 0,
+        model: "kimi-k2",
+        name: "openai-compatible",
+        timeoutMs: 5_000
+      },
+      {
+        defaultBaseUrl: null,
+        defaultDisplayName: "OpenAI Compatible",
+        defaultModel: "gpt-4o-mini",
+        supportsStreaming: false
+      }
+    );
+    let streamed = "";
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: RequestInfo | URL, init?: RequestInit) => {
+        expect(typeof init?.body).toBe("string");
+        const body = JSON.parse(init?.body as string) as { stream?: boolean };
+        expect(body.stream).toBe(false);
+        return new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                index: 0,
+                message: {
+                  content: "non-streamed text",
+                  role: "assistant"
+                }
+              }
+            ],
+            id: "resp-non-streamed",
+            model: "kimi-k2",
+            usage: {
+              completion_tokens: 3,
+              prompt_tokens: 7,
+              total_tokens: 10
+            }
+          }),
+          {
+            status: 200
+          }
+        );
+      })
+    );
+
+    const response = await provider.generate({
+      ...createProviderInput(),
+      onTextDelta: (delta) => {
+        streamed += delta;
+      }
+    });
+
+    expect(response.kind).toBe("final");
+    expect(response.message).toBe("non-streamed text");
+    expect(streamed).toBe("");
+  });
+
+  it("parses a final OpenAI-compatible stream event without a trailing newline", async () => {
+    const provider = new OpenAiCompatibleProvider(
+      {
+        apiKey: "compat-test-key",
+        baseUrl: "https://compat.example.test/v1",
+        maxRetries: 0,
+        model: "kimi-k2",
+        name: "openai-compatible",
+        timeoutMs: 5_000
+      },
+      {
+        defaultBaseUrl: null,
+        defaultDisplayName: "OpenAI Compatible",
+        defaultModel: "gpt-4o-mini"
+      }
+    );
+    let streamed = "";
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        new Response(
+          [
+            'data: {"choices":[{"index":0,"delta":{"content":"hel"}}],"usage":{"prompt_tokens":3,"completion_tokens":1,"total_tokens":4}}\n\n',
+            'data: {"choices":[{"index":0,"delta":{"content":"lo"}}],"usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5}}\n\n',
+            "data: [DONE]"
+          ].join(""),
+          {
+            headers: {
+              "Content-Type": "text/event-stream"
+            },
+            status: 200
+          }
+        )
+      )
+    );
+
+    const response = await provider.generate({
+      ...createProviderInput(),
+      onTextDelta: (delta) => {
+        streamed += delta;
+      }
+    });
+
+    expect(response.kind).toBe("final");
+    expect(response.message).toBe("hello");
+    expect(response.usage.totalTokens).toBe(5);
+    expect(streamed).toBe("hello");
   });
 
   it("maps Anthropic-compatible responses into the unified provider response shape", async () => {

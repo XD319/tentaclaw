@@ -58,7 +58,10 @@ function createProviderInstance(
   }
 
   if (manifest.transport === "openai-compatible" && manifest.openAiCompatible !== undefined) {
-    return new OpenAiCompatibleProvider(config, manifest.openAiCompatible);
+    return new OpenAiCompatibleProvider(config, {
+      ...manifest.openAiCompatible,
+      supportsStreaming: manifest.supportsStreaming
+    });
   }
 
   throw new Error(`Provider ${manifest.name} has no runtime transport implementation.`);

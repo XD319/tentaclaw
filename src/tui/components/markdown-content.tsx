@@ -1,144 +1,143 @@
 import React from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { Box, Text } from "ink";
 
 import { theme } from "../theme";
 import { HighlightCode } from "./highlight-code";
 
-function reactChildrenToText(node: React.ReactNode): string {
-  if (node === null || node === undefined) {
-    return "";
-  }
-  if (typeof node === "string" || typeof node === "number" || typeof node === "boolean") {
-    return String(node);
-  }
-  if (Array.isArray(node)) {
-    return node.map(reactChildrenToText).join("");
-  }
-  return "";
-}
-
-function sanitizeBoxChildren(children: React.ReactNode): React.ReactNode[] {
-  return React.Children.toArray(children).flatMap((child, index) => {
-    if (typeof child === "string") {
-      if (child.trim().length === 0) {
-        return [];
-      }
-      return [<Text key={`text:${index}`}>{child}</Text>];
+type MarkdownBlock =
+  | {
+      kind: "code";
+      language: string | undefined;
+      lines: string[];
     }
-
-    if (typeof child === "number") {
-      return [<Text key={`num:${index}`}>{String(child)}</Text>];
-    }
-
-    return [child];
-  });
-}
+  | {
+      kind: "line";
+      text: string;
+    };
 
 export function MarkdownContent({ source }: { source: string }): React.ReactElement {
+  const blocks = parseMarkdownBlocks(source);
+
   return (
     <Box flexDirection="column">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          a: ({ children }) => (
-            <Text color={theme.link} underline>
-              {children}
-            </Text>
-          ),
-          blockquote: ({ children }) => (
-            <Box flexDirection="row" paddingLeft={1}>
-              <Text color={theme.quote}>│ </Text>
-              <Box flexDirection="column">{sanitizeBoxChildren(children)}</Box>
-            </Box>
-          ),
-          code: ({ className, children, inline }) => {
-            const code = reactChildrenToText(children).replace(/\n$/u, "");
-            if (inline === true) {
-              return (
-                <Text backgroundColor="black" color={theme.inlineCode}>
-                  {code}
-                </Text>
-              );
-            }
-            const match = /language-([\w-]+)/u.exec(className ?? "");
-            const lang = match?.[1];
-            return <HighlightCode code={code} language={lang} />;
-          },
-          h1: ({ children }) => (
-            <Box marginTop={1}>
-              <Text bold color={theme.heading}>
-                # {children}
-              </Text>
-            </Box>
-          ),
-          h2: ({ children }) => (
-            <Box marginTop={1}>
-              <Text bold color={theme.heading}>
-                ## {children}
-              </Text>
-            </Box>
-          ),
-          h3: ({ children }) => (
-            <Text bold color={theme.heading}>
-              ### {children}
-            </Text>
-          ),
-          hr: () => (
-            <Text color="gray" dimColor>
-              ────────────────────────────────────────
-            </Text>
-          ),
-          li: ({ children }) => (
-            <Box flexDirection="row">
-              <Text>• </Text>
-              <Box flexDirection="column">{sanitizeBoxChildren(children)}</Box>
-            </Box>
-          ),
-          ol: ({ children }) => <Box flexDirection="column">{sanitizeBoxChildren(children)}</Box>,
-          p: ({ children }) => (
-            <Text wrap="wrap" color={theme.emphasis}>
-              {children}
-            </Text>
-          ),
-          pre: ({ children }) => <Box flexDirection="column">{sanitizeBoxChildren(children)}</Box>,
-          strong: ({ children }) => (
-            <Text bold color={theme.emphasis}>
-              {children}
-            </Text>
-          ),
-          table: ({ children }) => (
-            <Box borderStyle="single" borderColor={theme.border} flexDirection="column" marginY={1} paddingX={1}>
-              {sanitizeBoxChildren(children)}
-            </Box>
-          ),
-          tbody: ({ children }) => <Box flexDirection="column">{sanitizeBoxChildren(children)}</Box>,
-          td: ({ children }) => (
-            <Box marginRight={2}>
-              <Text wrap="wrap" color={theme.emphasis}>
-                {children}
-              </Text>
-            </Box>
-          ),
-          th: ({ children }) => (
-            <Box marginRight={2}>
-              <Text bold color={theme.heading}>
-                {children}
-              </Text>
-            </Box>
-          ),
-          thead: ({ children }) => (
-            <Box flexDirection="column" marginBottom={1}>
-              {sanitizeBoxChildren(children)}
-            </Box>
-          ),
-          tr: ({ children }) => <Box flexDirection="row">{sanitizeBoxChildren(children)}</Box>,
-          ul: ({ children }) => <Box flexDirection="column">{sanitizeBoxChildren(children)}</Box>
-        }}
-      >
-        {source}
-      </ReactMarkdown>
+      {blocks.map((block, index) =>
+        block.kind === "code" ? (
+          <HighlightCode
+            key={`code:${index}`}
+            code={block.lines.join("\n")}
+            language={block.language}
+          />
+        ) : (
+          renderMarkdownLine(block.text, index)
+        )
+      )}
     </Box>
   );
+}
+
+function parseMarkdownBlocks(source: string): MarkdownBlock[] {
+  const blocks: MarkdownBlock[] = [];
+  const lines = source.split(/\r?\n/u);
+  let codeLines: string[] | null = null;
+  let codeLanguage: string | undefined;
+
+  for (const line of lines) {
+    const fence = /^```\s*([\w-]+)?\s*$/u.exec(line.trim());
+    if (fence !== null) {
+      if (codeLines === null) {
+        codeLines = [];
+        codeLanguage = fence[1];
+      } else {
+        blocks.push({
+          kind: "code",
+          language: codeLanguage,
+          lines: codeLines
+        });
+        codeLines = null;
+        codeLanguage = undefined;
+      }
+      continue;
+    }
+
+    if (codeLines !== null) {
+      codeLines.push(line);
+      continue;
+    }
+
+    blocks.push({
+      kind: "line",
+      text: line
+    });
+  }
+
+  if (codeLines !== null) {
+    blocks.push({
+      kind: "code",
+      language: codeLanguage,
+      lines: codeLines
+    });
+  }
+
+  return blocks;
+}
+
+function renderMarkdownLine(line: string, index: number): React.ReactElement {
+  if (line.trim().length === 0) {
+    return <Text key={`blank:${index}`}> </Text>;
+  }
+
+  const heading = /^(#{1,3})\s+(.+)$/u.exec(line);
+  if (heading !== null) {
+    return (
+      <Text key={`heading:${index}`} bold color={theme.heading} wrap="wrap">
+        {heading[1]} {plainInlineMarkdown(heading[2] ?? "")}
+      </Text>
+    );
+  }
+
+  const quote = /^>\s?(.*)$/u.exec(line);
+  if (quote !== null) {
+    return (
+      <Text key={`quote:${index}`} color={theme.quote} wrap="wrap">
+        | {plainInlineMarkdown(quote[1] ?? "")}
+      </Text>
+    );
+  }
+
+  const unordered = /^(\s*)[-*]\s+(.+)$/u.exec(line);
+  if (unordered !== null) {
+    return (
+      <Text key={`ul:${index}`} color={theme.emphasis} wrap="wrap">
+        {indent(unordered[1] ?? "")}- {plainInlineMarkdown(unordered[2] ?? "")}
+      </Text>
+    );
+  }
+
+  const ordered = /^(\s*)(\d+[.)])\s+(.+)$/u.exec(line);
+  if (ordered !== null) {
+    return (
+      <Text key={`ol:${index}`} color={theme.emphasis} wrap="wrap">
+        {indent(ordered[1] ?? "")}
+        {ordered[2]} {plainInlineMarkdown(ordered[3] ?? "")}
+      </Text>
+    );
+  }
+
+  return (
+    <Text key={`p:${index}`} color={theme.emphasis} wrap="wrap">
+      {plainInlineMarkdown(line)}
+    </Text>
+  );
+}
+
+function indent(value: string): string {
+  return " ".repeat(Math.floor(value.length / 2) * 2);
+}
+
+function plainInlineMarkdown(value: string): string {
+  return value
+    .replace(/\*\*([^*]+)\*\*/gu, "$1")
+    .replace(/__([^_]+)__/gu, "$1")
+    .replace(/`([^`]+)`/gu, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/gu, "$1");
 }

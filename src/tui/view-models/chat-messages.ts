@@ -81,6 +81,10 @@ export function resolveApprovalMessage(
   };
 }
 
+export function displayChatMessages(messages: ChatMessage[]): ChatMessage[] {
+  return messages.filter((message) => message.kind !== "activity");
+}
+
 function formatTraceEvent(event: TraceEvent): string {
   switch (event.eventType) {
     case "tool_call_requested":

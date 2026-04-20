@@ -3,15 +3,13 @@ import React from "react";
 import { Box, Text, useApp } from "ink";
 
 import type { AgentApplicationService, AppConfig } from "../runtime";
-import type { ChatMessage } from "./view-models/chat-messages";
+import { displayChatMessages, type ChatMessage } from "./view-models/chat-messages";
 import { Banner } from "./components/banner";
 import { InputBox } from "./components/input-box";
-import { MessageStream } from "./components/message-stream";
+import { MessageStream, StaticMessageStream } from "./components/message-stream";
 import { Spinner } from "./components/spinner";
 import { StatusBar } from "./components/status-bar";
 import { useChatController } from "./hooks/use-chat-controller";
-import { useMouseScrollUnsupportedNotice } from "./hooks/use-mouse-scroll";
-import { useScrollback } from "./hooks/use-scrollback";
 import { useTextInput } from "./hooks/use-text-input";
 import { listSessionIds, saveSession } from "./session-store";
 import { completeSlashCommand } from "./slash-commands";
@@ -33,9 +31,7 @@ export function ChatTuiApp({
   reviewerId,
   service
 }: ChatTuiAppProps): React.ReactElement {
-  useMouseScrollUnsupportedNotice();
   const { exit } = useApp();
-  const [collapseActivities, setCollapseActivities] = React.useState(true);
   const [sessionTitle, setSessionTitle] = React.useState("chat");
   const [sessionId, setSessionId] = React.useState(initialSessionId);
   const historyRef = React.useRef<string[]>([]);
@@ -50,8 +46,18 @@ export function ChatTuiApp({
     service
   });
 
-  const scrollback = useScrollback(controller.messages.length, 10);
-  const visibleMessages = controller.messages.slice(scrollback.startIndex, scrollback.endIndexExclusive);
+  const displayMessages = React.useMemo(
+    () => displayChatMessages(controller.messages),
+    [controller.messages]
+  );
+  const staticMessages = React.useMemo(
+    () => displayMessages.filter(isStaticTranscriptMessage),
+    [displayMessages]
+  );
+  const liveMessages = React.useMemo(
+    () => displayMessages.filter((message) => !isStaticTranscriptMessage(message)),
+    [displayMessages]
+  );
 
   React.useEffect(() => {
     if (saveTimerRef.current !== null) {
@@ -110,10 +116,10 @@ export function ChatTuiApp({
         controller.addSystemMessage(
           [
             "Commands: /help /clear /new /stop /title <name> /history /status /sandbox /rollback <id|last> /cost /context /diff /sessions",
-            "Shortcuts: Enter send · Alt+Enter / Ctrl+J newline · Ctrl+Shift+V paste · Tab slash-complete · Ctrl+P/N history · Ctrl+T activity · PageUp/Down scroll · Ctrl+G top",
-            "Session files: .auto-talon/sessions/<id>.json · resume: agent tui --resume <id>",
+            "Shortcuts: Enter send | Alt+Enter / Ctrl+J newline | Ctrl+Shift+V paste | Tab slash-complete | Ctrl+P/N history",
+            "Session files: .auto-talon/sessions/<id>.json | resume: agent tui --resume <id>",
             "Token pricing estimate: AGENT_TOKEN_PRICE_IN_PER_M / AGENT_TOKEN_PRICE_OUT_PER_M (optional)",
-            "Mouse wheel is not wired with Ink 3; use PageUp/PageDown for transcript scroll."
+            "Transcript scroll uses the terminal buffer; use your terminal scrollbar or mouse wheel."
           ].join("\n")
         );
         return true;
@@ -204,8 +210,7 @@ export function ChatTuiApp({
           `tasks: ${controller.summary.tasks} running: ${controller.summary.runningTasks} approvals: ${controller.summary.pendingApprovals}`,
           `status_line: ${controller.statusLine}`,
           `elapsed: ${controller.runDurationLabel}`,
-          `ui_scroll: ${scrollback.atBottom ? "follow" : "paused"}`,
-          `activity_feed: ${collapseActivities ? "collapsed" : "expanded"}`,
+          "ui_scroll: terminal",
           `message_rows: ${controller.messages.length}`,
           `tokens_in: ${controller.tokenHud.inputTokens} tokens_out: ${controller.tokenHud.outputTokens}`,
           `context_pct: ${controller.tokenHud.contextPercent} est_cost_usd: ${controller.tokenHud.estimatedCostUsd.toFixed(4)}`
@@ -267,7 +272,6 @@ export function ChatTuiApp({
       return true;
     },
     [
-      collapseActivities,
       config.provider.model,
       config.provider.name,
       config.sandbox,
@@ -277,7 +281,6 @@ export function ChatTuiApp({
       cwd,
       reviewerId,
       service,
-      scrollback.atBottom,
       sessionId,
       sessionTitle
     ]
@@ -307,14 +310,7 @@ export function ChatTuiApp({
       void controller.resolvePendingApproval(action);
     },
     onExit: exit,
-    onScrollPageDown: scrollback.scrollPageDown,
-    onScrollPageUp: scrollback.scrollPageUp,
-    onScrollEnd: scrollback.scrollToEnd,
-    onScrollStart: scrollback.scrollToStart,
     onTabComplete: completeSlashCommand,
-    onToggleActivityCollapse: () => {
-      setCollapseActivities((current) => !current);
-    },
     onSubmit: (value) => {
       if (handleSlashCommand(value)) {
         return;
@@ -325,7 +321,6 @@ export function ChatTuiApp({
       }
       historyIndexRef.current = null;
       void controller.submitPrompt(value);
-      scrollback.scrollToBottom();
     },
     onSubmitBlockedBusy: () => {
       controller.addSystemMessage("Agent is still running. Wait for completion or use /stop to interrupt.");
@@ -351,35 +346,24 @@ export function ChatTuiApp({
         ].filter((command) => command.startsWith(textInput.value))
       : [];
 
-  React.useEffect(() => {
-    if (!scrollback.atBottom) {
-      return;
-    }
-    const latest = controller.messages.at(-1);
-    if (latest === undefined) {
-      return;
-    }
-    if (latest.kind === "agent" || latest.kind === "error" || latest.kind === "system") {
-      scrollback.scrollToBottom();
-    }
-  }, [controller.messages, scrollback.scrollToBottom]);
-
   return (
     <Box flexDirection="column">
+      <StaticMessageStream messages={staticMessages} />
       <Banner
         cwd={cwd}
         modelLabel={config.provider.model ?? config.provider.name}
         sessionId={sessionId}
         sessionTitle={sessionTitle}
       />
-      <Box flexDirection="column" marginTop={1}>
-        <MessageStream collapseActivities={collapseActivities} messages={visibleMessages} />
-      </Box>
+      {liveMessages.length > 0 ? (
+        <Box flexDirection="column" marginTop={1}>
+          <MessageStream messages={liveMessages} />
+        </Box>
+      ) : null}
       <Box marginTop={1}>
         <Spinner active={controller.busy} />
       </Box>
       <StatusBar
-        atBottom={scrollback.atBottom}
         contextPercent={controller.tokenHud.contextPercent}
         estimatedCostUsd={controller.tokenHud.estimatedCostUsd}
         inputTokens={controller.tokenHud.inputTokens}
@@ -403,4 +387,11 @@ export function ChatTuiApp({
       </Box>
     </Box>
   );
+}
+
+function isStaticTranscriptMessage(message: ChatMessage): boolean {
+  if (message.kind === "agent") {
+    return message.streaming !== true;
+  }
+  return message.kind === "error" || message.kind === "system" || message.kind === "user";
 }

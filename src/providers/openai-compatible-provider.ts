@@ -2,6 +2,7 @@ import type {
   ConversationMessage,
   JsonObject,
   Provider,
+  ProviderCapabilities,
   ProviderConfig,
   ProviderDescriptor,
   ProviderHealthCheck,
@@ -75,11 +76,7 @@ interface OpenAiCompatibleResponse {
 }
 
 export class OpenAiCompatibleProvider implements Provider {
-  public readonly capabilities = {
-    streaming: true,
-    textGeneration: true,
-    toolCalls: true
-  } as const;
+  public readonly capabilities: ProviderCapabilities;
 
   public readonly model: string;
   public readonly name: string;
@@ -92,10 +89,16 @@ export class OpenAiCompatibleProvider implements Provider {
       defaultModel: string;
       providerName?: string;
       providerLabel?: string;
+      supportsStreaming?: boolean;
     }
   ) {
     this.name = options.providerName ?? config.name;
     this.model = config.model ?? options.defaultModel;
+    this.capabilities = {
+      streaming: options.supportsStreaming ?? true,
+      textGeneration: true,
+      toolCalls: true
+    };
   }
 
   public describe(): ProviderDescriptor {
@@ -111,7 +114,7 @@ export class OpenAiCompatibleProvider implements Provider {
   public async generate(input: ProviderRequest): Promise<ProviderResponse> {
     this.ensureConfigured();
 
-    if (input.onTextDelta !== undefined) {
+    if (input.onTextDelta !== undefined && this.capabilities.streaming) {
       return this.generateStreaming(input);
     }
 
@@ -242,6 +245,70 @@ export class OpenAiCompatibleProvider implements Provider {
       const toolParts = new Map<number, { arguments: string; id: string; name: string }>();
       let lastUsage: ProviderUsage | undefined;
       const decoder = new TextDecoder();
+      const handleSseLine = (line: string): void => {
+        const trimmed = line.trim();
+        if (trimmed.length === 0 || !trimmed.startsWith("data:")) {
+          return;
+        }
+        const dataStr = trimmed.slice("data:".length).trim();
+        if (dataStr === "[DONE]") {
+          return;
+        }
+        let chunk: Record<string, unknown>;
+        try {
+          chunk = JSON.parse(dataStr) as Record<string, unknown>;
+        } catch {
+          return;
+        }
+        const usageRaw = chunk["usage"] as
+          | {
+              completion_tokens?: number;
+              prompt_tokens?: number;
+              total_tokens?: number;
+            }
+          | undefined;
+        if (usageRaw !== undefined) {
+          lastUsage = toUsage(usageRaw);
+        }
+
+        const choices = chunk["choices"] as Array<{ delta?: Record<string, unknown> }> | undefined;
+        const choice = choices?.[0];
+        const delta = choice?.delta as
+          | {
+              content?: string;
+              tool_calls?: Array<{
+                function?: { arguments?: string; name?: string };
+                id?: string;
+                index?: number;
+              }>;
+            }
+          | undefined;
+        if (delta === undefined) {
+          return;
+        }
+
+        if (typeof delta.content === "string" && delta.content.length > 0) {
+          fullContent += delta.content;
+          input.onTextDelta?.(delta.content);
+        }
+
+        if (Array.isArray(delta.tool_calls)) {
+          for (const tc of delta.tool_calls) {
+            const idx = typeof tc.index === "number" ? tc.index : 0;
+            const cur = toolParts.get(idx) ?? { arguments: "", id: "", name: "" };
+            if (typeof tc.id === "string" && tc.id.length > 0) {
+              cur.id = tc.id;
+            }
+            if (typeof tc.function?.name === "string" && tc.function.name.length > 0) {
+              cur.name = tc.function.name;
+            }
+            if (typeof tc.function?.arguments === "string") {
+              cur.arguments += tc.function.arguments;
+            }
+            toolParts.set(idx, cur);
+          }
+        }
+      };
 
       while (true) {
         const { done, value } = await reader.read();
@@ -252,69 +319,12 @@ export class OpenAiCompatibleProvider implements Provider {
         const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
         for (const line of lines) {
-          const trimmed = line.trim();
-          if (trimmed.length === 0 || !trimmed.startsWith("data:")) {
-            continue;
-          }
-          const dataStr = trimmed.slice("data:".length).trim();
-          if (dataStr === "[DONE]") {
-            continue;
-          }
-          let chunk: Record<string, unknown>;
-          try {
-            chunk = JSON.parse(dataStr) as Record<string, unknown>;
-          } catch {
-            continue;
-          }
-          const usageRaw = chunk["usage"] as
-            | {
-                completion_tokens?: number;
-                prompt_tokens?: number;
-                total_tokens?: number;
-              }
-            | undefined;
-          if (usageRaw !== undefined) {
-            lastUsage = toUsage(usageRaw);
-          }
-
-          const choices = chunk["choices"] as Array<{ delta?: Record<string, unknown> }> | undefined;
-          const choice = choices?.[0];
-          const delta = choice?.delta as
-            | {
-                content?: string;
-                tool_calls?: Array<{
-                  function?: { arguments?: string; name?: string };
-                  id?: string;
-                  index?: number;
-                }>;
-              }
-            | undefined;
-          if (delta === undefined) {
-            continue;
-          }
-
-          if (typeof delta.content === "string" && delta.content.length > 0) {
-            fullContent += delta.content;
-            input.onTextDelta?.(delta.content);
-          }
-
-          if (Array.isArray(delta.tool_calls)) {
-            for (const tc of delta.tool_calls) {
-              const idx = typeof tc.index === "number" ? tc.index : 0;
-              const cur = toolParts.get(idx) ?? { arguments: "", id: "", name: "" };
-              if (typeof tc.id === "string" && tc.id.length > 0) {
-                cur.id = tc.id;
-              }
-              if (typeof tc.function?.name === "string" && tc.function.name.length > 0) {
-                cur.name = tc.function.name;
-              }
-              if (typeof tc.function?.arguments === "string") {
-                cur.arguments += tc.function.arguments;
-              }
-              toolParts.set(idx, cur);
-            }
-          }
+          handleSseLine(line);
         }
+      }
+      buffer += decoder.decode();
+      for (const line of buffer.split("\n")) {
+        handleSseLine(line);
       }
 
       const usage =
