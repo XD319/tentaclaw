@@ -35,14 +35,18 @@ export function useScrollback(totalItems: number, reservedRows = 8): ScrollbackC
 
   const pageSize = Math.max(terminalRows - reservedRows, 4);
   const [endIndexExclusive, setEndIndexExclusive] = React.useState(totalItems);
+  const previousTotalItemsRef = React.useRef(totalItems);
 
   React.useEffect(() => {
+    const previousTotal = previousTotalItemsRef.current;
     setEndIndexExclusive((previous) => {
-      if (previous >= totalItems - 1) {
+      const wasFollowingBottom = previous >= previousTotal;
+      if (wasFollowingBottom) {
         return totalItems;
       }
       return Math.min(previous, totalItems);
     });
+    previousTotalItemsRef.current = totalItems;
   }, [totalItems]);
 
   const scrollPageUp = React.useCallback(() => {

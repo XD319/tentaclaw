@@ -57,6 +57,9 @@ export function ChatTuiApp({
     if (saveTimerRef.current !== null) {
       clearTimeout(saveTimerRef.current);
     }
+    if (controller.busy) {
+      return;
+    }
     saveTimerRef.current = setTimeout(() => {
       void saveSession(config.workspaceRoot, {
         id: sessionId,
@@ -69,7 +72,7 @@ export function ChatTuiApp({
         clearTimeout(saveTimerRef.current);
       }
     };
-  }, [config.workspaceRoot, controller.messages, sessionId]);
+  }, [config.workspaceRoot, controller.messages, controller.busy, sessionId]);
 
   const navigateHistoryPrevious = React.useCallback((): string | null => {
     const history = historyRef.current;
@@ -349,6 +352,9 @@ export function ChatTuiApp({
       : [];
 
   React.useEffect(() => {
+    if (!scrollback.atBottom) {
+      return;
+    }
     const latest = controller.messages.at(-1);
     if (latest === undefined) {
       return;

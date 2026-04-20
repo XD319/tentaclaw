@@ -349,11 +349,7 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
           removeStreamingMessage(streamId);
         }
 
-        const aborted =
-          error instanceof Error &&
-          (error.name === "AbortError" ||
-            error.message.toLowerCase().includes("abort") ||
-            error.message.toLowerCase().includes("aborted"));
+        const aborted = activeAbortControllerRef.current?.signal.aborted === true;
 
         if (aborted) {
           addSystemMessage("Interrupted current task.");
