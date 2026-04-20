@@ -1,6 +1,8 @@
 import React from "react";
 import { Text } from "ink";
 
+import { sanitizeTerminalText } from "../text-sanitize";
+
 export interface ErrorMessageProps {
   code: string;
   message: string;
@@ -8,7 +10,7 @@ export interface ErrorMessageProps {
 }
 
 export function ErrorMessage({ code, message, source }: ErrorMessageProps): React.ReactElement {
-  const compact = message.replace(/\s+/gu, " ").trim();
+  const compact = sanitizeTerminalText(message).replace(/\s+/gu, " ").trim();
   const preview = compact.length > 180 ? `${compact.slice(0, 180)}...` : compact;
   return (
     <Text color="red">

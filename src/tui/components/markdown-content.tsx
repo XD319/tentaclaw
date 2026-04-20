@@ -19,6 +19,23 @@ function reactChildrenToText(node: React.ReactNode): string {
   return "";
 }
 
+function sanitizeBoxChildren(children: React.ReactNode): React.ReactNode[] {
+  return React.Children.toArray(children).flatMap((child, index) => {
+    if (typeof child === "string") {
+      if (child.trim().length === 0) {
+        return [];
+      }
+      return [<Text key={`text:${index}`}>{child}</Text>];
+    }
+
+    if (typeof child === "number") {
+      return [<Text key={`num:${index}`}>{String(child)}</Text>];
+    }
+
+    return [child];
+  });
+}
+
 export function MarkdownContent({ source }: { source: string }): React.ReactElement {
   return (
     <Box flexDirection="column">
@@ -31,8 +48,9 @@ export function MarkdownContent({ source }: { source: string }): React.ReactElem
             </Text>
           ),
           blockquote: ({ children }) => (
-            <Box paddingLeft={1}>
-              <Text color={theme.quote}>│ {children}</Text>
+            <Box flexDirection="row" paddingLeft={1}>
+              <Text color={theme.quote}>│ </Text>
+              <Box flexDirection="column">{sanitizeBoxChildren(children)}</Box>
             </Box>
           ),
           code: ({ className, children, inline }) => {
@@ -73,17 +91,18 @@ export function MarkdownContent({ source }: { source: string }): React.ReactElem
             </Text>
           ),
           li: ({ children }) => (
-            <Text>
-              • {children}
-            </Text>
+            <Box flexDirection="row">
+              <Text>• </Text>
+              <Box flexDirection="column">{sanitizeBoxChildren(children)}</Box>
+            </Box>
           ),
-          ol: ({ children }) => <Box flexDirection="column">{children}</Box>,
+          ol: ({ children }) => <Box flexDirection="column">{sanitizeBoxChildren(children)}</Box>,
           p: ({ children }) => (
             <Text wrap="wrap" color={theme.emphasis}>
               {children}
             </Text>
           ),
-          pre: ({ children }) => <Box flexDirection="column">{children}</Box>,
+          pre: ({ children }) => <Box flexDirection="column">{sanitizeBoxChildren(children)}</Box>,
           strong: ({ children }) => (
             <Text bold color={theme.emphasis}>
               {children}
@@ -91,31 +110,31 @@ export function MarkdownContent({ source }: { source: string }): React.ReactElem
           ),
           table: ({ children }) => (
             <Box borderStyle="single" borderColor={theme.border} flexDirection="column" marginY={1} paddingX={1}>
-              {children}
+              {sanitizeBoxChildren(children)}
             </Box>
           ),
-          tbody: ({ children }) => <Box flexDirection="column">{children}</Box>,
+          tbody: ({ children }) => <Box flexDirection="column">{sanitizeBoxChildren(children)}</Box>,
           td: ({ children }) => (
-            <Text wrap="wrap" color={theme.emphasis}>
-              {children}
-            </Text>
+            <Box marginRight={2}>
+              <Text wrap="wrap" color={theme.emphasis}>
+                {children}
+              </Text>
+            </Box>
           ),
           th: ({ children }) => (
-            <Text bold color={theme.heading}>
-              {children}
-            </Text>
+            <Box marginRight={2}>
+              <Text bold color={theme.heading}>
+                {children}
+              </Text>
+            </Box>
           ),
           thead: ({ children }) => (
             <Box flexDirection="column" marginBottom={1}>
-              {children}
+              {sanitizeBoxChildren(children)}
             </Box>
           ),
-          tr: ({ children }) => (
-            <Box flexDirection="row" justifyContent="space-between">
-              {children}
-            </Box>
-          ),
-          ul: ({ children }) => <Box flexDirection="column">{children}</Box>
+          tr: ({ children }) => <Box flexDirection="row">{sanitizeBoxChildren(children)}</Box>,
+          ul: ({ children }) => <Box flexDirection="column">{sanitizeBoxChildren(children)}</Box>
         }}
       >
         {source}

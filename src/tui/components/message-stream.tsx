@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 
+import { sanitizeTerminalText } from "../text-sanitize";
 import type { ChatMessage } from "../view-models/chat-messages";
 import { AgentMessage } from "./agent-message";
 import { ApprovalCard } from "./approval-card";
@@ -57,7 +58,11 @@ export function MessageStream({ collapseActivities, messages }: MessageStreamPro
             />
           );
         }
-        return <Text key={message.id} color="gray">{message.text}</Text>;
+        return (
+          <Text key={message.id} color="gray">
+            {sanitizeTerminalText(message.text)}
+          </Text>
+        );
       })}
     </Box>
   );
