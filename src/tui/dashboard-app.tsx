@@ -6,6 +6,7 @@ import {
   ApprovalPanel,
   DiffPanel,
   ErrorsPanel,
+  ExperiencePanel,
   MemoryPanel,
   TaskPanel,
   TracePanel
@@ -168,6 +169,8 @@ export function AgentTuiApp({
               <TracePanel trace={selectedTask?.trace ?? []} />
             ) : controller.selectedPanel === "memory" ? (
               <MemoryPanel memoryHits={selectedTask?.memoryHits ?? []} />
+            ) : controller.selectedPanel === "experience" ? (
+              <ExperiencePanel experiences={selectedTask?.experienceHits ?? []} />
             ) : (
               <ErrorsPanel errors={selectedTask?.errors ?? []} />
             )}

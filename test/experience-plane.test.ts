@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { ExperiencePlane } from "../src/experience/experience-plane";
+import {
+  formatExperienceDetail,
+  formatExperienceList,
+  formatExperienceSearch
+} from "../src/cli/formatters";
 import { MemoryPlane } from "../src/memory/memory-plane";
 import { ContextPolicy } from "../src/policy/context-policy";
 import { StorageManager } from "../src/storage/database";
@@ -31,6 +36,9 @@ describe("ExperiencePlane", () => {
       });
 
       expect(search[0]?.experience.experienceId).toBe(captured.experienceId);
+      expect(formatExperienceList([reviewed])).toContain("failure_lesson");
+      expect(formatExperienceDetail(reviewed)).toContain("Provenance:");
+      expect(formatExperienceSearch(search)).toContain("structured=");
       expect(promoted.experience.status).toBe("promoted");
       expect(promoted.memory?.source.sourceType).toBe("manual_review");
       expect(harness.storage.memories.list({ scope: "project", scopeKey: "workspace-a" })).toHaveLength(1);

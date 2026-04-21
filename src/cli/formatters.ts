@@ -3,6 +3,7 @@ import type { BetaReadinessReport, EvalReport, ReplayRunResult } from "../diagno
 import type {
   ApprovalRecord,
   AuditLogRecord,
+  ExperienceRecord,
   MemoryRecord,
   MemorySnapshotRecord,
   ProviderStatsSnapshot,
@@ -10,6 +11,7 @@ import type {
   TraceEvent,
   ToolCallRecord
 } from "../types";
+import type { ExperienceRecallCandidate } from "../recall/recall-engine";
 
 import { formatTraceEvent } from "../tracing/trace-formatter";
 
@@ -278,6 +280,56 @@ export function formatMemoryList(memories: MemoryRecord[]): string {
     .map(
       (memory) =>
         `${memory.memoryId} | ${memory.scope}:${memory.scopeKey} | ${memory.status} | confidence=${memory.confidence.toFixed(2)} | privacy=${memory.privacyLevel} | ${memory.title}`
+    )
+    .join("\n");
+}
+
+export function formatExperienceList(experiences: ExperienceRecord[]): string {
+  if (experiences.length === 0) {
+    return "No experiences found.";
+  }
+
+  return experiences
+    .map(
+      (experience) =>
+        `${experience.experienceId} | ${experience.type} | ${experience.sourceType} | ${experience.status} | value=${experience.valueScore.toFixed(2)} confidence=${experience.confidence.toFixed(2)} | target=${experience.promotionTarget ?? "-"} | ${experience.title}`
+    )
+    .join("\n");
+}
+
+export function formatExperienceDetail(experience: ExperienceRecord | null): string {
+  if (experience === null) {
+    return "Experience not found.";
+  }
+
+  return [
+    `Experience ID: ${experience.experienceId}`,
+    `Type: ${experience.type}`,
+    `Source: ${experience.sourceType}`,
+    `Status: ${experience.status}`,
+    `Value: ${experience.valueScore.toFixed(2)}`,
+    `Confidence: ${experience.confidence.toFixed(2)}`,
+    `Scope: ${experience.scope.scope}:${experience.scope.scopeKey}`,
+    `Paths: ${experience.scope.paths.join(", ") || "-"}`,
+    `Promotion Target: ${experience.promotionTarget ?? "-"}`,
+    `Promoted Memory: ${experience.promotedMemoryId ?? "-"}`,
+    `Provenance: task=${experience.provenance.taskId ?? "-"} tool=${experience.provenance.toolCallId ?? "-"} reviewer=${experience.provenance.reviewerId ?? "-"} label=${experience.provenance.sourceLabel}`,
+    `Keywords: ${experience.keywords.join(", ")}`,
+    `Phrases: ${experience.keywordPhrases.join(", ") || "-"}`,
+    `Summary: ${experience.summary}`,
+    `Content: ${experience.content}`
+  ].join("\n");
+}
+
+export function formatExperienceSearch(candidates: ExperienceRecallCandidate[]): string {
+  if (candidates.length === 0) {
+    return "No matching experiences found.";
+  }
+
+  return candidates
+    .map(
+      (candidate) =>
+        `${candidate.experience.experienceId} | score=${candidate.finalScore.toFixed(2)} keyword=${candidate.keywordScore.toFixed(2)} phrase=${candidate.phraseScore.toFixed(2)} structured=${candidate.structuredScore.toFixed(2)} | ${candidate.experience.status} | target=${candidate.experience.promotionTarget ?? "-"} | ${candidate.experience.title}\n  ${candidate.explanation}\n  provenance=${candidate.experience.provenance.sourceLabel} task=${candidate.experience.provenance.taskId ?? "-"} reviewer=${candidate.experience.provenance.reviewerId ?? "-"}`
     )
     .join("\n");
 }

@@ -205,6 +205,24 @@ describe("Phase 4 Ink TUI query models", () => {
       await handle.service.runTask(
         createDefaultRunOptions("remember guidance", workspaceRoot, handle.config)
       );
+      const guidanceExperience = handle.service
+        .listExperiences({
+          type: "task_outcome"
+        })
+        .find((experience) => experience.summary.includes("vitest"));
+      expect(guidanceExperience).toBeDefined();
+      const reviewed = handle.service.reviewExperience({
+        experienceId: guidanceExperience?.experienceId ?? "",
+        note: "Promote reusable guidance for dashboard recall.",
+        reviewerId: "reviewer-phase4",
+        status: "accepted"
+      });
+      handle.service.promoteExperience({
+        experienceId: reviewed.experienceId,
+        note: "Use as project memory.",
+        reviewerId: "reviewer-phase4",
+        target: "project_memory"
+      });
       const recall = await handle.service.runTask(
         createDefaultRunOptions("recall guidance", workspaceRoot, handle.config)
       );
@@ -219,6 +237,7 @@ describe("Phase 4 Ink TUI query models", () => {
       });
       expect(recallDashboard.selectedTask?.memoryHits.length).toBeGreaterThan(0);
       expect(recallDashboard.selectedTask?.memoryHits[0]?.reasons.join(" ")).toContain("included");
+      expect(recallDashboard.selectedTask?.experienceHits.length).toBeGreaterThan(0);
 
       const failureDashboard = queryService.getDashboard({
         selectedPanel: "errors",

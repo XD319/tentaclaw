@@ -3,6 +3,7 @@ import type { ApprovalActionResult } from "../../runtime/application-service";
 import type {
   ApprovalRecord,
   ArtifactRecord,
+  ExperienceRecord,
   JsonObject,
   JsonValue,
   MemoryRecord,
@@ -17,6 +18,7 @@ export const PANEL_ORDER = [
   "diff",
   "trace",
   "memory",
+  "experience",
   "errors"
 ] as const;
 
@@ -90,6 +92,19 @@ export interface MemoryHitViewModel {
   memoryId: string;
 }
 
+export interface ExperienceHitViewModel {
+  confidence: number;
+  experienceId: string;
+  matchScore: number | null;
+  provenance: string;
+  promotionTarget: string;
+  sourceType: ExperienceRecord["sourceType"];
+  status: ExperienceRecord["status"];
+  title: string;
+  type: ExperienceRecord["type"];
+  valueScore: number;
+}
+
 export interface ErrorViewModel {
   code: string;
   message: string;
@@ -101,6 +116,7 @@ export interface SelectedTaskViewModel {
   approvals: ApprovalListItemViewModel[];
   diff: DiffViewModel[];
   errors: ErrorViewModel[];
+  experienceHits: ExperienceHitViewModel[];
   finalSummary: string;
   memoryHits: MemoryHitViewModel[];
   metadata: Array<{ label: string; value: string }>;
@@ -164,17 +180,21 @@ export class RuntimeDashboardQueryService {
     }
 
     const memories = this.service.listMemories();
+    const experiences = this.service.listExperiences({
+      taskId
+    });
     const currentTask = detail.task;
 
     return {
       approvals: detail.approvals.map((approval) => toApprovalItem(approval, [currentTask], this.service)),
       diff: buildDiffViewModels(detail.artifacts),
       errors: buildErrorViewModels(currentTask, detail.trace),
+      experienceHits: buildExperienceHits(experiences, detail.trace),
       finalSummary: summarizeTask(currentTask),
       memoryHits: buildMemoryHits(detail.trace, memories),
       metadata: buildMetadata(currentTask),
       recentEvents: detail.trace.slice(-5).map((event) => event.summary),
-      trace: detail.trace.slice(-20).map(toTraceEntry)
+      trace: detail.trace.slice(-30).map(toTraceEntry)
     };
   }
 }
@@ -285,6 +305,34 @@ function toDiffViewModel(artifact: ArtifactRecord): DiffViewModel | null {
     summary: `${operation} | changed=${changedLineCount} removed=${removedLineCount}`,
     unifiedDiff
   };
+}
+
+function buildExperienceHits(
+  experiences: ExperienceRecord[],
+  trace: TraceEvent[]
+): ExperienceHitViewModel[] {
+  const recallEvent = [...trace]
+    .reverse()
+    .find(
+      (event): event is Extract<TraceEvent, { eventType: "experience_recall_ranked" }> =>
+        event.eventType === "experience_recall_ranked"
+    );
+  const scores = new Map(
+    recallEvent?.payload.entries.map((entry) => [entry.experienceId, entry.finalScore]) ?? []
+  );
+
+  return experiences.slice(0, 10).map((experience) => ({
+    confidence: experience.confidence,
+    experienceId: experience.experienceId,
+    matchScore: scores.get(experience.experienceId) ?? null,
+    promotionTarget: experience.promotionTarget ?? "-",
+    provenance: `${experience.provenance.sourceLabel} task=${experience.provenance.taskId ?? "-"} reviewer=${experience.provenance.reviewerId ?? "-"}`,
+    sourceType: experience.sourceType,
+    status: experience.status,
+    title: experience.title,
+    type: experience.type,
+    valueScore: experience.valueScore
+  }));
 }
 
 function toTraceEntry(event: TraceEvent): TraceEntryViewModel {

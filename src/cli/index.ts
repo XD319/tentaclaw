@@ -17,6 +17,9 @@ import {
   formatCurrentProvider,
   formatDoctorReport,
   formatEvalReport,
+  formatExperienceDetail,
+  formatExperienceList,
+  formatExperienceSearch,
   formatMemoryList,
   formatMemoryScope,
   formatProviderCatalog,
@@ -31,6 +34,7 @@ import {
   formatTrace,
   formatTraceContextDebug
 } from "./formatters";
+import type { ExperienceQuery, ExperienceStatus } from "../types";
 
 async function main(): Promise<void> {
   const program = new Command();
@@ -561,6 +565,123 @@ async function main(): Promise<void> {
       }
     );
 
+  const experienceCommand = program.command("experience").description("Inspect and review experience assets");
+
+  experienceCommand
+    .command("list")
+    .option("--type <type>", "Experience type")
+    .option("--source <sourceType>", "Experience source type")
+    .option("--status <status>", "Experience status")
+    .option("--min-value <score>", "Minimum value score")
+    .option("--task-id <taskId>", "Task id filter")
+    .option("--reviewer <reviewerId>", "Reviewer id filter")
+    .option("--scope <scope>", "Scope filter")
+    .option("--scope-key <scopeKey>", "Scope key filter")
+    .option("--limit <number>", "Maximum records")
+    .action((commandOptions: ExperienceFilterOptions) => {
+      const handle = createApplication(process.cwd());
+      try {
+        console.log(formatExperienceList(handle.service.listExperiences(toExperienceQuery(commandOptions))));
+      } finally {
+        handle.close();
+      }
+    });
+
+  experienceCommand.command("show").argument("<experience_id>", "Experience identifier").action((experienceId: string) => {
+    const handle = createApplication(process.cwd());
+    try {
+      const experience = handle.service.showExperience(experienceId);
+      console.log(formatExperienceDetail(experience));
+      if (experience === null) {
+        process.exitCode = 1;
+      }
+    } finally {
+      handle.close();
+    }
+  });
+
+  experienceCommand
+    .command("review")
+    .argument("<experience_id>", "Experience identifier")
+    .argument("<status>", "accepted | rejected | stale")
+    .option("--reviewer <reviewer>", "Reviewer id")
+    .option("--note <note>", "Review note", "manual experience review")
+    .option("--value <score>", "Override value score")
+    .action(
+      (
+        experienceId: string,
+        status: "accepted" | "rejected" | "stale",
+        commandOptions: { note: string; reviewer?: string; value?: string }
+      ) => {
+        const handle = createApplication(process.cwd());
+        try {
+          const reviewer =
+            commandOptions.reviewer ?? process.env.USERNAME ?? process.env.USER ?? "local-reviewer";
+          const reviewed = handle.service.reviewExperience({
+            experienceId,
+            note: commandOptions.note,
+            reviewerId: reviewer,
+            status,
+            ...(commandOptions.value !== undefined ? { valueScore: Number(commandOptions.value) } : {})
+          });
+          console.log(formatExperienceList([reviewed]));
+        } finally {
+          handle.close();
+        }
+      }
+    );
+
+  experienceCommand
+    .command("promote")
+    .argument("<experience_id>", "Experience identifier")
+    .argument("<target>", "project_memory | agent_memory | skill_candidate")
+    .option("--reviewer <reviewer>", "Reviewer id")
+    .option("--note <note>", "Promotion note", "manual experience promotion")
+    .action(
+      (
+        experienceId: string,
+        target: "project_memory" | "agent_memory" | "skill_candidate",
+        commandOptions: { note: string; reviewer?: string }
+      ) => {
+        const handle = createApplication(process.cwd());
+        try {
+          const reviewer =
+            commandOptions.reviewer ?? process.env.USERNAME ?? process.env.USER ?? "local-reviewer";
+          const result = handle.service.promoteExperience({
+            experienceId,
+            note: commandOptions.note,
+            reviewerId: reviewer,
+            target
+          });
+          console.log(formatExperienceList([result.experience]));
+          console.log(`Promoted Memory: ${result.memory?.memoryId ?? "-"}`);
+        } finally {
+          handle.close();
+        }
+      }
+    );
+
+  experienceCommand
+    .command("search")
+    .argument("<query>", "Keyword query")
+    .option("--type <type>", "Experience type")
+    .option("--source <sourceType>", "Experience source type")
+    .option("--status <status>", "Experience status")
+    .option("--min-value <score>", "Minimum value score")
+    .option("--task-id <taskId>", "Task id filter")
+    .option("--reviewer <reviewerId>", "Reviewer id filter")
+    .option("--scope <scope>", "Scope filter")
+    .option("--scope-key <scopeKey>", "Scope key filter")
+    .option("--limit <number>", "Maximum records")
+    .action((query: string, commandOptions: ExperienceFilterOptions) => {
+      const handle = createApplication(process.cwd());
+      try {
+        console.log(formatExperienceSearch(handle.service.searchExperiences(query, toExperienceQuery(commandOptions))));
+      } finally {
+        handle.close();
+      }
+    });
+
   program
     .command("tui")
     .description("Open chat-style terminal UI")
@@ -648,6 +769,18 @@ interface RunCommandOptions extends SandboxCommandOptions {
   timeoutMs?: string;
 }
 
+interface ExperienceFilterOptions {
+  limit?: string;
+  minValue?: string;
+  reviewer?: string;
+  scope?: string;
+  scopeKey?: string;
+  source?: string;
+  status?: string;
+  taskId?: string;
+  type?: string;
+}
+
 function collectOption(value: string, previous: string[]): string[] {
   return [...previous, value];
 }
@@ -659,6 +792,20 @@ function resolveSandboxCliOptions(options: SandboxCommandOptions): ResolveAppCon
       : {}),
     ...(options.sandboxProfile !== undefined ? { sandboxProfile: options.sandboxProfile } : {}),
     ...(options.writeRoot !== undefined ? { writeRoots: options.writeRoot } : {})
+  };
+}
+
+function toExperienceQuery(options: ExperienceFilterOptions): ExperienceQuery {
+  return {
+    ...(options.type !== undefined ? { type: options.type as ExperienceQuery["type"] } : {}),
+    ...(options.source !== undefined ? { sourceType: options.source as ExperienceQuery["sourceType"] } : {}),
+    ...(options.status !== undefined ? { status: options.status as ExperienceStatus } : {}),
+    ...(options.minValue !== undefined ? { minValueScore: Number(options.minValue) } : {}),
+    ...(options.taskId !== undefined ? { taskId: options.taskId } : {}),
+    ...(options.reviewer !== undefined ? { reviewerId: options.reviewer } : {}),
+    ...(options.scope !== undefined ? { scope: options.scope } : {}),
+    ...(options.scopeKey !== undefined ? { scopeKey: options.scopeKey } : {}),
+    ...(options.limit !== undefined ? { limit: Number(options.limit) } : {})
   };
 }
 
