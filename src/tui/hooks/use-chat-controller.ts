@@ -426,12 +426,40 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
   );
 
   const formatDiffSummary = React.useCallback((): string => {
+    if (activeTaskIdRef.current !== null) {
+      const artifacts = input.service
+        .showTask(activeTaskIdRef.current)
+        .artifacts.filter((artifact) => artifact.artifactType === "file");
+      if (artifacts.length > 0) {
+        return artifacts
+          .map((artifact, index) => {
+            const content = artifact.content;
+            const path =
+              typeof content === "object" && content !== null && !Array.isArray(content) && typeof content.path === "string"
+                ? content.path
+                : artifact.uri;
+            const unifiedDiff =
+              typeof content === "object" &&
+              content !== null &&
+              !Array.isArray(content) &&
+              typeof content.unifiedDiff === "string"
+                ? content.unifiedDiff
+                : "";
+            return [
+              `${String(index + 1).padStart(2, " ")}. ${path}`,
+              unifiedDiff.length === 0 ? "(no unified diff recorded)" : unifiedDiff
+            ].join("\n");
+          })
+          .join("\n\n");
+      }
+    }
+
     if (fileEdits.length === 0) {
       return "No file_write operations recorded in this session yet.";
     }
     const lines = fileEdits.map((entry, index) => `${String(index + 1).padStart(2, " ")}. ${entry.path} (task ${entry.taskId.slice(0, 8)})`);
     return `Session file changes (${fileEdits.length}):\n${lines.join("\n")}`;
-  }, [fileEdits]);
+  }, [fileEdits, input.service]);
 
   const resolvePendingApproval = React.useCallback(
     async (action: "allow" | "deny") => {

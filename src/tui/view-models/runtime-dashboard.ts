@@ -63,6 +63,7 @@ export interface DiffViewModel {
   riskHighlight: boolean;
   riskReasons: string[];
   summary: string;
+  unifiedDiff: string;
 }
 
 export interface TraceEntryViewModel {
@@ -70,6 +71,7 @@ export interface TraceEntryViewModel {
   chainLabel: string | null;
   emphasis: "default" | "error" | "muted" | "warning";
   eventType: TraceEvent["eventType"];
+  iteration: number | null;
   sequence: number;
   stage: TraceEvent["stage"];
   summary: string;
@@ -268,6 +270,7 @@ function toDiffViewModel(artifact: ArtifactRecord): DiffViewModel | null {
   const changedLineCount = readNumber(diffSummary.changedLineCount) ?? 0;
   const removedLineCount = readNumber(diffSummary.removedLineCount) ?? 0;
   const riskReasons = collectDiffRiskReasons(path, beforePreview, afterPreview, changedLineCount);
+  const unifiedDiff = readString(artifact.content.unifiedDiff) ?? "";
 
   return {
     artifactId: artifact.artifactId,
@@ -279,7 +282,8 @@ function toDiffViewModel(artifact: ArtifactRecord): DiffViewModel | null {
     removedLineCount,
     riskHighlight: riskReasons.length > 0,
     riskReasons,
-    summary: `${operation} | changed=${changedLineCount} removed=${removedLineCount}`
+    summary: `${operation} | changed=${changedLineCount} removed=${removedLineCount}`,
+    unifiedDiff
   };
 }
 
@@ -298,11 +302,17 @@ function toTraceEntry(event: TraceEvent): TraceEntryViewModel {
             ? "muted"
             : "default",
     eventType: event.eventType,
+    iteration: extractIteration(event),
     sequence: event.sequence,
     stage: event.stage,
     summary: event.summary,
     timestamp: event.timestamp
   };
+}
+
+function extractIteration(event: TraceEvent): number | null {
+  const payload = event.payload as { iteration?: unknown };
+  return typeof payload.iteration === "number" ? payload.iteration : null;
 }
 
 function buildMemoryHits(trace: TraceEvent[], memories: MemoryRecord[]): MemoryHitViewModel[] {

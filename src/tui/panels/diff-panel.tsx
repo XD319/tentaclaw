@@ -22,11 +22,34 @@ export function DiffPanel({ diff }: DiffPanelProps): React.ReactElement {
             {entry.riskReasons.length > 0 ? (
               <Text color="yellow">risk: {entry.riskReasons.join("; ")}</Text>
             ) : null}
-            <Text color="gray">before: {entry.beforePreview.replace(/\n/gu, " ")}</Text>
-            <Text color="gray">after: {entry.afterPreview.replace(/\n/gu, " ")}</Text>
+            {entry.unifiedDiff.length > 0 ? (
+              entry.unifiedDiff.split(/\r?\n/u).slice(0, 80).map((line, index) => (
+                <Text key={`${entry.artifactId}-diff-${index}`} {...diffLineProps(line)}>
+                  {line}
+                </Text>
+              ))
+            ) : (
+              <>
+                <Text color="gray">before: {entry.beforePreview.replace(/\n/gu, " ")}</Text>
+                <Text color="gray">after: {entry.afterPreview.replace(/\n/gu, " ")}</Text>
+              </>
+            )}
           </Box>
         ))
       )}
     </Box>
   );
+}
+
+function diffLineProps(line: string): { color?: "gray" | "green" | "red" } {
+  if (line.startsWith("+++ ") || line.startsWith("--- ") || line.startsWith("@@")) {
+    return { color: "gray" };
+  }
+  if (line.startsWith("+")) {
+    return { color: "green" };
+  }
+  if (line.startsWith("-")) {
+    return { color: "red" };
+  }
+  return {};
 }

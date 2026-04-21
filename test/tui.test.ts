@@ -138,9 +138,11 @@ describe("Phase 4 Ink TUI query models", () => {
       });
 
       expect(afterApproval.selectedTask?.diff[0]?.path).toContain("phase4.txt");
+      expect(afterApproval.selectedTask?.diff[0]?.unifiedDiff).toContain("+++ b/");
       expect(afterApproval.selectedTask?.trace.some((entry) => entry.eventType === "approval_resolved")).toBe(
         true
       );
+      expect(afterApproval.selectedTask?.trace.some((entry) => entry.iteration !== null)).toBe(true);
       expect(afterApproval.selectedTask?.diff[0]?.summary).toContain("changed=");
     } finally {
       handle.close();
