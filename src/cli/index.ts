@@ -27,6 +27,9 @@ import {
   formatProviderStats,
   formatReplayReport,
   formatRunError,
+  formatSkillDraft,
+  formatSkillList,
+  formatSkillView,
   formatSnapshot,
   formatTask,
   formatTaskList,
@@ -35,6 +38,7 @@ import {
   formatTraceContextDebug
 } from "./formatters";
 import type { ExperienceQuery, ExperienceSourceType, ExperienceStatus, ExperienceType } from "../types";
+import type { SkillAttachmentKind } from "../types/skill";
 
 async function main(): Promise<void> {
   const program = new Command();
@@ -237,6 +241,74 @@ async function main(): Promise<void> {
         handle.close();
       }
     });
+
+  const skillsCommand = program.command("skills").description("Inspect and manage procedural skills");
+
+  skillsCommand.command("list").action(() => {
+    const handle = createApplication(process.cwd());
+    try {
+      console.log(formatSkillList(handle.service.listSkills()));
+    } finally {
+      handle.close();
+    }
+  });
+
+  skillsCommand
+    .command("view")
+    .argument("<skill_id>", "Skill identifier")
+    .option("--with <kinds>", "Comma-separated attachment kinds: references,templates,scripts,assets")
+    .action((skillId: string, commandOptions: { with?: string }) => {
+      const handle = createApplication(process.cwd());
+      try {
+        const attachmentKinds = parseAttachmentKinds(commandOptions.with);
+        const skill = handle.service.viewSkill(skillId, attachmentKinds);
+        console.log(formatSkillView(skill));
+        if (skill === null) {
+          process.exitCode = 1;
+        }
+      } finally {
+        handle.close();
+      }
+    });
+
+  skillsCommand.command("enable").argument("<skill_id>", "Skill identifier").action((skillId: string) => {
+    const handle = createApplication(process.cwd());
+    try {
+      console.log(formatSkillList(handle.service.enableSkill(skillId)));
+    } finally {
+      handle.close();
+    }
+  });
+
+  skillsCommand.command("disable").argument("<skill_id>", "Skill identifier").action((skillId: string) => {
+    const handle = createApplication(process.cwd());
+    try {
+      console.log(formatSkillList(handle.service.disableSkill(skillId)));
+    } finally {
+      handle.close();
+    }
+  });
+
+  skillsCommand
+    .command("draft")
+    .requiredOption("--from-experience <experience_id>", "Accepted or promoted experience id")
+    .action((commandOptions: { fromExperience: string }) => {
+      const handle = createApplication(process.cwd());
+      try {
+        console.log(formatSkillDraft(handle.service.createSkillDraftFromExperience(commandOptions.fromExperience)));
+      } finally {
+        handle.close();
+      }
+    });
+
+  skillsCommand.command("promote").argument("<draft_id>", "Skill draft identifier").action((draftId: string) => {
+    const handle = createApplication(process.cwd());
+    try {
+      console.log(formatSkillDraft(handle.service.promoteSkillDraft(draftId)));
+    } finally {
+      handle.close();
+    }
+  });
 
   program
     .command("repo")
@@ -825,6 +897,24 @@ function toExperienceQuery(options: ExperienceFilterOptions): ExperienceQuery {
     query.limit = Number(options.limit);
   }
   return query;
+}
+
+function parseAttachmentKinds(value: string | undefined): SkillAttachmentKind[] {
+  if (value === undefined || value.trim().length === 0) {
+    return [];
+  }
+  return value.split(",").map((entry) => {
+    const kind = entry.trim();
+    if (
+      kind !== "references" &&
+      kind !== "templates" &&
+      kind !== "scripts" &&
+      kind !== "assets"
+    ) {
+      throw new Error(`Unsupported skill attachment kind: ${kind}`);
+    }
+    return kind;
+  });
 }
 
 function resolveScopeKey(

@@ -7,6 +7,9 @@ import type {
   MemoryRecord,
   MemorySnapshotRecord,
   ProviderStatsSnapshot,
+  SkillDraftRecord,
+  SkillListResult,
+  SkillView,
   TaskRecord,
   TraceEvent,
   ToolCallRecord
@@ -167,6 +170,7 @@ export function formatDoctorReport(report: AgentDoctorReport): string {
     `Workspace Root: ${report.workspaceRoot}`,
     `Database Path: ${report.databasePath}`,
     `Experience Records: total=${report.experienceStats.total} candidate=${report.experienceStats.candidate} accepted=${report.experienceStats.accepted} promoted=${report.experienceStats.promoted} rejected=${report.experienceStats.rejected} stale=${report.experienceStats.stale}`,
+    `Skills: total=${report.skillStats.total} enabled=${report.skillStats.enabled} issues=${report.skillStats.issues}`,
     `Shell: ${report.shell ?? "-"}`,
     `Issues: ${report.issues.length === 0 ? "none" : report.issues.join("; ")}`
   ].join("\n");
@@ -333,6 +337,65 @@ export function formatExperienceSearch(candidates: ExperienceRecallCandidate[]):
         `${candidate.experience.experienceId} | score=${candidate.finalScore.toFixed(2)} keyword=${candidate.keywordScore.toFixed(2)} phrase=${candidate.phraseScore.toFixed(2)} structured=${candidate.structuredScore.toFixed(2)} | ${candidate.experience.status} | target=${candidate.experience.promotionTarget ?? "-"} | ${candidate.experience.title}\n  ${candidate.explanation}\n  provenance=${candidate.experience.provenance.sourceLabel} task=${candidate.experience.provenance.taskId ?? "-"} reviewer=${candidate.experience.provenance.reviewerId ?? "-"}`
     )
     .join("\n");
+}
+
+export function formatSkillList(result: SkillListResult): string {
+  const skillLines =
+    result.skills.length === 0
+      ? ["No enabled skills found."]
+      : result.skills.map(
+          (skill) =>
+            `${skill.id} | ${skill.namespace}/${skill.name} | ${skill.version} | category=${skill.category} | tags=${skill.tags.join(",") || "-"} | source=${skill.source} | experiences=${skill.sourceExperienceIds.join(",") || "-"}`
+        );
+  const issueLines =
+    result.issues.length === 0
+      ? []
+      : [
+          "Issues:",
+          ...result.issues.map(
+            (issue) =>
+              `- ${issue.code} | skill=${issue.skillId ?? "-"} | path=${issue.path} | ${issue.detail}`
+          )
+        ];
+  return [...skillLines, ...issueLines].join("\n");
+}
+
+export function formatSkillView(skill: SkillView | null): string {
+  if (skill === null) {
+    return "Skill not found.";
+  }
+
+  return [
+    `Skill ID: ${skill.metadata.id}`,
+    `Name: ${skill.metadata.namespace}/${skill.metadata.name}`,
+    `Version: ${skill.metadata.version}`,
+    `Category: ${skill.metadata.category}`,
+    `Disabled: ${skill.metadata.disabled ? "yes" : "no"}`,
+    `Platforms: ${skill.metadata.platforms.join(", ")}`,
+    `Tags: ${skill.metadata.tags.join(", ") || "-"}`,
+    `Related: ${skill.metadata.relatedSkills.join(", ") || "-"}`,
+    `Source Experiences: ${skill.metadata.sourceExperienceIds.join(", ") || "-"}`,
+    `Attachments: references=${skill.metadata.attachmentCounts.references} templates=${skill.metadata.attachmentCounts.templates} scripts=${skill.metadata.attachmentCounts.scripts} assets=${skill.metadata.attachmentCounts.assets}`,
+    `Description: ${skill.metadata.description}`,
+    `Body:\n${skill.body}`,
+    skill.loadedAttachments.length === 0
+      ? "Loaded Attachments: none"
+      : [
+          "Loaded Attachments:",
+          ...skill.loadedAttachments.map(
+            (attachment) => `- ${attachment.kind}:${attachment.path}\n${attachment.content}`
+          )
+        ].join("\n")
+  ].join("\n");
+}
+
+export function formatSkillDraft(draft: SkillDraftRecord): string {
+  return [
+    `Draft ID: ${draft.draftId}`,
+    `Draft Path: ${draft.draftPath}`,
+    `Target Skill: ${draft.targetSkillId}`,
+    `Source Experiences: ${draft.sourceExperienceIds.join(", ")}`
+  ].join("\n");
 }
 
 export function formatMemoryScope(

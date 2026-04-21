@@ -77,6 +77,11 @@ export interface AgentDoctorReport {
   runtimeConfigSource: "defaults" | "env" | "file";
   runtimeVersion: string;
   shell: string | undefined;
+  skillStats: {
+    enabled: number;
+    issues: number;
+    total: number;
+  };
   tokenBudget: {
     inputLimit: number;
     outputLimit: number;
@@ -239,6 +244,26 @@ export class AgentApplicationService {
 
   public viewSkill(skillId: string, attachmentKinds: SkillAttachmentKind[] = []) {
     return this.dependencies.skillRegistry.viewSkill(skillId, attachmentKinds);
+  }
+
+  public enableSkill(skillId: string) {
+    return this.dependencies.skillRegistry.enableSkill(skillId);
+  }
+
+  public disableSkill(skillId: string) {
+    return this.dependencies.skillRegistry.disableSkill(skillId);
+  }
+
+  public createSkillDraftFromExperience(experienceId: string) {
+    const experience = this.dependencies.experiencePlane.show(experienceId);
+    if (experience === null) {
+      throw new Error(`Experience ${experienceId} was not found.`);
+    }
+    return this.dependencies.skillDraftManager.createDraftFromExperience(experience);
+  }
+
+  public promoteSkillDraft(draftId: string) {
+    return this.dependencies.skillDraftManager.promoteDraft(draftId);
   }
 
   public showMemoryScope(scope: MemoryScope, scopeKey: string): {
@@ -601,6 +626,7 @@ export class AgentApplicationService {
     const providerHealth = await this.testCurrentProvider(signal);
     const issues = collectDoctorIssues(this.dependencies.providerConfig, providerHealth);
     const experiences = this.dependencies.listExperiences();
+    const skills = this.dependencies.skillRegistry.listSkills();
 
     return {
       apiKeyConfigured: providerHealth.apiKeyConfigured,
@@ -629,6 +655,11 @@ export class AgentApplicationService {
       runtimeConfigSource: this.dependencies.runtimeConfigSource,
       runtimeVersion: this.dependencies.runtimeVersion,
       shell: process.env.ComSpec,
+      skillStats: {
+        enabled: skills.skills.length,
+        issues: skills.issues.length,
+        total: skills.skills.length + skills.issues.length
+      },
       tokenBudget: this.dependencies.tokenBudget,
       timeoutMs: this.dependencies.providerConfig.timeoutMs,
       workspaceRoot: this.dependencies.workspaceRoot

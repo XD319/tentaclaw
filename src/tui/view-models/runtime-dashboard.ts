@@ -19,6 +19,7 @@ export const PANEL_ORDER = [
   "trace",
   "memory",
   "experience",
+  "skills",
   "errors"
 ] as const;
 
@@ -112,6 +113,16 @@ export interface ErrorViewModel {
   timestamp: string;
 }
 
+export interface SkillItemViewModel {
+  category: string;
+  experienceIds: string;
+  id: string;
+  platformSummary: string;
+  source: string;
+  tags: string;
+  title: string;
+}
+
 export interface SelectedTaskViewModel {
   approvals: ApprovalListItemViewModel[];
   diff: DiffViewModel[];
@@ -131,6 +142,7 @@ export interface RuntimeDashboardViewModel {
   selectedTask: SelectedTaskViewModel | null;
   selectedTaskId: string | null;
   summary: DashboardSummaryViewModel;
+  skills: SkillItemViewModel[];
   tasks: TaskListItemViewModel[];
 }
 
@@ -169,6 +181,7 @@ export class RuntimeDashboardQueryService {
         succeededTaskCount: tasks.filter((task) => task.status === "succeeded").length,
         taskCount: tasks.length
       },
+      skills: this.service.listSkills().skills.map(toSkillItem),
       tasks: tasks.map((task) => toTaskListItem(task, this.service.showTask(task.taskId)))
     };
   }
@@ -333,6 +346,18 @@ function buildExperienceHits(
     type: experience.type,
     valueScore: experience.valueScore
   }));
+}
+
+function toSkillItem(skill: ReturnType<AgentApplicationService["listSkills"]>["skills"][number]): SkillItemViewModel {
+  return {
+    category: skill.category,
+    experienceIds: skill.sourceExperienceIds.join(",") || "-",
+    id: skill.id,
+    platformSummary: skill.platforms.join(","),
+    source: skill.source,
+    tags: skill.tags.join(",") || "-",
+    title: `${skill.namespace}/${skill.name}`
+  };
 }
 
 function toTraceEntry(event: TraceEvent): TraceEntryViewModel {
