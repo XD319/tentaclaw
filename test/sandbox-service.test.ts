@@ -54,4 +54,18 @@ describe("SandboxService", () => {
     const plan = sandboxService.prepareWebFetch("https://docs.example.com/api");
     expect(plan.host).toBe("docs.example.com");
   });
+
+  it("denies case-variant write paths outside workspace on case-sensitive platforms", () => {
+    if (process.platform === "win32") {
+      return;
+    }
+
+    const sandboxService = new SandboxService({
+      workspaceRoot: "/tmp/workspace"
+    });
+
+    expect(() => sandboxService.prepareFileWrite("/tmp/WorkSpace/escape.txt", "/tmp/workspace")).toThrow(
+      /outside the configured write roots/i
+    );
+  });
 });

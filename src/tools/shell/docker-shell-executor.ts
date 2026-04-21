@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { relative, resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 
 import { AppError } from "../../runtime/app-error";
 
@@ -224,13 +224,13 @@ function mapHostPathToContainer(hostPath: string, mounts: DockerMount[]): string
 }
 
 function isWithinRoot(candidatePath: string, rootPath: string): boolean {
-  const normalizedCandidate = candidatePath.toLowerCase();
-  const normalizedRoot = rootPath.toLowerCase();
-
+  const relativePath = relative(rootPath, candidatePath);
   return (
-    normalizedCandidate === normalizedRoot ||
-    normalizedCandidate.startsWith(`${normalizedRoot}\\`) ||
-    normalizedCandidate.startsWith(`${normalizedRoot}/`)
+    relativePath.length === 0 ||
+    (!relativePath.startsWith("..\\") &&
+      !relativePath.startsWith("../") &&
+      relativePath !== ".." &&
+      !isAbsolute(relativePath))
   );
 }
 

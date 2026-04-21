@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { basename, dirname, parse, resolve } from "node:path";
+import { basename, dirname, isAbsolute, parse, relative, resolve } from "node:path";
 
 import { AppError } from "../runtime/app-error";
 import type {
@@ -363,13 +363,13 @@ export class SandboxService {
   }
 
   private isWithinRoot(candidatePath: string, rootPath: string): boolean {
-    const normalizedCandidate = candidatePath.toLowerCase();
-    const normalizedRoot = rootPath.toLowerCase();
-
+    const relativePath = relative(rootPath, candidatePath);
     return (
-      normalizedCandidate === normalizedRoot ||
-      normalizedCandidate.startsWith(`${normalizedRoot}\\`) ||
-      normalizedCandidate.startsWith(`${normalizedRoot}/`)
+      relativePath.length === 0 ||
+      (!relativePath.startsWith("..\\") &&
+        !relativePath.startsWith("../") &&
+        relativePath !== ".." &&
+        !isAbsolute(relativePath))
     );
   }
 
