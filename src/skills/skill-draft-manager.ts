@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
 import { parseSkillMarkdown } from "./skill-asset";
@@ -239,7 +239,7 @@ function readSourceExperienceIds(frontmatter: SkillFrontmatter): string[] {
   if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string" || entry.length === 0)) {
     throw new Error("Skill draft metadata.sourceExperienceIds must be a string array.");
   }
-  return value.map((entry) => String(entry));
+  return value.filter((entry): entry is string => typeof entry === "string");
 }
 
 function assertWithinRoot(candidatePath: string, rootPath: string): void {

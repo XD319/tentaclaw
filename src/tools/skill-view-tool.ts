@@ -2,7 +2,6 @@ import { z } from "zod";
 
 import type { SkillRegistry } from "../skills";
 import type {
-  SkillAttachmentKind,
   ToolDefinition,
   ToolExecutionContext,
   ToolExecutionResult,
@@ -58,20 +57,20 @@ export class SkillViewTool implements ToolDefinition<typeof skillViewSchema, Ski
     };
   }
 
-  public async execute(input: SkillViewInput): Promise<ToolExecutionResult> {
+  public execute(input: SkillViewInput): Promise<ToolExecutionResult> {
     const view = this.registry.viewSkill(
       input.skillId,
-      input.attachmentKinds as SkillAttachmentKind[]
+      input.attachmentKinds
     );
     if (view === null) {
-      return {
+      return Promise.resolve({
         errorCode: "tool_validation_error",
         errorMessage: `Skill ${input.skillId} was not found or is not enabled for this runtime.`,
         success: false
-      };
+      });
     }
 
-    return {
+    return Promise.resolve({
       output: {
         attachments: view.loadedAttachments.map((attachment) => ({
           content: attachment.content,
@@ -99,6 +98,6 @@ export class SkillViewTool implements ToolDefinition<typeof skillViewSchema, Ski
       },
       success: true,
       summary: `Loaded skill ${input.skillId} with ${view.loadedAttachments.length} attachments`
-    };
+    });
   }
 }
