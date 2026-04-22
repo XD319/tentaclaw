@@ -16,6 +16,10 @@ import type { ContextAssemblyDebugView } from "./context";
 export const TRACE_EVENT_TYPES = [
   "gateway_request_received",
   "gateway_capability_degraded",
+  "gateway_rate_limited",
+  "gateway_denied",
+  "gateway_auth_failed",
+  "gateway_approval_resolved",
   "task_created",
   "task_started",
   "model_request",
@@ -99,6 +103,7 @@ export interface GatewayRequestReceivedPayload extends JsonObject {
   adapterKind: string;
   externalSessionId: string;
   externalUserId: string | null;
+  previousTaskId?: string | null;
   runtimeUserId: string;
 }
 
@@ -107,6 +112,21 @@ export interface GatewayCapabilityDegradedPayload extends JsonObject {
   capability: string;
   fallbackBehavior: string;
   message: string;
+}
+
+export interface GatewayGuardPayload extends JsonObject {
+  adapterId: string;
+  externalSessionId: string;
+  externalUserId: string | null;
+  message: string;
+}
+
+export interface GatewayApprovalResolvedPayload extends JsonObject {
+  adapterId: string;
+  approvalId: string;
+  decision: "allow" | "deny";
+  reviewerExternalUserId: string | null;
+  reviewerRuntimeUserId: string;
 }
 
 export interface TaskStartedPayload extends JsonObject {
@@ -398,6 +418,10 @@ export interface FileRollbackPayload extends JsonObject {
 export type TraceEvent =
   | TraceEventBase<"gateway_request_received", GatewayRequestReceivedPayload>
   | TraceEventBase<"gateway_capability_degraded", GatewayCapabilityDegradedPayload>
+  | TraceEventBase<"gateway_rate_limited", GatewayGuardPayload>
+  | TraceEventBase<"gateway_denied", GatewayGuardPayload>
+  | TraceEventBase<"gateway_auth_failed", GatewayGuardPayload>
+  | TraceEventBase<"gateway_approval_resolved", GatewayApprovalResolvedPayload>
   | TraceEventBase<"task_created", TaskCreatedPayload>
   | TraceEventBase<"task_started", TaskStartedPayload>
   | TraceEventBase<"model_request", ModelRequestPayload>

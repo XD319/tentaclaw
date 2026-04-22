@@ -34,6 +34,10 @@ export class LocalWebhookAdapter implements InboundMessageAdapter {
           detail: "Returns approval state but does not resolve approvals inline.",
           supported: false
         },
+        attachmentCapability: {
+          detail: "Returns attachment references only.",
+          supported: false
+        },
         fileCapability: {
           detail: "Returns artifact references only.",
           supported: false
@@ -283,6 +287,7 @@ const jsonObjectSchema: z.ZodType<JsonObject> = z.record(z.string(), jsonValueSc
 
 const adapterCapabilityNameSchema = z.enum([
   "approvalInteraction",
+  "attachmentCapability",
   "fileCapability",
   "streamingCapability",
   "structuredCardCapability",
@@ -291,6 +296,7 @@ const adapterCapabilityNameSchema = z.enum([
 
 const gatewayTaskRequestSchema = z.object({
   agentProfileId: z.enum(["executor", "planner", "reviewer"]).optional(),
+  continuation: z.enum(["new", "resume-latest"]).optional(),
   cwd: z.string().min(1).optional(),
   interactionRequirements: z
     .partialRecord(adapterCapabilityNameSchema, adapterCapabilityRequirementSchema)
@@ -321,6 +327,9 @@ function parseGatewayTaskRequest(input: unknown): GatewayTaskRequest {
 
   if (parsed.data.agentProfileId !== undefined) {
     request.agentProfileId = parsed.data.agentProfileId;
+  }
+  if (parsed.data.continuation !== undefined) {
+    request.continuation = parsed.data.continuation;
   }
   if (parsed.data.cwd !== undefined) {
     request.cwd = parsed.data.cwd;

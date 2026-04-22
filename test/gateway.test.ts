@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createGatewayRuntime, startLocalWebhookGateway } from "../src/gateway";
+import { createGatewayRuntime, GatewayManager, startLocalWebhookGateway } from "../src/gateway";
 import { createApplication } from "../src/runtime";
 import type { LocalPolicyConfig, Provider, ProviderInput, ProviderResponse } from "../src/types";
 
@@ -153,6 +153,7 @@ describe("Phase 5 gateway adapters", () => {
           adapterId: "sdk-local",
           capabilities: {
             approvalInteraction: { supported: false },
+            attachmentCapability: { supported: false },
             fileCapability: { supported: false },
             streamingCapability: { supported: false },
             structuredCardCapability: { supported: false },
@@ -208,6 +209,7 @@ describe("Phase 5 gateway adapters", () => {
           adapterId: "sdk-no-approval",
           capabilities: {
             approvalInteraction: { supported: false, detail: "No inline approval flow." },
+            attachmentCapability: { supported: false },
             fileCapability: { supported: false },
             streamingCapability: { supported: false, detail: "No SSE support." },
             structuredCardCapability: { supported: false },
@@ -310,6 +312,57 @@ describe("Phase 5 gateway adapters", () => {
       expect(body).toContain("\"kind\":\"audit\"");
     } finally {
       await gatewayHandle.manager.stopAll();
+      handle.close();
+    }
+  });
+
+  it("fails adapter startup when required capability is missing", async () => {
+    const workspaceRoot = await createTempWorkspace();
+    const handle = createApplication(workspaceRoot, {
+      config: {
+        databasePath: join(workspaceRoot, "runtime.db")
+      },
+      provider: new ScriptedProvider(() => ({
+        kind: "final",
+        message: "ok",
+        usage: { inputTokens: 1, outputTokens: 1 }
+      }))
+    });
+
+    try {
+      const manager = new GatewayManager(
+        createGatewayRuntime(handle),
+        [
+          {
+            descriptor: {
+              adapterId: "missing-attachment",
+              capabilities: {
+                approvalInteraction: { supported: true },
+                attachmentCapability: { supported: false },
+                fileCapability: { supported: true },
+                streamingCapability: { supported: true },
+                structuredCardCapability: { supported: true },
+                textInteraction: { supported: true }
+              },
+              description: "test adapter",
+              displayName: "test adapter",
+              kind: "sdk",
+              lifecycleState: "created"
+            },
+            start: () => Promise.resolve(),
+            stop: () => Promise.resolve()
+          }
+        ],
+        {
+          requiredCapabilitiesByAdapter: {
+            "missing-attachment": {
+              attachmentCapability: true
+            }
+          }
+        }
+      );
+      await expect(manager.startAll()).rejects.toThrow("required capability");
+    } finally {
       handle.close();
     }
   });

@@ -3,6 +3,10 @@ import type { JsonObject } from "./common";
 export const AUDIT_ACTIONS = [
   "gateway_capability_degraded",
   "gateway_request",
+  "gateway_rate_limited",
+  "gateway_denied",
+  "gateway_auth_failed",
+  "gateway_approval_resolved",
   "approval_requested",
   "approval_resolved",
   "file_rollback",

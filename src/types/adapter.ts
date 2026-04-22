@@ -6,6 +6,7 @@ export type AdapterCapabilityName =
   | "textInteraction"
   | "approvalInteraction"
   | "fileCapability"
+  | "attachmentCapability"
   | "streamingCapability"
   | "structuredCardCapability";
 
@@ -16,6 +17,7 @@ export interface AdapterCapabilitySupport {
 
 export interface AdapterCapabilityDeclaration {
   approvalInteraction: AdapterCapabilitySupport;
+  attachmentCapability: AdapterCapabilitySupport;
   fileCapability: AdapterCapabilitySupport;
   streamingCapability: AdapterCapabilitySupport;
   structuredCardCapability: AdapterCapabilitySupport;
@@ -72,6 +74,7 @@ export interface GatewaySessionBinding {
 
 export interface GatewayTaskRequest {
   agentProfileId?: "executor" | "planner" | "reviewer";
+  continuation?: "new" | "resume-latest";
   cwd?: string;
   interactionRequirements?: Partial<Record<AdapterCapabilityName, "preferred" | "required">>;
   metadata?: JsonObject;
@@ -96,6 +99,11 @@ export type GatewayTaskEvent =
   | {
       kind: "audit";
       audit: AuditLogRecord;
+      taskId: string;
+    }
+  | {
+      kind: "progress";
+      detail: string;
       taskId: string;
     }
   | {
@@ -134,7 +142,16 @@ export interface GatewayTaskSnapshot {
 
 export interface GatewayRuntimeApi {
   getTaskSnapshot(taskId: string): GatewayTaskSnapshot | null;
+  registerOutboundAdapter(adapterId: string, adapter: OutboundResponseAdapter): void;
+  resolveApproval(params: {
+    adapterId: string;
+    approvalId: string;
+    decision: "allow" | "deny";
+    reviewerExternalUserId: string | null;
+    reviewerRuntimeUserId: string;
+  }): Promise<GatewayTaskLaunchResult | null>;
   submitTask(adapter: AdapterDescriptor, request: GatewayTaskRequest): Promise<GatewayTaskLaunchResult>;
+  subscribeToCompletion(taskId: string, listener: (event: GatewayTaskEvent) => void): () => void;
   subscribeToTaskEvents(taskId: string, listener: (event: GatewayTaskEvent) => void): () => void;
 }
 

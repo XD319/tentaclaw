@@ -52,6 +52,8 @@ function describeFallback(
       return "Return plain text summaries instead of structured cards.";
     case "fileCapability":
       return "Return artifact references instead of inline file transfer.";
+    case "attachmentCapability":
+      return "Return attachment and artifact references instead of inline attachment upload.";
     case "approvalInteraction":
       return taskStatus === "waiting_approval"
         ? "Leave the task pending approval and surface the approval identifier."
