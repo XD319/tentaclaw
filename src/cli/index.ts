@@ -3,7 +3,15 @@ import { writeFileSync } from "node:fs";
 
 import { Command } from "commander";
 
-import { startLocalWebhookGateway } from "../gateway";
+import {
+  createGatewayRuntime,
+  startFeishuGateway,
+  startLocalWebhookGateway,
+  GatewayManager,
+  LocalWebhookAdapter,
+  FeishuAdapter,
+  resolveFeishuGatewayConfig
+} from "../gateway";
 import { replayTaskById, runBetaReadinessCheck, runEvalReport } from "../diagnostics";
 import type { SupportedProviderName } from "../providers";
 import { buildRepoMap, createApplication, createDefaultRunOptions, type ResolveAppConfigOptions } from "../runtime";
@@ -38,6 +46,7 @@ import {
   formatTraceContextDebug
 } from "./formatters";
 import type { ExperienceQuery, ExperienceSourceType, ExperienceStatus, ExperienceType } from "../types";
+import type { InboundMessageAdapter } from "../types";
 import type { SkillAttachmentKind } from "../types/skill";
 
 async function main(): Promise<void> {
@@ -784,9 +793,11 @@ async function main(): Promise<void> {
       await startDashboardTui(commandOptions.cwd, resolveSandboxCliOptions(commandOptions));
     });
 
-  program
+  const gatewayCommand = program
     .command("gateway")
-    .description("Run minimal external gateway adapters")
+    .description("Run minimal external gateway adapters");
+
+  gatewayCommand
     .command("serve-webhook")
     .option("--cwd <path>", "Workspace path", process.cwd())
     .option("--write-root <path>", "Additional writable root (repeatable)", collectOption, [])
@@ -820,6 +831,69 @@ async function main(): Promise<void> {
       process.once("SIGTERM", () => {
         void shutdown();
       });
+    });
+
+  gatewayCommand
+    .command("serve-feishu")
+    .option("--cwd <path>", "Workspace path", process.cwd())
+    .option("--write-root <path>", "Additional writable root (repeatable)", collectOption, [])
+    .option("--sandbox-profile <name>", "Sandbox profile from .auto-talon/sandbox.config.json")
+    .option("--sandbox-mode <mode>", "Sandbox mode: local | docker")
+    .option("--local-webhook-port <port>", "Also start local webhook on this port")
+    .action(async (commandOptions: SandboxCommandOptions & { localWebhookPort?: string }) => {
+      const handle = createApplication(commandOptions.cwd, {
+        sandbox: resolveSandboxCliOptions(commandOptions)
+      });
+      const feishu = await startFeishuGateway(handle);
+      const extraManagers: GatewayManager[] = [feishu.manager];
+      if (commandOptions.localWebhookPort !== undefined) {
+        const local = await startLocalWebhookGateway(handle, {
+          host: "127.0.0.1",
+          port: Number(commandOptions.localWebhookPort)
+        });
+        extraManagers.push(local.manager);
+      }
+
+      console.log(`Feishu adapter ${feishu.adapter.descriptor.adapterId} is running.`);
+      const shutdown = async (): Promise<void> => {
+        for (const manager of extraManagers) {
+          await manager.stopAll();
+        }
+        handle.close();
+        process.exit(0);
+      };
+      process.once("SIGINT", () => void shutdown());
+      process.once("SIGTERM", () => void shutdown());
+    });
+
+  gatewayCommand
+    .command("list-adapters")
+    .option("--cwd <path>", "Workspace path", process.cwd())
+    .option("--write-root <path>", "Additional writable root (repeatable)", collectOption, [])
+    .option("--sandbox-profile <name>", "Sandbox profile from .auto-talon/sandbox.config.json")
+    .option("--sandbox-mode <mode>", "Sandbox mode: local | docker")
+    .action((commandOptions: SandboxCommandOptions) => {
+      const handle = createApplication(commandOptions.cwd, {
+        sandbox: resolveSandboxCliOptions(commandOptions)
+      });
+      try {
+        const listedAdapters: InboundMessageAdapter[] = [
+          new LocalWebhookAdapter({ port: 0, adapterId: "local-webhook" })
+        ];
+        try {
+          listedAdapters.push(new FeishuAdapter(resolveFeishuGatewayConfig(commandOptions.cwd)));
+        } catch {
+          // Optional adapter: only listed when config is present.
+        }
+        const manager = new GatewayManager(createGatewayRuntime(handle), listedAdapters);
+        for (const adapter of manager.listAdapters()) {
+          console.log(
+            `${adapter.descriptor.adapterId} (${adapter.descriptor.kind}) ${JSON.stringify(adapter.descriptor.capabilities)}`
+          );
+        }
+      } finally {
+        handle.close();
+      }
     });
 
   await program.parseAsync(process.argv);
