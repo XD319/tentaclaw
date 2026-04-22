@@ -350,9 +350,10 @@ export interface MemoryWrittenPayload extends JsonObject {
 }
 
 export interface SessionCompactedPayload extends JsonObject {
-  reason: "message_count" | "context_budget";
+  reason: "message_count" | "context_budget" | "token_budget" | "tool_call_count";
   summaryMemoryId: string;
   replacedMessageCount: number;
+  summarizerId?: string;
 }
 
 export interface MemorySnapshotCreatedPayload extends JsonObject {

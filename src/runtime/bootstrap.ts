@@ -6,6 +6,8 @@ import { AuditService } from "../audit/audit-service";
 import { ExperienceCollector } from "../experience/experience-collector";
 import { ExperiencePlane } from "../experience/experience-plane";
 import { MemoryPlane } from "../memory/memory-plane";
+import { CompactTriggerPolicy } from "../memory/compact-policy";
+import { DeterministicCompactSummarizer, ProviderSubagentSummarizer } from "../memory/compact-summarizer";
 import { McpClientManager } from "../mcp";
 import { ContextPolicy } from "../policy/context-policy";
 import { DEFAULT_LOCAL_POLICY_CONFIG } from "../policy/default-policy-config";
@@ -46,6 +48,12 @@ export interface AppConfig {
   defaultMaxIterations: number;
   defaultProfileId: "executor" | "planner" | "reviewer";
   defaultTimeoutMs: number;
+  compact: {
+    messageThreshold: number;
+    tokenThreshold: number;
+    toolCallThreshold: number;
+    summarizer: "deterministic" | "provider_subagent";
+  };
   provider: ResolvedProviderConfig;
   runtimeVersion: string;
   runtimeConfigPath: string;
@@ -77,6 +85,7 @@ export function resolveAppConfig(cwd = process.cwd(), options: ResolveAppConfigO
     defaultMaxIterations: runtimeConfig.defaultMaxIterations,
     defaultProfileId: "executor",
     defaultTimeoutMs: runtimeConfig.defaultTimeoutMs,
+    compact: runtimeConfig.compact,
     provider,
     runtimeVersion: "phase5",
     runtimeConfigPath: runtimeConfig.configPath,
@@ -202,6 +211,11 @@ export function createApplication(
     traceService
   });
   const memoryPlane = new MemoryPlane({
+    compactPolicy: new CompactTriggerPolicy(),
+    compactSummarizer:
+      config.compact.summarizer === "provider_subagent"
+        ? new ProviderSubagentSummarizer()
+        : new DeterministicCompactSummarizer(),
     contextPolicy,
     memoryRepository: storage.memories,
     memorySnapshotRepository: storage.memorySnapshots,
@@ -219,6 +233,7 @@ export function createApplication(
   experienceCollector.start();
 
   const executionKernel = new ExecutionKernel({
+    compact: config.compact,
     agentProfileRegistry,
     executionCheckpointRepository: storage.checkpoints,
     memoryPlane,

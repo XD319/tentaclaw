@@ -155,7 +155,12 @@ export interface MemoryRecallResult {
   selectedFragments: ContextFragment[];
 }
 
-export const SESSION_COMPACT_TRIGGER_REASONS = ["message_count", "context_budget"] as const;
+export const SESSION_COMPACT_TRIGGER_REASONS = [
+  "message_count",
+  "context_budget",
+  "token_budget",
+  "tool_call_count"
+] as const;
 
 export type SessionCompactTriggerReason = (typeof SESSION_COMPACT_TRIGGER_REASONS)[number];
 
@@ -165,8 +170,22 @@ export interface SessionCompactInput {
   messages: Array<{
     role: string;
     content: string;
+    toolCallId?: string;
+    toolName?: string;
+    toolCalls?: Array<{
+      toolCallId: string;
+      toolName: string;
+    }>;
   }>;
   maxMessagesBeforeCompact: number;
+  tokenEstimate?: number;
+  tokenThreshold?: number;
+  toolCallCount?: number;
+  toolCallThreshold?: number;
+  pendingToolCalls?: Array<{
+    toolCallId: string;
+    toolName: string;
+  }>;
 }
 
 export interface SessionCompactResult {

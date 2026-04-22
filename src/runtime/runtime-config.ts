@@ -15,6 +15,14 @@ const runtimeConfigFileSchema = z.object({
   allowedFetchHosts: z.array(z.string().min(1)).optional(),
   defaultMaxIterations: z.number().int().positive().optional(),
   defaultTimeoutMs: z.number().int().positive().optional(),
+  compact: z
+    .object({
+      messageThreshold: z.number().int().positive().optional(),
+      summarizer: z.enum(["deterministic", "provider_subagent"]).optional(),
+      tokenThreshold: z.number().int().positive().optional(),
+      toolCallThreshold: z.number().int().positive().optional()
+    })
+    .optional(),
   tokenBudget: tokenBudgetConfigSchema.optional(),
   workflow: z
     .object({
@@ -51,6 +59,12 @@ export interface RuntimeConfig {
   configSource: "defaults" | "env" | "file";
   defaultMaxIterations: number;
   defaultTimeoutMs: number;
+  compact: {
+    messageThreshold: number;
+    tokenThreshold: number;
+    toolCallThreshold: number;
+    summarizer: "deterministic" | "provider_subagent";
+  };
   tokenBudget: TokenBudget;
   workflow: WorkflowRuntimeConfig;
 }
@@ -59,6 +73,12 @@ const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, "configPath" | "configSource">
   allowedFetchHosts: ["*"],
   defaultMaxIterations: 12,
   defaultTimeoutMs: 120_000,
+  compact: {
+    messageThreshold: 8,
+    summarizer: "deterministic",
+    tokenThreshold: 48_000,
+    toolCallThreshold: 20
+  },
   tokenBudget: {
     inputLimit: 64_000,
     outputLimit: 8_000,
@@ -140,6 +160,24 @@ export function resolveRuntimeConfig(cwd = process.cwd()): RuntimeConfig {
       envConfig.defaultTimeoutMs ??
       fileConfig?.defaultTimeoutMs ??
       DEFAULT_RUNTIME_CONFIG.defaultTimeoutMs,
+    compact: {
+      messageThreshold:
+        envConfig.compact?.messageThreshold ??
+        fileConfig?.compact?.messageThreshold ??
+        DEFAULT_RUNTIME_CONFIG.compact.messageThreshold,
+      summarizer:
+        envConfig.compact?.summarizer ??
+        fileConfig?.compact?.summarizer ??
+        DEFAULT_RUNTIME_CONFIG.compact.summarizer,
+      tokenThreshold:
+        envConfig.compact?.tokenThreshold ??
+        fileConfig?.compact?.tokenThreshold ??
+        DEFAULT_RUNTIME_CONFIG.compact.tokenThreshold,
+      toolCallThreshold:
+        envConfig.compact?.toolCallThreshold ??
+        fileConfig?.compact?.toolCallThreshold ??
+        DEFAULT_RUNTIME_CONFIG.compact.toolCallThreshold
+    },
     tokenBudget,
     workflow
   };

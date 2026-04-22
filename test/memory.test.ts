@@ -37,11 +37,11 @@ afterEach(async () => {
 });
 
 describe("Phase 3 memory plane", () => {
-  it("compacts long sessions into a summary memory", () => {
+  it("compacts long sessions into a summary memory", async () => {
     const { memoryPlane, close } = createMemoryHarness();
 
     try {
-      const result = memoryPlane.compactSession({
+      const result = await memoryPlane.compactSession({
         maxMessagesBeforeCompact: 4,
         messages: [
           { content: "system prompt", role: "system" },
@@ -58,6 +58,41 @@ describe("Phase 3 memory plane", () => {
       expect(result.triggered).toBe(true);
       expect(result.summaryMemory?.sourceType).toBe("session_compact");
       expect(result.replacementMessages[0]?.content).toContain("Session summary");
+    } finally {
+      close();
+    }
+  });
+
+  it("supports token and tool-call compact triggers", async () => {
+    const { memoryPlane, close } = createMemoryHarness();
+    try {
+      const tokenResult = await memoryPlane.compactSession({
+        maxMessagesBeforeCompact: 100,
+        messages: [
+          { content: "system prompt", role: "system" },
+          { content: "task goal", role: "user" }
+        ],
+        sessionScopeKey: "session-2",
+        taskId: "task-2",
+        tokenEstimate: 4000,
+        tokenThreshold: 100
+      });
+      expect(tokenResult.triggered).toBe(true);
+      expect(tokenResult.reason).toBe("token_budget");
+
+      const toolResult = await memoryPlane.compactSession({
+        maxMessagesBeforeCompact: 100,
+        messages: [
+          { content: "system prompt", role: "system" },
+          { content: "task goal", role: "user" }
+        ],
+        sessionScopeKey: "session-3",
+        taskId: "task-3",
+        toolCallCount: 20,
+        toolCallThreshold: 10
+      });
+      expect(toolResult.triggered).toBe(true);
+      expect(toolResult.reason).toBe("tool_call_count");
     } finally {
       close();
     }

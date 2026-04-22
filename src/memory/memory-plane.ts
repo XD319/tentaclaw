@@ -4,6 +4,8 @@ import { z } from "zod";
 import type { ContextPolicy } from "../policy/context-policy";
 import { RecallEngine, overlapRatio, tokenize, uniqueStrings } from "../recall/recall-engine";
 import type { TraceService } from "../tracing/trace-service";
+import { CompactTriggerPolicy } from "./compact-policy";
+import { DeterministicCompactSummarizer, type CompactSummarizer } from "./compact-summarizer";
 import type {
   ContextFragment,
   MemoryDraft,
@@ -31,6 +33,8 @@ const memoryReviewSchema = z.object({
 });
 
 export interface MemoryPlaneDependencies {
+  compactPolicy?: CompactTriggerPolicy;
+  compactSummarizer?: CompactSummarizer;
   contextPolicy: ContextPolicy;
   memoryRepository: MemoryRepository;
   memorySnapshotRepository: MemorySnapshotRepository;
@@ -44,8 +48,13 @@ export interface BuildContextResult {
 
 export class MemoryPlane {
   private readonly recallEngine = new RecallEngine();
+  private readonly compactPolicy: CompactTriggerPolicy;
+  private readonly compactSummarizer: CompactSummarizer;
 
-  public constructor(private readonly dependencies: MemoryPlaneDependencies) {}
+  public constructor(private readonly dependencies: MemoryPlaneDependencies) {
+    this.compactPolicy = dependencies.compactPolicy ?? new CompactTriggerPolicy();
+    this.compactSummarizer = dependencies.compactSummarizer ?? new DeterministicCompactSummarizer();
+  }
 
   public buildContext(task: TaskRecord): BuildContextResult {
     this.ageExpiredMemories();
@@ -170,8 +179,9 @@ export class MemoryPlane {
     return [];
   }
 
-  public compactSession(input: SessionCompactInput): SessionCompactResult {
-    if (input.messages.length < input.maxMessagesBeforeCompact) {
+  public async compactSession(input: SessionCompactInput): Promise<SessionCompactResult> {
+    const decision = this.compactPolicy.shouldCompact(input);
+    if (!decision.triggered) {
       return {
         reason: null,
         replacementMessages: input.messages.map((message) => ({
@@ -183,7 +193,8 @@ export class MemoryPlane {
       };
     }
 
-    const summary = summarizeMessages(input.messages);
+    const summarized = await this.compactSummarizer.summarize(input);
+    const summary = summarized.summary;
     const summaryMemory = this.persistMemory({
       confidence: 0.88,
       content: summary,
@@ -209,13 +220,18 @@ export class MemoryPlane {
       title: "Session compact"
     });
 
+    const compactReason =
+      decision.reason === "token_budget" || decision.reason === "tool_call_count"
+        ? decision.reason
+        : "message_count";
     this.dependencies.traceService.record({
       actor: "memory.plane",
       eventType: "session_compacted",
       payload: {
-        reason: "message_count",
+        reason: compactReason,
         replacedMessageCount: input.messages.length - 3,
-        summaryMemoryId: summaryMemory.memoryId
+        summaryMemoryId: summaryMemory.memoryId,
+        summarizerId: summarized.summarizerId
       },
       stage: "memory",
       summary: "Session messages compacted into a typed memory summary",
@@ -228,7 +244,7 @@ export class MemoryPlane {
     }));
 
     return {
-      reason: "message_count",
+      reason: compactReason,
       replacementMessages: [
         {
           content: `Session summary:\n${summary}`,
@@ -502,40 +518,6 @@ function candidateToFragment(candidate: MemoryRecallCandidate): ContextFragment 
 function summarize(value: string, maxLength = 160): string {
   const compact = value.replace(/\s+/gu, " ").trim();
   return compact.length <= maxLength ? compact : `${compact.slice(0, maxLength)}...`;
-}
-
-function summarizeMessages(messages: SessionCompactInput["messages"]): string {
-  const userMessages = messages.filter((message) => message.role === "user");
-  const assistantMessages = messages.filter((message) => message.role === "assistant");
-  const toolMessages = messages.filter((message) => message.role === "tool");
-
-  const objective = summarize(userMessages.at(0)?.content ?? "", 220);
-  const latestRequest = summarize(userMessages.at(-1)?.content ?? "", 220);
-  const completedWork = summarize(
-    assistantMessages
-      .slice(-3)
-      .map((message) => summarize(message.content, 100))
-      .join(" | "),
-    260
-  );
-  const keyToolSignals = summarize(
-    toolMessages
-      .slice(-3)
-      .map((message) => summarize(message.content, 100))
-      .join(" | "),
-    260
-  );
-  const pendingFollowup = summarize(assistantMessages.at(-1)?.content ?? "", 180);
-
-  const sections = [
-    `goal=${objective || "[n/a]"}`,
-    `latest_user_request=${latestRequest || "[n/a]"}`,
-    `completed_work=${completedWork || "[n/a]"}`,
-    `tool_signals=${keyToolSignals || "[n/a]"}`,
-    `pending_followup=${pendingFollowup || "[n/a]"}`
-  ];
-
-  return sections.join("\n");
 }
 
 function toConversationRole(role: string): "assistant" | "system" | "tool" | "user" {

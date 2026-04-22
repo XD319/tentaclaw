@@ -8,7 +8,7 @@ import {
 } from "./context-assembler";
 import { buildRepoMap } from "./repo-map";
 import { tokenBudgetToJson } from "./serialization";
-import type { WorkflowRuntimeConfig } from "./runtime-config";
+import type { RuntimeConfig, WorkflowRuntimeConfig } from "./runtime-config";
 import { ProviderError } from "../providers";
 import type { AgentProfileRegistry } from "../profiles/agent-profile-registry";
 import type {
@@ -28,6 +28,7 @@ import type {
   TokenBudget
 } from "../types";
 import type { MemoryPlane } from "../memory/memory-plane";
+import { buildCapabilityDeclaration } from "../memory/capability-declaration-builder";
 import type { SkillContextService } from "../skills";
 import type { ToolOrchestrator } from "../tools";
 import type { TraceService } from "../tracing/trace-service";
@@ -44,6 +45,7 @@ export interface ExecutionKernelDependencies {
   toolOrchestrator: ToolOrchestrator;
   traceService: TraceService;
   workflow: WorkflowRuntimeConfig;
+  compact: RuntimeConfig["compact"];
   workspaceRoot: string;
 }
 
@@ -58,6 +60,7 @@ interface ExecutionLoopState {
   onAssistantTextDelta?: (delta: string) => void;
   onTaskEvent?: (event: RuntimeTaskEvent) => void;
   pendingToolCalls: ProviderToolCall[];
+  skillContext: ContextFragment[];
   repoMapSummary?: string;
   task: TaskRecord;
   tokenBudget: TokenBudget;
@@ -184,6 +187,7 @@ export class ExecutionKernel {
         ...(options.onTaskEvent !== undefined ? { onTaskEvent: options.onTaskEvent } : {}),
         pendingToolCalls: [],
         ...(repoMap?.summary !== undefined ? { repoMapSummary: repoMap.summary } : {}),
+        skillContext,
         task,
         tokenBudget: options.tokenBudget
       });
@@ -240,6 +244,7 @@ export class ExecutionKernel {
         memoryRecall: null,
         messages: checkpoint.messages,
         pendingToolCalls: checkpoint.pendingToolCalls,
+        skillContext: [],
         task: resumedTask,
         tokenBudget: resumedTask.tokenBudget
       });
@@ -704,14 +709,24 @@ export class ExecutionKernel {
         summary: "Pre-compress lifecycle hook published",
         taskId: task.taskId
       });
-      const compacted = this.dependencies.memoryPlane.compactSession({
-        maxMessagesBeforeCompact: 8,
+      const compacted = await this.dependencies.memoryPlane.compactSession({
+        maxMessagesBeforeCompact: this.dependencies.compact.messageThreshold,
         messages,
+        pendingToolCalls,
         sessionScopeKey: task.taskId,
-        taskId: task.taskId
+        taskId: task.taskId,
+        tokenEstimate: estimateTokenCount(messages),
+        tokenThreshold: this.dependencies.compact.tokenThreshold,
+        toolCallCount,
+        toolCallThreshold: this.dependencies.compact.toolCallThreshold
       });
       if (compacted.triggered) {
+        const initialSystemPrompt =
+          messages.find((message) => message.role === "system") ?? null;
         messages.length = 0;
+        if (initialSystemPrompt !== null) {
+          messages.push(initialSystemPrompt);
+        }
         if (state.repoMapSummary !== undefined) {
           messages.push({
             content: state.repoMapSummary,
@@ -723,9 +738,22 @@ export class ExecutionKernel {
             role: "system"
           });
         }
+        messages.push({
+          content: buildCapabilityDeclaration({
+            agentProfileId: task.agentProfileId,
+            availableTools,
+            skillContext: state.skillContext
+          }),
+          metadata: {
+            privacyLevel: "internal",
+            retentionKind: "session",
+            sourceType: "system_prompt"
+          },
+          role: "system"
+        });
         messages.push(...compacted.replacementMessages);
         const refreshedContext = this.dependencies.memoryPlane.buildContext(task);
-        state.memoryContext = refreshedContext.fragments;
+        state.memoryContext = [...refreshedContext.fragments, ...state.skillContext];
         state.memoryRecall = refreshedContext.recall;
       }
     }
@@ -992,4 +1020,9 @@ function summarizeToolOutput(output: unknown): string {
     return `output=${output.description ?? "symbol"}`;
   }
   return "output=[unsupported]";
+}
+
+function estimateTokenCount(messages: ConversationMessage[]): number {
+  const joined = messages.map((message) => message.content).join("\n");
+  return Math.ceil(joined.length / 4);
 }
