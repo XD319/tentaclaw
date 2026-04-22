@@ -17,4 +17,4 @@ agent eval smoke
 agent eval beta
 ```
 
-For release verification, use `agent release check`.
+For auto-talon maintainer release verification, run `agent release check` from the repository root.

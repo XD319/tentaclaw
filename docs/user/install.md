@@ -7,6 +7,15 @@
 
 ## Quick Install
 
+From npm:
+
+```bash
+npm install -g auto-talon
+agent init --yes
+```
+
+From source:
+
 ```bash
 corepack enable
 corepack pnpm install
@@ -22,6 +31,6 @@ Or use scripts:
 ## Verify
 
 ```bash
-corepack pnpm dev version
-corepack pnpm dev doctor
+agent version
+agent doctor
 ```

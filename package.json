@@ -2,22 +2,43 @@
   "name": "auto-talon",
   "version": "0.1.0",
   "description": "Agent Runtime MVP without web UI",
-  "private": true,
+  "license": "MIT",
+  "main": "dist/runtime/index.js",
+  "types": "dist/runtime/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/XD319/auto-talon.git"
+  },
+  "bugs": {
+    "url": "https://github.com/XD319/auto-talon/issues"
+  },
+  "homepage": "https://github.com/XD319/auto-talon#readme",
   "packageManager": "pnpm@10.11.0",
   "engines": {
     "node": ">=22.5.0"
   },
   "bin": {
-    "agent": "dist/cli/index.js"
+    "agent": "dist/cli/bin.js"
   },
+  "files": [
+    "dist/",
+    "fixtures/runtime-smoke-tasks.json",
+    "docs/",
+    "scripts/setup.sh",
+    "scripts/setup.ps1",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "npm run lint && npm test && npm run build",
-    "dev": "node --disable-warning=ExperimentalWarning --import tsx src/cli/index.ts",
-    "dev:tui": "node --disable-warning=ExperimentalWarning --import tsx src/cli/index.ts tui",
-    "dev:dashboard": "node --disable-warning=ExperimentalWarning --import tsx src/cli/index.ts dashboard",
-    "release:check": "node --disable-warning=ExperimentalWarning --import tsx src/cli/index.ts release check",
-    "setup": "node --disable-warning=ExperimentalWarning --import tsx src/cli/index.ts init --yes",
+    "dev": "node --disable-warning=ExperimentalWarning --import tsx src/cli/bin.ts",
+    "dev:tui": "node --disable-warning=ExperimentalWarning --import tsx src/cli/bin.ts tui",
+    "dev:dashboard": "node --disable-warning=ExperimentalWarning --import tsx src/cli/bin.ts dashboard",
+    "prepack": "npm run build",
+    "release:check": "node --disable-warning=ExperimentalWarning --import tsx src/cli/bin.ts release check",
+    "setup": "node --disable-warning=ExperimentalWarning --import tsx src/cli/bin.ts init --yes",
     "lint": "eslint .",
     "test": "vitest run"
   },

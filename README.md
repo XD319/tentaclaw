@@ -4,6 +4,16 @@ CLI-first agent runtime focused on governance, traceability, and reproducible ex
 
 ## Quick Start
 
+Installed package:
+
+```bash
+npm install -g auto-talon
+agent init --yes
+agent run "summarize this repository"
+```
+
+Source checkout:
+
 ```bash
 corepack pnpm install
 corepack pnpm build
@@ -40,3 +50,5 @@ corepack pnpm dev run "summarize this repository"
 corepack pnpm check
 corepack pnpm dev release check
 ```
+
+`agent release check` is a maintainer release gate for this repository. Use `agent doctor` for user workspace health checks.

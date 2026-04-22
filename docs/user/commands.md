@@ -31,4 +31,4 @@ Release / diagnostics:
 - `agent eval run [--explain]`
 - `agent eval smoke`
 - `agent eval beta`
-- `agent release check`
+- `agent release check` (maintainer-only; run from the auto-talon repository root)

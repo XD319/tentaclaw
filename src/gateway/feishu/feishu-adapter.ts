@@ -73,6 +73,11 @@ export interface FeishuAdapterOptions {
     createEventDispatcher: () => FeishuEventDispatcherLike;
     wsClient: FeishuWsClientLike;
   }>;
+  logger?: {
+    error?: (message: string, data?: unknown) => void;
+    info?: (message: string, data?: unknown) => void;
+    warn?: (message: string, data?: unknown) => void;
+  };
 }
 
 export class FeishuAdapter implements InboundMessageAdapter, OutboundResponseAdapter {
@@ -122,23 +127,23 @@ export class FeishuAdapter implements InboundMessageAdapter, OutboundResponseAda
         try {
           await this.handleCardActionEvent(parseCardActionEvent(payload));
         } catch (error) {
-          console.error("[feishu-adapter] failed to handle card.action.trigger", error);
+          this.logError("[feishu-adapter] failed to handle card.action.trigger", error);
         }
       },
       "im.message.receive_v1": async (payload) => {
         try {
-          console.info("[feishu-adapter] received im.message.receive_v1", summarizeMessagePayload(payload));
+          this.logInfo("[feishu-adapter] received im.message.receive_v1", summarizeMessagePayload(payload));
           const event = parseMessageEvent(payload);
           if (event === null) {
-            console.warn("[feishu-adapter] ignored message event because payload is missing chat/text");
+            this.logWarn("[feishu-adapter] ignored message event because payload is missing chat/text");
             return;
           }
           const inboundKey = event.messageId ?? event.eventId;
           if (inboundKey !== null && !this.markInboundMessageSeen(inboundKey)) {
-            console.info("[feishu-adapter] ignored duplicate message event", { inboundKey });
+            this.logInfo("[feishu-adapter] ignored duplicate message event", { inboundKey });
             return;
           }
-          console.info("[feishu-adapter] submitting message task", {
+          this.logInfo("[feishu-adapter] submitting message task", {
             chatId: event.chatId,
             eventId: event.eventId,
             hasOpenId: event.openId !== null,
@@ -147,7 +152,7 @@ export class FeishuAdapter implements InboundMessageAdapter, OutboundResponseAda
           });
           await this.handleMessageEvent(event);
         } catch (error) {
-          console.error("[feishu-adapter] failed to handle im.message.receive_v1", error);
+          this.logError("[feishu-adapter] failed to handle im.message.receive_v1", error);
         }
       }
     });
@@ -295,7 +300,7 @@ export class FeishuAdapter implements InboundMessageAdapter, OutboundResponseAda
       createTextMessagePayload(chatId, formatTaskResultText(result.result))
     );
     const messageId = sent.data?.message_id ?? null;
-    console.info("[feishu-adapter] sent task result text", {
+    this.logInfo("[feishu-adapter] sent task result text", {
       messageId,
       taskId: result.result.taskId
     });
@@ -311,6 +316,32 @@ export class FeishuAdapter implements InboundMessageAdapter, OutboundResponseAda
     await this.client.im.message.create(
       createInteractiveMessagePayload(chatId, renderApprovalCard(result.taskId, result.pendingApprovalId))
     );
+  }
+
+  private logInfo(message: string, data?: unknown): void {
+    if (this.options.logger?.info !== undefined) {
+      this.options.logger.info(message, data);
+      return;
+    }
+    if (process.env.AUTO_TALON_FEISHU_DEBUG === "1") {
+      console.info(message, data);
+    }
+  }
+
+  private logWarn(message: string, data?: unknown): void {
+    if (this.options.logger?.warn !== undefined) {
+      this.options.logger.warn(message, data);
+      return;
+    }
+    console.warn(message, data);
+  }
+
+  private logError(message: string, data?: unknown): void {
+    if (this.options.logger?.error !== undefined) {
+      this.options.logger.error(message, data);
+      return;
+    }
+    console.error(message, data);
   }
 }
 

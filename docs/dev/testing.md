@@ -12,7 +12,7 @@ Smoke/eval:
 - `agent eval run`
 - `agent eval smoke`
 - `agent eval beta`
-- `agent release check`
+- `agent release check` from the auto-talon repository root
 
 Fixtures:
 

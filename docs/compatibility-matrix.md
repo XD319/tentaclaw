@@ -27,7 +27,7 @@
 
 ## Validation Path
 
-- `agent release check`
+- `agent release check` from the auto-talon repository root
 - `agent eval run`
 - `agent eval smoke`
 - `agent eval beta`

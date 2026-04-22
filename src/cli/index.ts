@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { writeFileSync } from "node:fs";
 
 import { Command } from "commander";
@@ -65,7 +64,7 @@ import type { ExperienceQuery, ExperienceSourceType, ExperienceStatus, Experienc
 import type { InboundMessageAdapter } from "../types";
 import type { SkillAttachmentKind } from "../types/skill";
 
-async function main(): Promise<void> {
+export async function main(argv = process.argv): Promise<void> {
   const program = new Command();
   program.name("agent").description("Agent Runtime MVP CLI").version("0.1.0");
 
@@ -1125,14 +1124,8 @@ async function main(): Promise<void> {
       }
     });
 
-  await program.parseAsync(process.argv);
+  await program.parseAsync(argv);
 }
-
-void main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(`Fatal CLI error: ${message}`);
-  process.exitCode = 1;
-});
 
 interface SandboxCommandOptions {
   cwd: string;

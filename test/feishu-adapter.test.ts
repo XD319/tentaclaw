@@ -1,9 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { FeishuAdapter } from "../src/gateway";
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe("feishu adapter", () => {
   it("maps message event to runtime submitTask", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
     const create = vi.fn(() => Promise.resolve({ data: { message_id: "m1" } }));
     const patch = vi.fn(() => Promise.resolve({}));
     const start = vi.fn();
@@ -98,6 +103,7 @@ describe("feishu adapter", () => {
     expect(JSON.stringify(create.mock.calls[0]?.[0])).not.toContain("Task Result");
     expect(JSON.stringify(create.mock.calls[0]?.[0])).not.toContain("finished with status");
     expect(JSON.stringify(create.mock.calls[0]?.[0])).not.toContain("interactive");
+    expect(info).not.toHaveBeenCalled();
     expect(patch).not.toHaveBeenCalled();
     await adapter.sendEvent({ detail: "halfway", kind: "progress", taskId: "t1" });
     expect(patch).not.toHaveBeenCalled();
