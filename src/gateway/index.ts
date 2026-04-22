@@ -1,5 +1,7 @@
 export * from "./bootstrap";
 export * from "./capability-policy";
+export * from "./feishu";
+export * from "./gateway-guard";
 export * from "./gateway-manager";
 export * from "./identity-mapper";
 export * from "./local-webhook-adapter";

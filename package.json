@@ -20,6 +20,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@larksuiteoapi/node-sdk": "^1.61.1",
     "clipboardy": "^3.0.0",
     "commander": "^14.0.0",
     "highlight.js": "^11.11.1",
