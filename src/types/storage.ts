@@ -109,5 +109,10 @@ export interface MemorySnapshotRepository {
 
 export interface GatewaySessionRepository {
   create(record: GatewaySessionBindingDraft): GatewaySessionBinding;
+  findLatestByExternalSession(
+    adapterId: string,
+    externalSessionId: string
+  ): GatewaySessionBinding | null;
+  listByExternalSession(adapterId: string, externalSessionId: string): GatewaySessionBinding[];
   findByTaskId(taskId: string): GatewaySessionBinding | null;
 }

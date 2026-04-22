@@ -8,7 +8,7 @@ export class DefaultGatewayIdentityMapper implements GatewayIdentityMapper {
   public bind(adapterId: string, requester: GatewayRequesterIdentity): GatewayIdentityBinding {
     const normalizedUserId =
       requester.externalUserId === null || requester.externalUserId.trim().length === 0
-        ? `${adapterId}:anonymous`
+        ? `${adapterId}:session:${requester.externalSessionId}`
         : `${adapterId}:${requester.externalUserId.trim()}`;
 
     return {

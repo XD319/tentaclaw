@@ -15,6 +15,10 @@ export interface GatewaySessionMapper {
     runtimeUserId: string;
     taskId: string;
   }): GatewaySessionBinding;
+  resolveContinuation(params: {
+    adapterId: string;
+    externalSessionId: string;
+  }): { previousTaskId: string; runtimeUserId: string } | null;
   findByTaskId(taskId: string): GatewaySessionBinding | null;
 }
 
@@ -42,5 +46,22 @@ export class RepositoryBackedGatewaySessionMapper implements GatewaySessionMappe
 
   public findByTaskId(taskId: string): GatewaySessionBinding | null {
     return this.repository.findByTaskId(taskId);
+  }
+
+  public resolveContinuation(params: {
+    adapterId: string;
+    externalSessionId: string;
+  }): { previousTaskId: string; runtimeUserId: string } | null {
+    const latest = this.repository.findLatestByExternalSession(
+      params.adapterId,
+      params.externalSessionId
+    );
+    if (latest === null) {
+      return null;
+    }
+    return {
+      previousTaskId: latest.taskId,
+      runtimeUserId: latest.runtimeUserId
+    };
   }
 }

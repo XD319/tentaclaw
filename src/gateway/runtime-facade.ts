@@ -14,6 +14,7 @@ import type {
 } from "../types";
 
 import { collectCapabilityNotices } from "./capability-policy";
+import type { GatewayGuard } from "./gateway-guard";
 import type { GatewayIdentityMapper } from "./identity-mapper";
 import type { GatewaySessionMapper } from "./session-mapper";
 
@@ -22,24 +23,55 @@ export interface GatewayRuntimeFacadeDependencies {
   auditService: AuditService;
   createRunOptions: (taskInput: string, cwd: string) => RuntimeRunOptions;
   defaultCwd: string;
+  guard?: GatewayGuard;
   identityMapper: GatewayIdentityMapper;
   sessionMapper: GatewaySessionMapper;
   traceService: TraceService;
 }
 
 export class GatewayRuntimeFacade implements GatewayRuntimeApi {
+  private readonly completionListeners = new Map<string, Set<(event: GatewayTaskEvent) => void>>();
+  private readonly outboundAdapters = new Map<
+    string,
+    {
+      sendCapabilityNotice?: (taskId: string, notice: {
+        capability: AdapterCapabilityName;
+        fallbackBehavior: string;
+        message: string;
+        severity: "info" | "warning";
+      }) => Promise<void>;
+      sendEvent?: (event: GatewayTaskEvent) => Promise<void>;
+      sendResult?: (result: GatewayTaskLaunchResult) => Promise<void>;
+    }
+  >();
+
   public constructor(private readonly dependencies: GatewayRuntimeFacadeDependencies) {}
 
   public async submitTask(
     adapter: AdapterDescriptor,
     request: GatewayTaskRequest
   ): Promise<GatewayTaskLaunchResult> {
+    if (this.dependencies.guard !== undefined) {
+      const decision = await this.dependencies.guard.evaluate(adapter.adapterId, request);
+      if (!decision.allowed) {
+        this.recordGuardDecision(adapter.adapterId, request, decision.reason, decision.message);
+        throw new Error(decision.message);
+      }
+    }
+
     const identityBinding = this.dependencies.identityMapper.bind(adapter.adapterId, request.requester);
+    const continuation =
+      request.continuation === "new"
+        ? null
+        : this.dependencies.sessionMapper.resolveContinuation({
+            adapterId: adapter.adapterId,
+            externalSessionId: request.requester.externalSessionId
+          });
     const runOptions = this.dependencies.createRunOptions(
       request.taskInput,
       request.cwd ?? this.dependencies.defaultCwd
     );
-    runOptions.userId = identityBinding.runtimeUserId;
+    runOptions.userId = continuation?.runtimeUserId ?? identityBinding.runtimeUserId;
     runOptions.agentProfileId = request.agentProfileId ?? runOptions.agentProfileId;
     runOptions.metadata = {
       ...(request.metadata ?? {}),
@@ -48,7 +80,11 @@ export class GatewayRuntimeFacade implements GatewayRuntimeApi {
         adapterKind: adapter.kind,
         externalSessionId: request.requester.externalSessionId,
         externalUserId: request.requester.externalUserId,
-        runtimeUserId: identityBinding.runtimeUserId
+        runtimeUserId: continuation?.runtimeUserId ?? identityBinding.runtimeUserId,
+        lineage: {
+          continuationMode: request.continuation ?? "resume-latest",
+          previousTaskId: continuation?.previousTaskId ?? null
+        }
       }
     };
 
@@ -62,7 +98,7 @@ export class GatewayRuntimeFacade implements GatewayRuntimeApi {
       externalSessionId: request.requester.externalSessionId,
       externalUserId: request.requester.externalUserId,
       metadata: request.metadata ?? {},
-      runtimeUserId: identityBinding.runtimeUserId,
+      runtimeUserId: continuation?.runtimeUserId ?? identityBinding.runtimeUserId,
       taskId: run.task.taskId
     });
 
@@ -74,7 +110,8 @@ export class GatewayRuntimeFacade implements GatewayRuntimeApi {
         adapterKind: adapter.kind,
         externalSessionId: request.requester.externalSessionId,
         externalUserId: request.requester.externalUserId,
-        runtimeUserId: identityBinding.runtimeUserId
+        runtimeUserId: continuation?.runtimeUserId ?? identityBinding.runtimeUserId,
+        previousTaskId: continuation?.previousTaskId ?? null
       },
       stage: "gateway",
       summary: `Gateway request accepted from ${adapter.adapterId}`,
@@ -90,7 +127,8 @@ export class GatewayRuntimeFacade implements GatewayRuntimeApi {
         adapterKind: adapter.kind,
         externalSessionId: request.requester.externalSessionId,
         externalUserId: request.requester.externalUserId,
-        runtimeUserId: identityBinding.runtimeUserId
+        runtimeUserId: continuation?.runtimeUserId ?? identityBinding.runtimeUserId,
+        previousTaskId: continuation?.previousTaskId ?? null
       },
       summary: `Gateway request entered from ${adapter.adapterId}`,
       taskId: run.task.taskId,
@@ -138,12 +176,122 @@ export class GatewayRuntimeFacade implements GatewayRuntimeApi {
       });
     }
 
-    return {
+    const launchResult = {
       adapter,
       notices,
       result: toGatewayTaskResult(run.task.taskId, run.task.status, run.output, run.error),
       sessionBinding
     };
+    this.emitCompletion(run.task.taskId, {
+      kind: "progress",
+      detail: `Task moved to ${run.task.status}`,
+      taskId: run.task.taskId
+    });
+    void this.outboundAdapters.get(adapter.adapterId)?.sendResult?.(launchResult);
+    for (const notice of notices) {
+      void this.outboundAdapters.get(adapter.adapterId)?.sendCapabilityNotice?.(
+        run.task.taskId,
+        notice
+      );
+    }
+    return launchResult;
+  }
+
+  public registerOutboundAdapter(
+    adapterId: string,
+    adapter: {
+      sendCapabilityNotice?: (taskId: string, notice: {
+        capability: AdapterCapabilityName;
+        fallbackBehavior: string;
+        message: string;
+        severity: "info" | "warning";
+      }) => Promise<void>;
+      sendEvent?: (event: GatewayTaskEvent) => Promise<void>;
+      sendResult?: (result: GatewayTaskLaunchResult) => Promise<void>;
+    }
+  ): void {
+    this.outboundAdapters.set(adapterId, adapter);
+  }
+
+  public async resolveApproval(params: {
+    adapterId: string;
+    approvalId: string;
+    decision: "allow" | "deny";
+    reviewerExternalUserId: string | null;
+    reviewerRuntimeUserId: string;
+  }): Promise<GatewayTaskLaunchResult | null> {
+    const approvalResult = await this.dependencies.applicationService.resolveApproval(
+      params.approvalId,
+      params.decision,
+      params.reviewerRuntimeUserId
+    );
+
+    this.dependencies.traceService.record({
+      actor: `gateway.${params.adapterId}`,
+      eventType: "gateway_approval_resolved",
+      payload: {
+        adapterId: params.adapterId,
+        approvalId: params.approvalId,
+        decision: params.decision,
+        reviewerExternalUserId: params.reviewerExternalUserId,
+        reviewerRuntimeUserId: params.reviewerRuntimeUserId
+      },
+      stage: "gateway",
+      summary: `Gateway approval resolved by ${params.adapterId}`,
+      taskId: approvalResult.task.taskId
+    });
+    this.dependencies.auditService.record({
+      action: "gateway_approval_resolved",
+      actor: `gateway.${params.adapterId}`,
+      approvalId: params.approvalId,
+      outcome: "attempted",
+      payload: {
+        adapterId: params.adapterId,
+        decision: params.decision,
+        reviewerExternalUserId: params.reviewerExternalUserId,
+        reviewerRuntimeUserId: params.reviewerRuntimeUserId
+      },
+      summary: `Gateway approval resolved by ${params.adapterId}`,
+      taskId: approvalResult.task.taskId,
+      toolCallId: approvalResult.approval.toolCallId
+    });
+
+    const sessionBinding = this.dependencies.sessionMapper.findByTaskId(approvalResult.task.taskId);
+    if (sessionBinding === null) {
+      return null;
+    }
+
+    const launchResult: GatewayTaskLaunchResult = {
+      adapter: {
+        adapterId: params.adapterId,
+        capabilities: {
+          approvalInteraction: { supported: true },
+          attachmentCapability: { supported: true },
+          fileCapability: { supported: true },
+          streamingCapability: { supported: true },
+          structuredCardCapability: { supported: true },
+          textInteraction: { supported: true }
+        },
+        description: "Gateway approval resolver",
+        displayName: "Gateway Approval Resolver",
+        kind: "sdk",
+        lifecycleState: "running"
+      },
+      notices: [],
+      result: toGatewayTaskResult(
+        approvalResult.task.taskId,
+        approvalResult.task.status,
+        approvalResult.output,
+        approvalResult.error
+      ),
+      sessionBinding
+    };
+    this.emitCompletion(approvalResult.task.taskId, {
+      kind: "progress",
+      detail: `Task moved to ${approvalResult.task.status}`,
+      taskId: approvalResult.task.taskId
+    });
+    return launchResult;
   }
 
   public getTaskSnapshot(taskId: string): GatewayTaskSnapshot | null {
@@ -198,6 +346,13 @@ export class GatewayRuntimeFacade implements GatewayRuntimeApi {
         taskId,
         trace
       });
+      for (const outbound of this.outboundAdapters.values()) {
+        void outbound.sendEvent?.({
+          kind: "trace",
+          taskId,
+          trace
+        });
+      }
     });
 
     const unsubscribeAudit = this.dependencies.auditService.subscribe((audit) => {
@@ -210,12 +365,95 @@ export class GatewayRuntimeFacade implements GatewayRuntimeApi {
         audit,
         taskId
       });
+      for (const outbound of this.outboundAdapters.values()) {
+        void outbound.sendEvent?.({
+          kind: "audit",
+          audit,
+          taskId
+        });
+      }
     });
 
     return () => {
       unsubscribeTrace();
       unsubscribeAudit();
     };
+  }
+
+  public subscribeToCompletion(taskId: string, listener: (event: GatewayTaskEvent) => void): () => void {
+    const listeners = this.completionListeners.get(taskId) ?? new Set<(event: GatewayTaskEvent) => void>();
+    listeners.add(listener);
+    this.completionListeners.set(taskId, listeners);
+
+    return () => {
+      const current = this.completionListeners.get(taskId);
+      if (current === undefined) {
+        return;
+      }
+      current.delete(listener);
+      if (current.size === 0) {
+        this.completionListeners.delete(taskId);
+      }
+    };
+  }
+
+  private emitCompletion(taskId: string, event: GatewayTaskEvent): void {
+    const listeners = this.completionListeners.get(taskId);
+    if (listeners === undefined) {
+      return;
+    }
+    for (const listener of listeners) {
+      listener(event);
+    }
+  }
+
+  private recordGuardDecision(
+    adapterId: string,
+    request: GatewayTaskRequest,
+    reason: "rate_limited" | "denied" | "auth_failed",
+    message: string
+  ): void {
+    const eventType =
+      reason === "rate_limited"
+        ? "gateway_rate_limited"
+        : reason === "auth_failed"
+          ? "gateway_auth_failed"
+          : "gateway_denied";
+    const action =
+      reason === "rate_limited"
+        ? "gateway_rate_limited"
+        : reason === "auth_failed"
+          ? "gateway_auth_failed"
+          : "gateway_denied";
+
+    this.dependencies.traceService.record({
+      actor: `gateway.${adapterId}`,
+      eventType,
+      payload: {
+        adapterId,
+        externalSessionId: request.requester.externalSessionId,
+        externalUserId: request.requester.externalUserId,
+        message
+      },
+      stage: "gateway",
+      summary: message,
+      taskId: "gateway-guard"
+    });
+    this.dependencies.auditService.record({
+      action,
+      actor: `gateway.${adapterId}`,
+      outcome: "denied",
+      payload: {
+        adapterId,
+        externalSessionId: request.requester.externalSessionId,
+        externalUserId: request.requester.externalUserId,
+        message
+      },
+      summary: message,
+      taskId: null,
+      toolCallId: null,
+      approvalId: null
+    });
   }
 }
 

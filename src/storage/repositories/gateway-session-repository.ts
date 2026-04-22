@@ -70,6 +70,41 @@ export class SqliteGatewaySessionRepository implements GatewaySessionRepository 
     return row === undefined ? null : this.mapRow(row);
   }
 
+  public findLatestByExternalSession(
+    adapterId: string,
+    externalSessionId: string
+  ): GatewaySessionBinding | null {
+    const row = this.database
+      .prepare(
+        `
+          SELECT * FROM gateway_session_bindings
+          WHERE adapter_id = ? AND external_session_id = ?
+          ORDER BY created_at DESC
+          LIMIT 1
+        `
+      )
+      .get(adapterId, externalSessionId) as GatewaySessionBindingRow | undefined;
+
+    return row === undefined ? null : this.mapRow(row);
+  }
+
+  public listByExternalSession(
+    adapterId: string,
+    externalSessionId: string
+  ): GatewaySessionBinding[] {
+    const rows = this.database
+      .prepare(
+        `
+          SELECT * FROM gateway_session_bindings
+          WHERE adapter_id = ? AND external_session_id = ?
+          ORDER BY created_at DESC
+        `
+      )
+      .all(adapterId, externalSessionId) as unknown as GatewaySessionBindingRow[];
+
+    return rows.map((row) => this.mapRow(row));
+  }
+
   private mapRow(row: GatewaySessionBindingRow): GatewaySessionBinding {
     return {
       adapterId: row.adapter_id,
