@@ -1,6 +1,6 @@
 export function renderTaskAcceptedCard(taskId: string, input: string): string {
   return JSON.stringify({
-    config: { wide_screen_mode: true },
+    config: { update_multi: true, wide_screen_mode: true },
     elements: [
       { tag: "markdown", content: `Task accepted: \`${taskId}\`` },
       { tag: "markdown", content: input.slice(0, 300) }
@@ -11,26 +11,24 @@ export function renderTaskAcceptedCard(taskId: string, input: string): string {
 
 export function renderTaskProgressCard(taskId: string, detail: string): string {
   return JSON.stringify({
-    config: { wide_screen_mode: true },
+    config: { update_multi: true, wide_screen_mode: true },
     elements: [{ tag: "markdown", content: `Task \`${taskId}\` progress: ${detail}` }],
     header: { title: { content: "Task Progress", tag: "plain_text" } }
   });
 }
 
-export function renderTaskResultCard(taskId: string, status: string, output: string | null): string {
+export function renderTaskResultCard(output: string | null): string {
   return JSON.stringify({
-    config: { wide_screen_mode: true },
+    config: { update_multi: true, wide_screen_mode: true },
     elements: [
-      { tag: "markdown", content: `Task \`${taskId}\` finished with status: **${status}**` },
-      { tag: "markdown", content: output === null ? "_no output_" : output.slice(0, 1000) }
-    ],
-    header: { title: { content: "Task Result", tag: "plain_text" } }
+      { tag: "markdown", content: output === null || output.trim().length === 0 ? "_没有返回内容_" : output.slice(0, 1000) }
+    ]
   });
 }
 
 export function renderApprovalCard(taskId: string, approvalId: string): string {
   return JSON.stringify({
-    config: { wide_screen_mode: true },
+    config: { update_multi: true, wide_screen_mode: true },
     elements: [
       { tag: "markdown", content: `Task \`${taskId}\` requires approval.` },
       {
