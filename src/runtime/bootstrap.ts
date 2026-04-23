@@ -17,6 +17,7 @@ import { AgentProfileRegistry } from "../profiles/agent-profile-registry.js";
 import {
   createProvider,
   ManagedProvider,
+  ProviderRouter,
   resolveProviderCatalog,
   resolveProviderConfig,
   type ProviderCatalogEntry,
@@ -29,6 +30,7 @@ import { StorageManager } from "../storage/database.js";
 import { migrateConfigFiles } from "../storage/config-migration.js";
 import { TraceService } from "../tracing/trace-service.js";
 import type {
+  BudgetLimits,
   LocalPolicyConfig,
   Provider,
   RuntimeRunOptions,
@@ -42,6 +44,7 @@ import { ShellExecutor } from "../tools/shell/shell-executor.js";
 
 import { AgentApplicationService } from "./application-service.js";
 import { ContextCompactor, SessionSnapshotService } from "./context/index.js";
+import { BudgetService } from "./budget/index.js";
 import { ExecutionKernel } from "./execution-kernel.js";
 import { RecallBudgetPolicy, RecallPlanner } from "./retrieval/index.js";
 import { DeliveryService } from "./delivery/index.js";
@@ -84,6 +87,27 @@ export interface AppConfig {
     maxHumanJudgmentWeight: number;
     riskDenyKeywords: string[];
   };
+  routing: {
+    mode: "cheap_first" | "balanced" | "quality_first";
+    providers: {
+      cheap?: string;
+      balanced?: string;
+      quality?: string;
+    };
+    helpers: {
+      summarize: "cheap" | "balanced" | "quality" | null;
+      classify: "cheap" | "balanced" | "quality" | null;
+      recallRank: "cheap" | "balanced" | "quality" | null;
+    };
+  };
+  budget: {
+    task: BudgetLimits;
+    thread: BudgetLimits;
+    pricing: Record<
+      string,
+      { inputPerMillion: number; outputPerMillion: number; cachedInputPerMillion?: number | undefined }
+    >;
+  };
   provider: ResolvedProviderConfig;
   runtimeVersion: string;
   runtimeConfigPath: string;
@@ -121,6 +145,8 @@ export function resolveAppConfig(cwd = process.cwd(), options: ResolveAppConfigO
     compact: runtimeConfig.compact,
     recall: runtimeConfig.recall,
     promotion: runtimeConfig.promotion,
+    routing: runtimeConfig.routing,
+    budget: runtimeConfig.budget,
     provider,
     runtimeVersion: "0.1.0",
     runtimeConfigPath: runtimeConfig.configPath,
@@ -189,6 +215,20 @@ export function createApplication(
   });
   const traceService = new TraceService(storage.traces);
   const auditService = new AuditService(storage.auditLogs);
+  const budgetService = new BudgetService(config.budget, traceService, auditService);
+  budgetService.start();
+  const providerRouter = new ProviderRouter(
+    config.routing,
+    (providerName) => {
+      if (providerName === provider.name) {
+        return provider;
+      }
+      return provider;
+    },
+    budgetService,
+    traceService,
+    auditService
+  );
   const approvalService = new ApprovalService(storage.approvals, {
     approvalTtlMs: config.approvalTtlMs
   });
@@ -257,7 +297,14 @@ export function createApplication(
     compactPolicy: new CompactTriggerPolicy(),
     compactSummarizer:
       config.compact.summarizer === "provider_subagent"
-        ? new ProviderSubagentSummarizer()
+        ? new ProviderSubagentSummarizer(() => {
+            const selected = providerRouter.selectProvider({
+              kind: "summarize",
+              taskId: "session_compaction",
+              threadId: null
+            });
+            return selected.provider;
+          })
         : new DeterministicCompactSummarizer(),
     contextPolicy,
     memoryRepository: storage.memories,
@@ -342,13 +389,17 @@ export function createApplication(
   const executionKernel = new ExecutionKernel({
     compact: config.compact,
     agentProfileRegistry,
+    budgetPricing: config.budget.pricing,
+    budgetService,
     executionCheckpointRepository: storage.checkpoints,
     contextCompactor,
     getThreadCommitmentState: (threadId) => threadCommitmentProjector.project(threadId),
     memoryPlane,
     recallPlanner,
     provider,
+    providerRouter,
     runMetadataRepository: storage.runMetadata,
+    routingMode: config.routing.mode,
     runtimeVersion: config.runtimeVersion,
     sessionSnapshotService,
     taskRepository: storage.tasks,
@@ -393,7 +444,8 @@ export function createApplication(
         tokenBudget: {
           ...config.tokenBudget,
           usedInput: 0,
-          usedOutput: 0
+          usedOutput: 0,
+          usedCostUsd: 0
         },
         userId: schedule.ownerUserId
       });
@@ -445,6 +497,8 @@ export function createApplication(
     provider,
     providerCatalog: options.providerCatalog ?? resolveProviderCatalog(config.workspaceRoot),
     providerConfig: config.provider,
+    providerRouter,
+    budgetService,
     runtimeConfigPath: config.runtimeConfigPath,
     runtimeConfigSource: config.runtimeConfigSource,
     runtimeVersion: config.runtimeVersion,
@@ -478,6 +532,7 @@ export function createApplication(
       inboxCollector.stop();
       commitmentCollector.stop();
       promotionAdvisor.stop();
+      budgetService.stop();
       service?.stopScheduler();
       void mcpClientManager.close();
       storage.close();

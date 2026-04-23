@@ -207,7 +207,8 @@ export function buildRunOptionsForSchedule(schedule: ScheduleRecord): RuntimeRun
       outputLimit: 8_000,
       reservedOutput: 1_000,
       usedInput: 0,
-      usedOutput: 0
+      usedOutput: 0,
+      usedCostUsd: 0
     },
     userId: schedule.ownerUserId
   };

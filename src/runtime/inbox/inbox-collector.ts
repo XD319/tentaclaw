@@ -132,6 +132,33 @@ export class InboxCollector {
           userId: this.resolveUserId(event.taskId)
         });
         return;
+      case "budget_warning":
+        this.dependencies.inboxService.append({
+          category: "budget_warning",
+          dedupKey: `budget_warning:${event.taskId}:${event.payload.scope}`,
+          severity: "info",
+          sourceTraceId: event.eventId,
+          summary: event.payload.reasons.join("; "),
+          taskId: event.taskId,
+          threadId: event.payload.threadId,
+          title: "Budget warning",
+          userId: this.resolveUserId(event.taskId)
+        });
+        return;
+      case "budget_exceeded":
+        this.dependencies.inboxService.append({
+          actionHint: `talon budget show --task ${event.taskId} | talon budget raise --task ${event.taskId} --hard-usd <n>`,
+          category: "budget_exceeded",
+          dedupKey: `budget_exceeded:${event.taskId}:${event.payload.scope}`,
+          severity: "action_required",
+          sourceTraceId: event.eventId,
+          summary: event.payload.reasons.join("; "),
+          taskId: event.taskId,
+          threadId: event.payload.threadId,
+          title: "Budget exceeded",
+          userId: this.resolveUserId(event.taskId)
+        });
+        return;
       case "schedule_run_finished":
         if (event.payload.status !== "completed") {
           return;

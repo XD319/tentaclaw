@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 
 import { z } from "zod";
 
-import type { TokenBudget } from "../types/index.js";
+import type { BudgetLimits, BudgetPricingEntry, ProviderTier, RoutingMode, TokenBudget } from "../types/index.js";
 
 const tokenBudgetConfigSchema = z.object({
   inputLimit: z.number().int().positive().optional(),
@@ -38,6 +38,59 @@ const runtimeConfigFileSchema = z.object({
       minSuccessCount: z.number().int().nonnegative().optional(),
       minSuccessRate: z.number().min(0).max(1).optional(),
       riskDenyKeywords: z.array(z.string().min(1)).optional()
+    })
+    .optional(),
+  routing: z
+    .object({
+      helpers: z
+        .object({
+          classify: z.enum(["cheap", "balanced", "quality"]).nullable().optional(),
+          recallRank: z.enum(["cheap", "balanced", "quality"]).nullable().optional(),
+          summarize: z.enum(["cheap", "balanced", "quality"]).nullable().optional()
+        })
+        .optional(),
+      mode: z.enum(["cheap_first", "balanced", "quality_first"]).optional(),
+      providers: z
+        .object({
+          balanced: z.string().min(1).optional(),
+          cheap: z.string().min(1).optional(),
+          quality: z.string().min(1).optional()
+        })
+        .optional()
+    })
+    .optional(),
+  budget: z
+    .object({
+      pricing: z
+        .record(
+          z.string().min(1),
+          z.object({
+            cachedInputPerMillion: z.number().nonnegative().optional(),
+            inputPerMillion: z.number().nonnegative(),
+            outputPerMillion: z.number().nonnegative()
+          })
+        )
+        .optional(),
+      task: z
+        .object({
+          hardCostUsd: z.number().nonnegative().optional(),
+          hardInputTokens: z.number().int().nonnegative().optional(),
+          hardOutputTokens: z.number().int().nonnegative().optional(),
+          softCostUsd: z.number().nonnegative().optional(),
+          softInputTokens: z.number().int().nonnegative().optional(),
+          softOutputTokens: z.number().int().nonnegative().optional()
+        })
+        .optional(),
+      thread: z
+        .object({
+          hardCostUsd: z.number().nonnegative().optional(),
+          hardInputTokens: z.number().int().nonnegative().optional(),
+          hardOutputTokens: z.number().int().nonnegative().optional(),
+          softCostUsd: z.number().nonnegative().optional(),
+          softInputTokens: z.number().int().nonnegative().optional(),
+          softOutputTokens: z.number().int().nonnegative().optional()
+        })
+        .optional()
     })
     .optional(),
   tokenBudget: tokenBudgetConfigSchema.optional(),
@@ -95,6 +148,24 @@ export interface RuntimeConfig {
     maxHumanJudgmentWeight: number;
     riskDenyKeywords: string[];
   };
+  routing: {
+    mode: RoutingMode;
+    providers: {
+      cheap?: string;
+      balanced?: string;
+      quality?: string;
+    };
+    helpers: {
+      summarize: ProviderTier | null;
+      classify: ProviderTier | null;
+      recallRank: ProviderTier | null;
+    };
+  };
+  budget: {
+    task: BudgetLimits;
+    thread: BudgetLimits;
+    pricing: Record<string, BudgetPricingEntry>;
+  };
   tokenBudget: TokenBudget;
   workflow: WorkflowRuntimeConfig;
 }
@@ -127,7 +198,22 @@ const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, "configPath" | "configSource">
     outputLimit: 8_000,
     reservedOutput: 1_000,
     usedInput: 0,
-    usedOutput: 0
+    usedOutput: 0,
+    usedCostUsd: 0
+  },
+  routing: {
+    mode: "balanced",
+    providers: {},
+    helpers: {
+      summarize: "cheap",
+      classify: null,
+      recallRank: null
+    }
+  },
+  budget: {
+    task: {},
+    thread: {},
+    pricing: {}
   },
   workflow: {
     failureGuidedRetry: {
@@ -166,7 +252,8 @@ export function resolveRuntimeConfig(cwd = process.cwd()): RuntimeConfig {
       fileConfig?.tokenBudget?.reservedOutput ??
       DEFAULT_RUNTIME_CONFIG.tokenBudget.reservedOutput,
     usedInput: 0,
-    usedOutput: 0
+    usedOutput: 0,
+    usedCostUsd: 0
   };
   const workflow: WorkflowRuntimeConfig = {
     failureGuidedRetry: {
@@ -260,6 +347,45 @@ export function resolveRuntimeConfig(cwd = process.cwd()): RuntimeConfig {
         envConfig.promotion?.riskDenyKeywords ??
         fileConfig?.promotion?.riskDenyKeywords ??
         DEFAULT_RUNTIME_CONFIG.promotion.riskDenyKeywords
+    },
+    routing: {
+      mode:
+        envConfig.routing?.mode ??
+        fileConfig?.routing?.mode ??
+        DEFAULT_RUNTIME_CONFIG.routing.mode,
+      providers: normalizeRoutingProviders(
+        envConfig.routing?.providers ??
+          fileConfig?.routing?.providers ??
+          DEFAULT_RUNTIME_CONFIG.routing.providers
+      ),
+      helpers: {
+        summarize:
+          envConfig.routing?.helpers?.summarize ??
+          fileConfig?.routing?.helpers?.summarize ??
+          DEFAULT_RUNTIME_CONFIG.routing.helpers.summarize,
+        classify:
+          envConfig.routing?.helpers?.classify ??
+          fileConfig?.routing?.helpers?.classify ??
+          DEFAULT_RUNTIME_CONFIG.routing.helpers.classify,
+        recallRank:
+          envConfig.routing?.helpers?.recallRank ??
+          fileConfig?.routing?.helpers?.recallRank ??
+          DEFAULT_RUNTIME_CONFIG.routing.helpers.recallRank
+      }
+    },
+    budget: {
+      task: normalizeBudgetLimits(
+        envConfig.budget?.task ?? fileConfig?.budget?.task ?? DEFAULT_RUNTIME_CONFIG.budget.task
+      ),
+      thread: normalizeBudgetLimits(
+        envConfig.budget?.thread ?? fileConfig?.budget?.thread ?? DEFAULT_RUNTIME_CONFIG.budget.thread
+      ),
+      pricing:
+        normalizeBudgetPricing(
+          envConfig.budget?.pricing ??
+            fileConfig?.budget?.pricing ??
+            DEFAULT_RUNTIME_CONFIG.budget.pricing
+        )
     },
     tokenBudget,
     workflow
@@ -397,6 +523,29 @@ function readEnvRuntimeConfig(): Partial<RuntimeConfigFile> {
     };
   }
 
+  const routingMode = process.env.AGENT_ROUTING_MODE;
+  if (routingMode === "cheap_first" || routingMode === "balanced" || routingMode === "quality_first") {
+    config.routing = {
+      ...(config.routing ?? {}),
+      mode: routingMode
+    };
+  }
+
+  const routeCheap = process.env.AGENT_ROUTE_PROVIDER_CHEAP?.trim();
+  const routeBalanced = process.env.AGENT_ROUTE_PROVIDER_BALANCED?.trim();
+  const routeQuality = process.env.AGENT_ROUTE_PROVIDER_QUALITY?.trim();
+  if (routeCheap !== undefined || routeBalanced !== undefined || routeQuality !== undefined) {
+    config.routing = {
+      ...(config.routing ?? {}),
+      providers: {
+        ...(config.routing?.providers ?? {}),
+        ...(routeCheap ? { cheap: routeCheap } : {}),
+        ...(routeBalanced ? { balanced: routeBalanced } : {}),
+        ...(routeQuality ? { quality: routeQuality } : {})
+      }
+    };
+  }
+
   return runtimeConfigFileSchema.partial().parse(config);
 }
 
@@ -470,4 +619,44 @@ function normalizeHostList(hosts: string[]): string[] {
     throw new Error("runtime allowedFetchHosts must contain at least one host or '*'.");
   }
   return [...new Set(normalized)];
+}
+
+function normalizeRoutingProviders(
+  providers: { cheap?: string | undefined; balanced?: string | undefined; quality?: string | undefined }
+): RuntimeConfig["routing"]["providers"] {
+  return {
+    ...(providers.cheap !== undefined ? { cheap: providers.cheap } : {}),
+    ...(providers.balanced !== undefined ? { balanced: providers.balanced } : {}),
+    ...(providers.quality !== undefined ? { quality: providers.quality } : {})
+  };
+}
+
+function normalizeBudgetLimits(limits: BudgetLimits): BudgetLimits {
+  return {
+    ...(limits.softInputTokens !== undefined ? { softInputTokens: limits.softInputTokens } : {}),
+    ...(limits.hardInputTokens !== undefined ? { hardInputTokens: limits.hardInputTokens } : {}),
+    ...(limits.softOutputTokens !== undefined ? { softOutputTokens: limits.softOutputTokens } : {}),
+    ...(limits.hardOutputTokens !== undefined ? { hardOutputTokens: limits.hardOutputTokens } : {}),
+    ...(limits.softCostUsd !== undefined ? { softCostUsd: limits.softCostUsd } : {}),
+    ...(limits.hardCostUsd !== undefined ? { hardCostUsd: limits.hardCostUsd } : {})
+  };
+}
+
+function normalizeBudgetPricing(
+  pricing: Record<
+    string,
+    { inputPerMillion: number; outputPerMillion: number; cachedInputPerMillion?: number | undefined }
+  >
+): Record<string, BudgetPricingEntry> {
+  const normalized: Record<string, BudgetPricingEntry> = {};
+  for (const [providerName, entry] of Object.entries(pricing)) {
+    normalized[providerName] = {
+      inputPerMillion: entry.inputPerMillion,
+      outputPerMillion: entry.outputPerMillion,
+      ...(entry.cachedInputPerMillion !== undefined
+        ? { cachedInputPerMillion: entry.cachedInputPerMillion }
+        : {})
+    };
+  }
+  return normalized;
 }

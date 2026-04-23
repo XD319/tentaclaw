@@ -6,7 +6,8 @@ export function tokenBudgetToJson(tokenBudget: TokenBudget): JsonObject {
     outputLimit: tokenBudget.outputLimit,
     reservedOutput: tokenBudget.reservedOutput,
     usedInput: tokenBudget.usedInput,
-    usedOutput: tokenBudget.usedOutput
+    usedOutput: tokenBudget.usedOutput,
+    usedCostUsd: tokenBudget.usedCostUsd ?? 0
   };
 }
 

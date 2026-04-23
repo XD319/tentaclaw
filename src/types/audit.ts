@@ -19,7 +19,10 @@ export const AUDIT_ACTIONS = [
   "tool_rejected",
   "web_fetch",
   "skill_promoted",
-  "skill_rolled_back"
+  "skill_rolled_back",
+  "route_decided",
+  "budget_warning",
+  "budget_exceeded"
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

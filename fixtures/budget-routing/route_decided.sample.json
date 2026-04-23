@@ -1,0 +1,19 @@
+{
+  "eventId": "route-001",
+  "taskId": "task-123",
+  "sequence": 10,
+  "timestamp": "2026-04-23T00:00:00.000Z",
+  "eventType": "route_decision",
+  "stage": "planning",
+  "actor": "runtime.router",
+  "summary": "Route main to provider",
+  "payload": {
+    "taskId": "task-123",
+    "threadId": "thread-1",
+    "mode": "balanced",
+    "kind": "main",
+    "tier": "balanced",
+    "providerName": "mock",
+    "reason": "routing mode balanced"
+  }
+}

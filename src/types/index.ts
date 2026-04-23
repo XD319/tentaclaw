@@ -1,6 +1,7 @@
 export * from "./approval.js";
 export * from "./adapter.js";
 export * from "./audit.js";
+export * from "./budget.js";
 export * from "./checkpoint.js";
 export * from "./common.js";
 export * from "./commitment.js";

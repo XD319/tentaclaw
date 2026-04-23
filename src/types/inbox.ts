@@ -7,7 +7,9 @@ export const INBOX_CATEGORIES = [
   "approval_requested",
   "decision_requested",
   "memory_suggestion",
-  "skill_promotion"
+  "skill_promotion",
+  "budget_warning",
+  "budget_exceeded"
 ] as const;
 
 export type InboxCategory = (typeof INBOX_CATEGORIES)[number];

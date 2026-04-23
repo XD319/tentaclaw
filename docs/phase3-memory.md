@@ -163,3 +163,5 @@ Boundary rules:
 - `fixtures/memory-layered/recall_explain.sample.json`
 - `fixtures/memory-layered/memory_written.sample.json`
 - `fixtures/memory-layered/audit_review_resolved.sample.json`
+
+Cost-aware routing and budget controls are documented in `docs/provider-routing-budget.md`.

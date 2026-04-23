@@ -1,6 +1,7 @@
 export * from "./application-service.js";
 export * from "./bootstrap.js";
 export * from "./execution-kernel.js";
+export * from "./budget/index.js";
 export * from "./context/index.js";
 export * from "./repo-map.js";
 export * from "./runtime-config.js";

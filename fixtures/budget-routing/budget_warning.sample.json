@@ -1,0 +1,21 @@
+{
+  "eventId": "budget-warn-001",
+  "taskId": "task-123",
+  "sequence": 21,
+  "timestamp": "2026-04-23T00:00:00.000Z",
+  "eventType": "budget_warning",
+  "stage": "control",
+  "actor": "runtime.budget",
+  "summary": "Budget soft limit reached for task",
+  "payload": {
+    "taskId": "task-123",
+    "threadId": "thread-1",
+    "scope": "task",
+    "mode": "balanced",
+    "usedInput": 5000,
+    "usedOutput": 700,
+    "usedCostUsd": 0.22,
+    "breachedLimit": "cost",
+    "reasons": ["soft cost limit reached"]
+  }
+}

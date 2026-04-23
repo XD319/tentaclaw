@@ -138,6 +138,7 @@ export class SqliteTaskRepository implements TaskRepository {
         patch.finishedAt === undefined ? existing.finishedAt : patch.finishedAt,
       startedAt: patch.startedAt === undefined ? existing.startedAt : patch.startedAt,
       status: patch.status ?? existing.status,
+      tokenBudget: patch.tokenBudget ?? existing.tokenBudget,
       updatedAt: new Date().toISOString()
     };
 
@@ -152,7 +153,8 @@ export class SqliteTaskRepository implements TaskRepository {
               finished_at = ?,
               final_output = ?,
               error_code = ?,
-              error_message = ?
+              error_message = ?,
+              token_budget_json = ?
           WHERE task_id = ?
         `
       )
@@ -165,6 +167,7 @@ export class SqliteTaskRepository implements TaskRepository {
         nextTask.finalOutput,
         nextTask.errorCode,
         nextTask.errorMessage,
+        serializeJsonValue(nextTask.tokenBudget),
         taskId
       );
 

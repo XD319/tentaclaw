@@ -240,15 +240,24 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
       );
 
       const stats = input.service.providerStats();
-      if (stats !== null) {
-        const usage = stats.tokenUsage;
+      if (
+        stats !== null &&
+        typeof stats === "object" &&
+        "providerName" in stats &&
+        "tokenUsage" in stats
+      ) {
+        const typedStats = stats as {
+          providerName: string;
+          tokenUsage: { inputTokens: number; outputTokens: number; totalTokens?: number };
+        };
+        const usage = typedStats.tokenUsage;
         const pct = contextWindowPercent(
           usage,
           input.config.tokenBudget.inputLimit,
           input.config.tokenBudget.outputLimit
         );
         const cost = estimateSessionCostUsd(
-          stats.providerName,
+          typedStats.providerName,
           input.config.provider.model ?? undefined,
           usage
         );

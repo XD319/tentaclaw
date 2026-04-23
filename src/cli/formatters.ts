@@ -522,21 +522,25 @@ export function formatProviderHealth(report: {
   ].join("\n");
 }
 
-export function formatProviderStats(stats: ProviderStatsSnapshot | null): string {
+export function formatProviderStats(stats: ProviderStatsSnapshot | Record<string, unknown> | null): string {
   if (stats === null) {
     return "Provider statistics are not available.";
   }
+  if (!("providerName" in stats)) {
+    return JSON.stringify(stats, null, 2);
+  }
 
+  const typed = stats as ProviderStatsSnapshot;
   return [
-    `Provider: ${stats.providerName}`,
-    `Requests: ${stats.totalRequests}`,
-    `Successes: ${stats.successfulRequests}`,
-    `Failures: ${stats.failedRequests}`,
-    `Average Latency (ms): ${stats.averageLatencyMs}`,
-    `Retries: ${stats.retryCount}`,
-    `Last Error Category: ${stats.lastErrorCategory ?? "-"}`,
-    `Last Request At: ${stats.lastRequestAt ?? "-"}`,
-    `Token Usage: input=${stats.tokenUsage.inputTokens} output=${stats.tokenUsage.outputTokens} total=${stats.tokenUsage.totalTokens ?? stats.tokenUsage.inputTokens + stats.tokenUsage.outputTokens}`
+    `Provider: ${typed.providerName}`,
+    `Requests: ${typed.totalRequests}`,
+    `Successes: ${typed.successfulRequests}`,
+    `Failures: ${typed.failedRequests}`,
+    `Average Latency (ms): ${typed.averageLatencyMs}`,
+    `Retries: ${typed.retryCount}`,
+    `Last Error Category: ${typed.lastErrorCategory ?? "-"}`,
+    `Last Request At: ${typed.lastRequestAt ?? "-"}`,
+    `Token Usage: input=${typed.tokenUsage.inputTokens} output=${typed.tokenUsage.outputTokens} total=${typed.tokenUsage.totalTokens ?? typed.tokenUsage.inputTokens + typed.tokenUsage.outputTokens}`
   ].join("\n");
 }
 

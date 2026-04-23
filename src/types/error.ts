@@ -2,6 +2,7 @@ export const RUNTIME_ERROR_CODES = [
   "approval_denied",
   "approval_required",
   "approval_timeout",
+  "budget_exceeded",
   "cancelled",
   "interrupt",
   "invalid_state",

@@ -1062,14 +1062,52 @@ export async function main(argv = process.argv): Promise<void> {
     }
   });
 
-  providerCommand.command("stats").action(() => {
-    const handle = createApplication(process.cwd());
-    try {
-      console.log(formatProviderStats(handle.service.providerStats()));
-    } finally {
-      handle.close();
-    }
-  });
+  providerCommand
+    .command("stats")
+    .option("--by <groupBy>", "Group by: provider | thread | task | mode", "provider")
+    .action((commandOptions: { by: "provider" | "thread" | "task" | "mode" }) => {
+      const handle = createApplication(process.cwd());
+      try {
+        console.log(formatProviderStats(handle.service.providerStats(commandOptions.by)));
+      } finally {
+        handle.close();
+      }
+    });
+
+  providerCommand
+    .command("route")
+    .requiredOption("--mode <mode>", "cheap_first | balanced | quality_first")
+    .action((commandOptions: { mode: "cheap_first" | "balanced" | "quality_first" }) => {
+      const handle = createApplication(process.cwd());
+      try {
+        handle.service.setRoutingMode(commandOptions.mode);
+        console.log(`Routing mode updated: ${commandOptions.mode}`);
+      } finally {
+        handle.close();
+      }
+    });
+
+  const budgetCommand = program.command("budget").description("Inspect runtime budget usage");
+  budgetCommand
+    .command("show")
+    .option("--task <taskId>", "Task id")
+    .option("--thread <threadId>", "Thread id")
+    .action((commandOptions: { task?: string; thread?: string }) => {
+      const handle = createApplication(process.cwd());
+      try {
+        if (commandOptions.task !== undefined) {
+          console.log(JSON.stringify(handle.service.budgetReport("task", commandOptions.task), null, 2));
+          return;
+        }
+        if (commandOptions.thread !== undefined) {
+          console.log(JSON.stringify(handle.service.budgetReport("thread", commandOptions.thread), null, 2));
+          return;
+        }
+        console.log("Provide --task <id> or --thread <id>.");
+      } finally {
+        handle.close();
+      }
+    });
 
   const smokeCommand = program.command("smoke").description("Run fixed runtime smoke tasks");
 

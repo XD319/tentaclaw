@@ -13,6 +13,8 @@ import type {
   ExperienceReviewRequest
 } from "../experience/experience-plane.js";
 import type { ProviderCatalogEntry, ResolvedProviderConfig } from "../providers/index.js";
+import type { ProviderRouter } from "../providers/routing/provider-router.js";
+import type { BudgetService } from "./budget/budget-service.js";
 import type {
   ApprovalRecord,
   ArtifactRecord,
@@ -126,6 +128,8 @@ export interface AgentDoctorReport {
   };
   timeoutMs: number;
   workspaceRoot: string;
+  providerRouter?: ProviderRouter;
+  budgetService?: BudgetService;
 }
 
 export interface ContextTraceDebugReport {
@@ -211,6 +215,8 @@ export interface AgentApplicationServiceDependencies extends RuntimeReadModel {
     reservedOutput: number;
   };
   traceService: TraceService;
+  providerRouter?: ProviderRouter;
+  budgetService?: BudgetService;
   workspaceRoot: string;
 }
 
@@ -754,8 +760,11 @@ export class AgentApplicationService {
     return this.dependencies.providerConfig;
   }
 
-  public providerStats(): ProviderStatsSnapshot | null {
+  public providerStats(groupBy: "provider" | "thread" | "task" | "mode" = "provider"): ProviderStatsSnapshot | null | JsonObject {
     const liveStats = this.dependencies.provider.getStats?.() ?? null;
+    if (groupBy !== "provider") {
+      return this.providerStatsBy(groupBy);
+    }
     if (liveStats !== null && liveStats.totalRequests > 0) {
       return liveStats;
     }
@@ -765,6 +774,32 @@ export class AgentApplicationService {
       this.dependencies.listTasks().flatMap((task) => this.dependencies.listTrace(task.taskId))
     );
     return traceStats.totalRequests > 0 ? traceStats : liveStats;
+  }
+
+  public budgetReport(scope: "task" | "thread", id: string): Record<string, unknown> {
+    const state =
+      scope === "task"
+        ? this.dependencies.budgetService?.getTaskState(id)
+        : this.dependencies.budgetService?.getThreadState(id);
+    return {
+      scope,
+      id,
+      state: state ?? null
+    };
+  }
+
+  public setRoutingMode(mode: "cheap_first" | "balanced" | "quality_first"): void {
+    this.dependencies.providerRouter?.setMode(mode);
+    this.dependencies.auditService.record({
+      action: "route_decided",
+      actor: "runtime.application",
+      approvalId: null,
+      outcome: "succeeded",
+      payload: { mode },
+      summary: `Routing mode set to ${mode}`,
+      taskId: null,
+      toolCallId: null
+    });
   }
 
   public traceTask(taskId: string): TraceEvent[] {
@@ -813,6 +848,30 @@ export class AgentApplicationService {
         listener(event);
       }
     });
+  }
+
+  private providerStatsBy(groupBy: "thread" | "task" | "mode"): JsonObject {
+    const events = this.dependencies
+      .listTasks()
+      .flatMap((task) => this.dependencies.listTrace(task.taskId))
+      .filter((event) => event.eventType === "cost_report");
+    const grouped: Record<string, { costUsd: number; inputTokens: number; outputTokens: number; count: number }> = {};
+    for (const event of events) {
+      const payload = event.payload as Record<string, unknown>;
+      const key =
+        groupBy === "task"
+          ? event.taskId
+          : groupBy === "thread"
+            ? String(payload.threadId ?? "none")
+            : String(payload.mode ?? "balanced");
+      const row = grouped[key] ?? { costUsd: 0, count: 0, inputTokens: 0, outputTokens: 0 };
+      row.count += 1;
+      row.inputTokens += Number(payload.inputTokens ?? 0);
+      row.outputTokens += Number(payload.outputTokens ?? 0);
+      row.costUsd += Number(payload.costUsd ?? 0);
+      grouped[key] = row;
+    }
+    return grouped as JsonObject;
   }
 
   public traceTaskContext(taskId: string): ContextTraceDebugReport {

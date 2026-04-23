@@ -12,6 +12,7 @@ import type { PolicyEffect } from "./policy.js";
 import type { ApprovalStatus } from "./approval.js";
 import type { ProviderErrorCategory } from "./runtime.js";
 import type { ContextAssemblyDebugView } from "./context.js";
+import type { RouteKind, RoutingMode } from "./budget.js";
 
 export const TRACE_EVENT_TYPES = [
   "gateway_request_received",
@@ -67,6 +68,10 @@ export const TRACE_EVENT_TYPES = [
   "experience_reviewed",
   "experience_promoted",
   "skill_promotion_suggested",
+  "route_decision",
+  "budget_warning",
+  "budget_exceeded",
+  "cost_report",
   "experience_recall_ranked",
   "reviewer_trace",
   "inbox_item_created",
@@ -503,6 +508,51 @@ export interface SkillPromotionSuggestedPayload extends JsonObject {
   reasons: string[];
 }
 
+export interface RouteDecisionPayload extends JsonObject {
+  taskId: string;
+  threadId: string | null;
+  mode: RoutingMode;
+  kind: RouteKind;
+  tier: "cheap" | "balanced" | "quality" | null;
+  providerName: string | null;
+  reason: string;
+}
+
+export interface BudgetWarningPayload extends JsonObject {
+  taskId: string;
+  threadId: string | null;
+  scope: "task" | "thread";
+  mode: RoutingMode;
+  usedInput: number;
+  usedOutput: number;
+  usedCostUsd: number;
+  breachedLimit: "input" | "output" | "cost" | null;
+  reasons: string[];
+}
+
+export interface BudgetExceededPayload extends JsonObject {
+  taskId: string;
+  threadId: string | null;
+  scope: "task" | "thread";
+  mode: RoutingMode;
+  usedInput: number;
+  usedOutput: number;
+  usedCostUsd: number;
+  breachedLimit: "input" | "output" | "cost" | null;
+  reasons: string[];
+}
+
+export interface CostReportPayload extends JsonObject {
+  taskId: string;
+  threadId: string | null;
+  providerName: string;
+  mode: RoutingMode;
+  inputTokens: number;
+  outputTokens: number;
+  cachedInputTokens: number;
+  costUsd: number | null;
+}
+
 export interface ExperienceRecallRankedPayload extends JsonObject {
   query: string;
   selectedExperienceIds: string[];
@@ -679,6 +729,10 @@ export type TraceEvent =
   | TraceEventBase<"experience_reviewed", ExperienceReviewedPayload>
   | TraceEventBase<"experience_promoted", ExperiencePromotedPayload>
   | TraceEventBase<"skill_promotion_suggested", SkillPromotionSuggestedPayload>
+  | TraceEventBase<"route_decision", RouteDecisionPayload>
+  | TraceEventBase<"budget_warning", BudgetWarningPayload>
+  | TraceEventBase<"budget_exceeded", BudgetExceededPayload>
+  | TraceEventBase<"cost_report", CostReportPayload>
   | TraceEventBase<"experience_recall_ranked", ExperienceRecallRankedPayload>
   | TraceEventBase<"reviewer_trace", ReviewerTracePayload>
   | TraceEventBase<"inbox_item_created", InboxItemCreatedPayload>

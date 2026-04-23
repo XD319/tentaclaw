@@ -35,6 +35,9 @@ SQLite runtime schema now includes thread continuity tables:
 - `commitments` for user-visible promises and their lifecycle (`open`/`blocked`/`completed` etc.)
 - `next_actions` for ordered actionable continuation steps, including blocked reason and status
 
+Provider routing and budget policy details:
+- `docs/provider-routing-budget.md`
+
 Trace stream also includes commitment lifecycle events:
 - `commitment_created|updated|blocked|unblocked|completed|cancelled`
 - `next_action_created|updated|blocked|done`

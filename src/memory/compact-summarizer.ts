@@ -1,4 +1,5 @@
 import type { SessionCompactInput } from "../types/index.js";
+import type { Provider } from "../types/index.js";
 
 export interface CompactSummarizerResult {
   summary: string;
@@ -19,9 +20,14 @@ export class DeterministicCompactSummarizer implements CompactSummarizer {
 }
 
 export class ProviderSubagentSummarizer implements CompactSummarizer {
+  public constructor(
+    private readonly helperProviderFactory?: ((context: { kind: "summarize" }) => Provider | null) | undefined
+  ) {}
+
   public summarize(input: SessionCompactInput): Promise<CompactSummarizerResult> {
+    const helperProvider = this.helperProviderFactory?.({ kind: "summarize" }) ?? null;
     return Promise.resolve({
-      summarizerId: "provider_subagent",
+      summarizerId: helperProvider === null ? "provider_subagent" : `provider_subagent:${helperProvider.name}`,
       summary: summarizeMessages(input)
     });
   }

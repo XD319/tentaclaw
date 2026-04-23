@@ -10,3 +10,4 @@ export * from "./provider-contract.js";
 export * from "./provider-registry.js";
 export * from "./provider-runtime.js";
 export * from "./provider-telemetry.js";
+export * from "./routing/index.js";

@@ -1,0 +1,21 @@
+{
+  "eventId": "budget-hard-001",
+  "taskId": "task-123",
+  "sequence": 22,
+  "timestamp": "2026-04-23T00:00:00.000Z",
+  "eventType": "budget_exceeded",
+  "stage": "control",
+  "actor": "runtime.budget",
+  "summary": "Budget hard limit reached for task",
+  "payload": {
+    "taskId": "task-123",
+    "threadId": "thread-1",
+    "scope": "task",
+    "mode": "balanced",
+    "usedInput": 7000,
+    "usedOutput": 900,
+    "usedCostUsd": 0.4,
+    "breachedLimit": "cost",
+    "reasons": ["hard cost limit reached"]
+  }
+}

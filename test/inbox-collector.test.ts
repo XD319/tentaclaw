@@ -51,7 +51,8 @@ describe("inbox collector", () => {
           outputLimit: 1000,
           reservedOutput: 100,
           usedInput: 0,
-          usedOutput: 0
+          usedOutput: 0,
+          usedCostUsd: 0
         }
       });
 
@@ -95,6 +96,42 @@ describe("inbox collector", () => {
         taskId: "task-1"
       });
       traceService.record({
+        actor: "runtime.budget",
+        eventType: "budget_warning",
+        payload: {
+          breachedLimit: "cost",
+          mode: "balanced",
+          reasons: ["soft cost limit reached"],
+          scope: "task",
+          taskId: "task-1",
+          threadId: "thread-1",
+          usedCostUsd: 0.1,
+          usedInput: 100,
+          usedOutput: 20
+        },
+        stage: "control",
+        summary: "budget warning",
+        taskId: "task-1"
+      });
+      traceService.record({
+        actor: "runtime.budget",
+        eventType: "budget_exceeded",
+        payload: {
+          breachedLimit: "cost",
+          mode: "balanced",
+          reasons: ["hard cost limit reached"],
+          scope: "task",
+          taskId: "task-1",
+          threadId: "thread-1",
+          usedCostUsd: 0.2,
+          usedInput: 200,
+          usedOutput: 40
+        },
+        stage: "control",
+        summary: "budget exceeded",
+        taskId: "task-1"
+      });
+      traceService.record({
         actor: "promotion.advisor",
         eventType: "skill_promotion_suggested",
         payload: {
@@ -125,6 +162,8 @@ describe("inbox collector", () => {
           (item) => item.category === "skill_promotion" && item.severity === "action_required"
         )
       ).toBe(true);
+      expect(items.some((item) => item.category === "budget_warning")).toBe(true);
+      expect(items.some((item) => item.category === "budget_exceeded")).toBe(true);
     } finally {
       storage.close();
     }

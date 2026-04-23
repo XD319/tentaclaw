@@ -14,6 +14,7 @@ export interface TokenBudget {
   reservedOutput: number;
   usedInput: number;
   usedOutput: number;
+  usedCostUsd?: number;
 }
 
 export interface ActorDescriptor {

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { createManagedAbortController, throwIfAborted } from "./abort-controller.js";
 import { AppError, toAppError } from "./app-error.js";
+import { computeCostUsd } from "./budget/cost-calculator.js";
 import {
   buildFilteredContextDebugFragments,
   ExecutionContextAssembler
@@ -12,6 +13,7 @@ import type { ContextCompactor, SessionSnapshotService } from "./context/index.j
 import type { RecallPlanner } from "./retrieval/index.js";
 import type { RuntimeConfig, WorkflowRuntimeConfig } from "./runtime-config.js";
 import { ProviderError } from "../providers/index.js";
+import type { ProviderRouter } from "../providers/routing/provider-router.js";
 import type { AgentProfileRegistry } from "../profiles/agent-profile-registry.js";
 import type {
   ConversationMessage,
@@ -30,12 +32,14 @@ import type {
   ThreadCommitmentState,
   ThreadLineageRepository,
   ThreadRunRepository,
-  TokenBudget
+  TokenBudget,
+  BudgetPricingEntry
 } from "../types/index.js";
 import type { MemoryPlane } from "../memory/memory-plane.js";
 import { buildCapabilityDeclaration } from "../memory/capability-declaration-builder.js";
 import type { ToolOrchestrator } from "../tools/index.js";
 import type { TraceService } from "../tracing/trace-service.js";
+import type { BudgetService } from "./budget/budget-service.js";
 
 export interface ExecutionKernelDependencies {
   agentProfileRegistry: AgentProfileRegistry;
@@ -55,6 +59,10 @@ export interface ExecutionKernelDependencies {
   traceService: TraceService;
   workflow: WorkflowRuntimeConfig;
   compact: RuntimeConfig["compact"];
+  budgetPricing?: Record<string, BudgetPricingEntry>;
+  budgetService?: BudgetService;
+  providerRouter?: ProviderRouter;
+  routingMode?: "cheap_first" | "balanced" | "quality_first";
   workspaceRoot: string;
 }
 
@@ -370,14 +378,24 @@ export class ExecutionKernel {
           taskId: task.taskId
         });
 
+        const activeProvider =
+          this.dependencies.providerRouter?.selectProvider({
+            kind: "main",
+            taskId: task.taskId,
+            threadId: task.threadId ?? null,
+            ...(this.dependencies.routingMode !== undefined
+              ? { mode: this.dependencies.routingMode }
+              : {})
+          }).provider ?? this.dependencies.provider;
+
         this.dependencies.traceService.record({
-          actor: `provider.${this.dependencies.provider.name}`,
+          actor: `provider.${activeProvider.name}`,
           eventType: "provider_request_started",
           payload: {
             inputMessageCount: messages.length,
             iteration,
-            modelName: this.dependencies.provider.model ?? this.dependencies.provider.describe?.().model ?? null,
-            providerName: this.dependencies.provider.name
+            modelName: activeProvider.model ?? activeProvider.describe?.().model ?? null,
+            providerName: activeProvider.name
           },
           stage: "planning",
           summary: "Provider request started",
@@ -385,7 +403,7 @@ export class ExecutionKernel {
         });
 
         this.dependencies.traceService.record({
-          actor: `provider.${this.dependencies.provider.name}`,
+          actor: `provider.${activeProvider.name}`,
           eventType: "model_request",
           payload: {
             agentProfileId: task.agentProfileId,
@@ -402,18 +420,18 @@ export class ExecutionKernel {
         const startedAt = Date.now();
         let providerResponse;
         try {
-          providerResponse = await this.dependencies.provider.generate(providerInput);
+          providerResponse = await activeProvider.generate(providerInput);
         } catch (error) {
-          const providerError = normalizeProviderFailure(error, this.dependencies.provider);
+          const providerError = normalizeProviderFailure(error, activeProvider);
           this.dependencies.traceService.record({
-            actor: `provider.${this.dependencies.provider.name}`,
+            actor: `provider.${activeProvider.name}`,
             eventType: "provider_request_failed",
             payload: {
               errorCategory: providerError.category,
               iteration,
               latencyMs: Date.now() - startedAt,
-              modelName: providerError.modelName ?? this.dependencies.provider.model ?? null,
-              providerName: this.dependencies.provider.name,
+              modelName: providerError.modelName ?? activeProvider.model ?? null,
+              providerName: activeProvider.name,
               retryCount: providerError.retryCount
             },
             stage: "planning",
@@ -435,7 +453,7 @@ export class ExecutionKernel {
         });
 
         this.dependencies.traceService.record({
-          actor: `provider.${this.dependencies.provider.name}`,
+          actor: `provider.${activeProvider.name}`,
           eventType: "provider_request_succeeded",
           payload: {
             iteration,
@@ -443,11 +461,11 @@ export class ExecutionKernel {
             latencyMs: Date.now() - startedAt,
             modelName:
               providerResponse.metadata?.modelName ??
-              this.dependencies.provider.model ??
-              this.dependencies.provider.describe?.().model ??
+              activeProvider.model ??
+              activeProvider.describe?.().model ??
               null,
             providerName:
-              providerResponse.metadata?.providerName ?? this.dependencies.provider.name,
+              providerResponse.metadata?.providerName ?? activeProvider.name,
             retryCount: providerResponse.metadata?.retryCount ?? 0,
             usage: providerUsageToJson(providerResponse.usage)
           },
@@ -457,7 +475,7 @@ export class ExecutionKernel {
         });
 
         this.dependencies.traceService.record({
-          actor: `provider.${this.dependencies.provider.name}`,
+          actor: `provider.${activeProvider.name}`,
           eventType: "model_response",
           payload: {
             iteration,
@@ -472,6 +490,49 @@ export class ExecutionKernel {
           summary: `Provider responded with ${providerResponse.kind}`,
           taskId: task.taskId
         });
+
+        const resolvedProviderName = providerResponse.metadata?.providerName ?? activeProvider.name;
+        const pricing = this.dependencies.budgetPricing?.[resolvedProviderName];
+        const costUsd = computeCostUsd(providerResponse.usage, pricing);
+        state.tokenBudget = {
+          ...state.tokenBudget,
+          usedCostUsd: (state.tokenBudget.usedCostUsd ?? 0) + (costUsd ?? 0),
+          usedInput: (state.tokenBudget.usedInput ?? 0) + providerResponse.usage.inputTokens,
+          usedOutput: (state.tokenBudget.usedOutput ?? 0) + providerResponse.usage.outputTokens
+        };
+        task = this.dependencies.taskRepository.update(task.taskId, {
+          tokenBudget: state.tokenBudget
+        });
+        this.dependencies.traceService.record({
+          actor: "runtime.budget",
+          eventType: "cost_report",
+          payload: {
+            cachedInputTokens: providerResponse.usage.cachedInputTokens ?? 0,
+            costUsd,
+            inputTokens: providerResponse.usage.inputTokens,
+            mode: this.dependencies.routingMode ?? "balanced",
+            outputTokens: providerResponse.usage.outputTokens,
+            providerName: resolvedProviderName,
+            taskId: task.taskId,
+            threadId: task.threadId ?? null
+          },
+          stage: "control",
+          summary: "Cost usage recorded",
+          taskId: task.taskId
+        });
+        const budgetDecision = this.dependencies.budgetService?.recordUsage({
+          costUsd,
+          mode: this.dependencies.routingMode ?? "balanced",
+          taskId: task.taskId,
+          threadId: task.threadId ?? null,
+          usage: providerResponse.usage
+        });
+        if (budgetDecision?.action === "hard_abort") {
+          throw new AppError({
+            code: "budget_exceeded",
+            message: budgetDecision.reasons.join("; ") || "Budget hard limit exceeded."
+          });
+        }
 
         if (task.agentProfileId === "reviewer") {
           this.dependencies.traceService.record({

@@ -60,6 +60,7 @@ import type {
   NextActionRecord,
   NextActionUpdatePatch
 } from "./commitment.js";
+import type { TokenBudget } from "./common.js";
 
 export interface TaskUpdatePatch {
   status?: TaskStatus;
@@ -69,6 +70,7 @@ export interface TaskUpdatePatch {
   finalOutput?: string | null;
   errorCode?: RuntimeErrorCode | null;
   errorMessage?: string | null;
+  tokenBudget?: TokenBudget;
 }
 
 export interface TaskRepository {

@@ -1,0 +1,18 @@
+{
+  "auditId": "audit-budget-001",
+  "taskId": "task-123",
+  "toolCallId": null,
+  "approvalId": null,
+  "actor": "runtime.budget",
+  "action": "budget_exceeded",
+  "outcome": "failed",
+  "summary": "Budget exceeded for task",
+  "payload": {
+    "scope": "task",
+    "breachedLimit": "cost",
+    "reasons": ["hard cost limit reached"],
+    "taskId": "task-123",
+    "threadId": "thread-1"
+  },
+  "createdAt": "2026-04-23T00:00:00.000Z"
+}
