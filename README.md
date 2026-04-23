@@ -1,12 +1,12 @@
-# auto-talon v0.1.0
+# AutoTalon v0.1.0
 
-CLI-first agent runtime with governance, traceability, and reproducible execution.
+Low-cost, long-running agent assistant for personal knowledge work.
 
-auto-talon is for engineers who want an agent runner they can inspect, replay,
-gate with policy, and connect to local or team workflows without starting from a
-web app. It keeps the core runtime focused on command-line operation while
-exposing structured audit, trace, memory, skills, gateway, and evaluation
-surfaces.
+AutoTalon is for personal knowledge workers who want an agent assistant they can
+run for the long haul without giving up inspectability, local control, or cost
+awareness. It keeps the product centered on a CLI-first workflow while the
+runtime underneath provides governed execution, durable memory, traceability,
+skills, gateway adapters, and evaluation surfaces.
 
 ## What It Does
 
@@ -29,7 +29,7 @@ Initialized .auto-talon workspace files.
 $ talon run "summarize this repository"
 task_id=task_...
 status=succeeded
-output=This repository contains a CLI-first agent runtime...
+output=This repository contains AutoTalon, a CLI-first agent assistant...
 
 $ talon trace task_... --summary
 provider.call -> tool.call -> tool.result -> task.completed
@@ -99,19 +99,21 @@ talon gateway list-adapters
 
 ## When To Use It
 
-- You want a local-first agent runtime with auditable execution history.
+- You want a local-first agent assistant with auditable execution history.
 - You need policy and approval behavior before allowing file or shell actions.
-- You want replay/eval tooling around agent tasks instead of one-off prompts.
-- You are building gateway integrations where chat, webhook, or MCP surfaces
-  should all route through the same governed runtime.
+- You want durable memory, skill recall, replay, and eval tooling around ongoing
+  knowledge work instead of one-off prompts.
+- You want chat, webhook, or MCP surfaces to route through the same governed
+  runtime core.
 
 ## Positioning
 
-auto-talon is closer to an inspectable runtime than a hosted coding assistant. It
-prioritizes CLI operation, governance, traceability, and reproducible task
-execution. Compared with broader agent shells, the project is intentionally
-small: the core package avoids heavyweight optional integrations, and adapters
-such as Feishu/Lark are loaded only when their gateway command is used.
+AutoTalon is a product for personal knowledge workers, backed by an inspectable
+agent runtime rather than a hosted black box. The user-facing promise is a
+low-cost long-term assistant; the technical foundation is CLI operation,
+governance, traceability, reproducible execution, memory, and adapter boundaries.
+The core package stays intentionally small, and integrations such as Feishu/Lark
+are loaded only when their gateway command is used.
 
 ## Documentation
 
