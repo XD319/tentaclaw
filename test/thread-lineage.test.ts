@@ -5,27 +5,27 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { createApplication, createDefaultRunOptions, ThreadService } from "../src/runtime/index.js";
-import type { Provider, ProviderInput, ProviderResponse } from "../src/types/index.js";
+import type { Provider, ProviderResponse } from "../src/types/index.js";
 
 class CompactingProvider implements Provider {
   public readonly name = "compacting";
   private call = 0;
-  public async generate(_input: ProviderInput): Promise<ProviderResponse> {
+  public generate(): Promise<ProviderResponse> {
     this.call += 1;
     if (this.call < 3) {
-      return {
+      return Promise.resolve({
         kind: "retry",
         delayMs: 1,
         message: "retry",
         reason: "force-loop",
         usage: { inputTokens: 1, outputTokens: 1 }
-      };
+      });
     }
-    return {
+    return Promise.resolve({
       kind: "final",
       message: "done",
       usage: { inputTokens: 1, outputTokens: 1 }
-    };
+    });
   }
 }
 

@@ -47,7 +47,7 @@ describe("job runner", () => {
         trigger: "scheduled"
       });
       const runner = new JobRunner({
-        execute: async () => ({
+        execute: () => Promise.resolve({
           output: "done",
           task: {
             agentProfileId: "executor",
@@ -111,9 +111,7 @@ describe("job runner", () => {
         trigger: "scheduled"
       });
       const runner = new JobRunner({
-        execute: async () => {
-          throw new Error("boom");
-        },
+        execute: () => Promise.reject(new Error("boom")),
         scheduleRepository: storage.schedules,
         scheduleRunRepository: storage.scheduleRuns,
         traceService

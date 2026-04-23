@@ -5,16 +5,16 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { createApplication, createDefaultRunOptions } from "../src/runtime/index.js";
-import type { Provider, ProviderInput, ProviderResponse } from "../src/types/index.js";
+import type { Provider, ProviderResponse } from "../src/types/index.js";
 
 class ToolThenFinalProvider implements Provider {
   public readonly name = "tool-then-final";
   private callCount = 0;
 
-  public async generate(_input: ProviderInput): Promise<ProviderResponse> {
+  public generate(): Promise<ProviderResponse> {
     this.callCount += 1;
     if (this.callCount === 1) {
-      return {
+      return Promise.resolve({
         kind: "tool_calls",
         message: "Read a file first",
         toolCalls: [
@@ -29,13 +29,13 @@ class ToolThenFinalProvider implements Provider {
           }
         ],
         usage: { inputTokens: 1, outputTokens: 1 }
-      };
+      });
     }
-    return {
+    return Promise.resolve({
       kind: "final",
       message: "complete",
       usage: { inputTokens: 1, outputTokens: 1 }
-    };
+    });
   }
 }
 

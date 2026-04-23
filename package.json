@@ -40,7 +40,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "check": "npm run lint && npm test && npm run coverage && npm run build",
+    "check": "npm run lint && npm run coverage && npm run build",
     "dev": "node --disable-warning=ExperimentalWarning --import tsx src/cli/bin.ts",
     "dev:tui": "node --disable-warning=ExperimentalWarning --import tsx src/cli/bin.ts tui",
     "dev:dashboard": "node --disable-warning=ExperimentalWarning --import tsx src/cli/bin.ts dashboard",

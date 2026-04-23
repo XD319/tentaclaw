@@ -5,17 +5,17 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { createApplication } from "../src/runtime/index.js";
-import type { Provider, ProviderInput, ProviderResponse } from "../src/types/index.js";
+import type { Provider, ProviderResponse } from "../src/types/index.js";
 
 class ScheduledProvider implements Provider {
   public readonly name = "scheduled-provider";
 
-  public async generate(_input: ProviderInput): Promise<ProviderResponse> {
-    return {
+  public generate(): Promise<ProviderResponse> {
+    return Promise.resolve({
       kind: "final",
       message: "scheduled result",
       usage: { inputTokens: 1, outputTokens: 1 }
-    };
+    });
   }
 }
 

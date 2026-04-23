@@ -10,7 +10,7 @@ describe("scheduler service", () => {
     const traceService = new TraceService(storage.traces);
     const scheduler = new SchedulerService({
       jobRunner: {
-        drain: async () => []
+        drain: () => Promise.resolve([])
       },
       scheduleRepository: storage.schedules,
       scheduleRunRepository: storage.scheduleRuns,

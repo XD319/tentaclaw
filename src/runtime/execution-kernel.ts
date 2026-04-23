@@ -8,7 +8,7 @@ import {
 } from "./context-assembler.js";
 import { buildRepoMap } from "./repo-map.js";
 import { tokenBudgetToJson } from "./serialization.js";
-import { ContextCompactor, SessionSnapshotService } from "./context/index.js";
+import type { ContextCompactor, SessionSnapshotService } from "./context/index.js";
 import type { RuntimeConfig, WorkflowRuntimeConfig } from "./runtime-config.js";
 import { ProviderError } from "../providers/index.js";
 import type { AgentProfileRegistry } from "../profiles/agent-profile-registry.js";

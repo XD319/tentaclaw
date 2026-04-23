@@ -17,7 +17,7 @@ export interface ExecuteScheduledRunRequest {
   run: ScheduleRunRecord;
 }
 
-export interface ExecuteScheduledRunResult extends RunTaskResult {}
+export type ExecuteScheduledRunResult = RunTaskResult;
 
 export interface JobRunnerDependencies {
   scheduleRepository: ScheduleRepository;
@@ -74,7 +74,7 @@ export class JobRunner {
       });
 
       if (mappedStatus === "failed") {
-        await this.enqueueRetryIfNeeded(schedule, next);
+        this.enqueueRetryIfNeeded(schedule, next);
         this.safeRecord({
           actor: "scheduler",
           eventType: "schedule_run_failed",
@@ -115,7 +115,7 @@ export class JobRunner {
         finishedAt: new Date().toISOString(),
         status: "failed"
       });
-      await this.enqueueRetryIfNeeded(schedule, failed);
+      this.enqueueRetryIfNeeded(schedule, failed);
       this.safeRecord({
         actor: "scheduler",
         eventType: "schedule_run_failed",
@@ -135,10 +135,10 @@ export class JobRunner {
     }
   }
 
-  private async enqueueRetryIfNeeded(
+  private enqueueRetryIfNeeded(
     schedule: ScheduleRecord,
     run: ScheduleRunRecord
-  ): Promise<ScheduleRunRecord | null> {
+  ): ScheduleRunRecord | null {
     const retry = planRetry(schedule, run);
     if (retry === null) {
       return null;
