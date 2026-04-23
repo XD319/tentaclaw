@@ -43,6 +43,13 @@ import type {
   ScheduleRunUpdatePatch,
   ScheduleUpdatePatch
 } from "./schedule.js";
+import type {
+  InboxDedupQuery,
+  InboxItem,
+  InboxItemDraft,
+  InboxItemUpdatePatch,
+  InboxListQuery
+} from "./inbox.js";
 
 export interface TaskUpdatePatch {
   status?: TaskStatus;
@@ -109,6 +116,14 @@ export interface ScheduleRunRepository {
   listByThreadId(threadId: string): ScheduleRunRecord[];
   claimDue(now: string, limit: number): ScheduleRunRecord[];
   update(runId: string, patch: ScheduleRunUpdatePatch): ScheduleRunRecord;
+}
+
+export interface InboxRepository {
+  create(record: InboxItemDraft): InboxItem;
+  findById(inboxId: string): InboxItem | null;
+  findByDedup(query: InboxDedupQuery): InboxItem | null;
+  list(query?: InboxListQuery): InboxItem[];
+  update(inboxId: string, patch: InboxItemUpdatePatch): InboxItem;
 }
 
 export interface TraceRepository {

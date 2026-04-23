@@ -41,6 +41,8 @@ import { ShellExecutor } from "../tools/shell/shell-executor.js";
 import { AgentApplicationService } from "./application-service.js";
 import { ContextCompactor, SessionSnapshotService } from "./context/index.js";
 import { ExecutionKernel } from "./execution-kernel.js";
+import { DeliveryService } from "./delivery/index.js";
+import { InboxCollector, InboxService } from "./inbox/index.js";
 import { JobRunner } from "./jobs/index.js";
 import { SchedulerService } from "./scheduler/index.js";
 import { ResumePacketBuilder, ThreadService, ThreadStateProjector } from "./threads/index.js";
@@ -250,6 +252,23 @@ export function createApplication(
     snapshotRepository: storage.threadSnapshots,
     traceService
   });
+  const deliveryService = new DeliveryService();
+  const deliveryProducer = deliveryService.createProducer();
+  const inboxService = new InboxService({
+    deliveryProducer,
+    deliveryProducerKey: deliveryService.producerKey(),
+    deliveryService,
+    inboxRepository: storage.inbox,
+    traceService
+  });
+  const inboxCollector = new InboxCollector({
+    findSchedule: (scheduleId) => storage.schedules.findById(scheduleId),
+    findTask: (taskId) => storage.tasks.findById(taskId),
+    inboxService,
+    listScheduleRunsByTask: (taskId) => storage.scheduleRuns.listByTaskId(taskId),
+    traceService
+  });
+  inboxCollector.start();
 
   const executionKernel = new ExecutionKernel({
     compact: config.compact,
@@ -335,12 +354,14 @@ export function createApplication(
     findTask: (taskId) => storage.tasks.findById(taskId),
     listTasks: () => storage.tasks.list(),
     findThread: (threadId) => storage.threads.findById(threadId),
+    findInboxItem: (inboxId) => storage.inbox.findById(inboxId),
     findSchedule: (scheduleId) => storage.schedules.findById(scheduleId),
     listThreads: () => storage.threads.list(),
     listSchedules: (query) => storage.schedules.list(query),
     listScheduleRuns: (scheduleId, query) => storage.scheduleRuns.listByScheduleId(scheduleId, query),
     listScheduleRunsByTask: (taskId) => storage.scheduleRuns.listByTaskId(taskId),
     listScheduleRunsByThread: (threadId) => storage.scheduleRuns.listByThreadId(threadId),
+    listInboxItems: (query) => storage.inbox.list(query),
     listThreadRuns: (threadId) => storage.threadRuns.listByThreadId(threadId),
     listThreadSnapshots: (threadId) => storage.threadSnapshots.listByThread(threadId),
     findThreadSnapshot: (snapshotId) => storage.threadSnapshots.findById(snapshotId),
@@ -369,6 +390,7 @@ export function createApplication(
     experiencePlane,
     skillDraftManager,
     skillRegistry,
+    inboxService,
     workspaceRoot: config.workspaceRoot
   });
   if (options.scheduler?.autoStart === true) {
@@ -378,6 +400,7 @@ export function createApplication(
   return {
     close: () => {
       experienceCollector.stop();
+      inboxCollector.stop();
       service?.stopScheduler();
       void mcpClientManager.close();
       storage.close();

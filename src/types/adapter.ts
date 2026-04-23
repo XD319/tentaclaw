@@ -1,6 +1,7 @@
 import type { JsonObject } from "./common.js";
 import type { AuditLogRecord } from "./audit.js";
 import type { TraceEvent } from "./trace.js";
+import type { InboxDeliveryEvent, InboxItem, InboxListQuery } from "./inbox.js";
 
 export type AdapterCapabilityName =
   | "textInteraction"
@@ -112,6 +113,8 @@ export type GatewayTaskEvent =
       taskId: string;
     };
 
+export interface GatewayInboxFilter extends InboxListQuery {}
+
 export interface GatewayTaskResultView {
   errorCode: string | null;
   errorMessage: string | null;
@@ -143,6 +146,8 @@ export interface GatewayTaskSnapshot {
 
 export interface GatewayRuntimeApi {
   getTaskSnapshot(taskId: string): GatewayTaskSnapshot | null;
+  listInbox(filter?: GatewayInboxFilter): InboxItem[];
+  markInboxDone(inboxId: string, reviewerRuntimeUserId: string): InboxItem;
   registerOutboundAdapter(adapterId: string, adapter: OutboundResponseAdapter): void;
   resolveApproval(params: {
     adapterId: string;
@@ -153,6 +158,7 @@ export interface GatewayRuntimeApi {
   }): Promise<GatewayTaskLaunchResult | null>;
   submitTask(adapter: AdapterDescriptor, request: GatewayTaskRequest): Promise<GatewayTaskLaunchResult>;
   subscribeToCompletion(taskId: string, listener: (event: GatewayTaskEvent) => void): () => void;
+  subscribeToInbox(filter: GatewayInboxFilter, listener: (event: InboxDeliveryEvent) => void): () => void;
   subscribeToTaskEvents(taskId: string, listener: (event: GatewayTaskEvent) => void): () => void;
 }
 
@@ -166,6 +172,7 @@ export interface InboundMessageAdapter extends AdapterLifecycle {
 }
 
 export interface OutboundResponseAdapter {
+  sendInboxEvent?(event: InboxDeliveryEvent): Promise<void>;
   sendCapabilityNotice?(taskId: string, notice: GatewayCapabilityNotice): Promise<void>;
   sendEvent?(event: GatewayTaskEvent): Promise<void>;
   sendResult?(result: GatewayTaskLaunchResult): Promise<void>;

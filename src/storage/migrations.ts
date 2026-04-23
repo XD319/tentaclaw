@@ -27,6 +27,11 @@ export function runMigrations(database: DatabaseSync): void {
       description: "add schedule and schedule run tables",
       up: migrateV5,
       version: 5
+    },
+    {
+      description: "add inbox items table",
+      up: migrateV6,
+      version: 6
     }
   ];
 
@@ -409,6 +414,46 @@ function migrateV5(database: DatabaseSync): void {
       ON schedule_runs(status, scheduled_at);
     CREATE INDEX IF NOT EXISTS idx_schedule_runs_task
       ON schedule_runs(task_id);
+  `);
+}
+
+function migrateV6(database: DatabaseSync): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS inbox_items (
+      inbox_id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      task_id TEXT REFERENCES tasks(task_id),
+      thread_id TEXT REFERENCES threads(thread_id),
+      schedule_run_id TEXT REFERENCES schedule_runs(run_id),
+      approval_id TEXT REFERENCES approvals(approval_id),
+      experience_id TEXT REFERENCES experiences(experience_id),
+      skill_id TEXT,
+      category TEXT NOT NULL,
+      severity TEXT NOT NULL,
+      status TEXT NOT NULL,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      body_md TEXT,
+      action_hint TEXT,
+      source_trace_id TEXT,
+      dedup_key TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      done_at TEXT,
+      metadata_json TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_inbox_user_status_created
+      ON inbox_items(user_id, status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_inbox_task
+      ON inbox_items(task_id);
+    CREATE INDEX IF NOT EXISTS idx_inbox_thread
+      ON inbox_items(thread_id);
+    CREATE INDEX IF NOT EXISTS idx_inbox_approval
+      ON inbox_items(approval_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_inbox_user_dedup
+      ON inbox_items(user_id, dedup_key)
+      WHERE dedup_key IS NOT NULL;
   `);
 }
 

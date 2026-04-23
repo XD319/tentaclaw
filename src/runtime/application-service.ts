@@ -19,6 +19,9 @@ import type {
   AuditLogRecord,
   ExperienceQuery,
   ExperienceRecord,
+  InboxDeliveryEvent,
+  InboxItem,
+  InboxListQuery,
   JsonObject,
   MemoryRecord,
   MemoryScope,
@@ -47,6 +50,7 @@ import type { SkillDraftManager, SkillRegistry } from "../skills/index.js";
 import type { ExecutionKernel } from "./execution-kernel.js";
 import type { ResumePacketBuilder, ThreadService } from "./threads/index.js";
 import type { CreateScheduleInput, SchedulerService } from "./scheduler/index.js";
+import type { InboxService } from "./inbox/index.js";
 
 import { AppError, toAppError } from "./app-error.js";
 
@@ -154,6 +158,8 @@ export interface RuntimeReadModel {
   listScheduleRuns(scheduleId: string, query?: ScheduleRunListQuery): ScheduleRunRecord[];
   listScheduleRunsByTask(taskId: string): ScheduleRunRecord[];
   listScheduleRunsByThread(threadId: string): ScheduleRunRecord[];
+  listInboxItems(query?: InboxListQuery): InboxItem[];
+  findInboxItem(inboxId: string): InboxItem | null;
   listThreads(): ThreadRecord[];
   findThread(threadId: string): ThreadRecord | null;
   listToolCalls(taskId: string): ToolCallRecord[];
@@ -180,6 +186,7 @@ export interface AgentApplicationServiceDependencies extends RuntimeReadModel {
   runtimeConfigSource: "defaults" | "env" | "file";
   skillDraftManager: SkillDraftManager;
   skillRegistry: SkillRegistry;
+  inboxService: InboxService;
   tokenBudget: {
     inputLimit: number;
     outputLimit: number;
@@ -268,6 +275,7 @@ export class AgentApplicationService {
   }
 
   public showThread(threadId: string): {
+    inboxItems: InboxItem[];
     thread: ThreadRecord | null;
     runs: ThreadRunRecord[];
     lineage: ThreadLineageRecord[];
@@ -275,9 +283,10 @@ export class AgentApplicationService {
   } {
     const thread = this.dependencies.findThread(threadId);
     if (thread === null) {
-      return { thread: null, runs: [], lineage: [], scheduleRuns: [] };
+      return { thread: null, runs: [], lineage: [], scheduleRuns: [], inboxItems: [] };
     }
     return {
+      inboxItems: this.dependencies.listInboxItems({ threadId }),
       thread,
       runs: this.dependencies.listThreadRuns(threadId),
       lineage: this.dependencies.listThreadLineage(threadId),
@@ -530,6 +539,7 @@ export class AgentApplicationService {
   public showTask(taskId: string): {
     approvals: ApprovalRecord[];
     artifacts: ArtifactRecord[];
+    inboxItems: InboxItem[];
     scheduleRuns: ScheduleRunRecord[];
     task: TaskRecord | null;
     toolCalls: ToolCallRecord[];
@@ -540,11 +550,35 @@ export class AgentApplicationService {
     return {
       approvals: task === null ? [] : this.dependencies.listApprovals(taskId),
       artifacts: task === null ? [] : this.dependencies.listArtifacts(taskId),
+      inboxItems: task === null ? [] : this.dependencies.listInboxItems({ taskId }),
       scheduleRuns: task === null ? [] : this.dependencies.listScheduleRunsByTask(taskId),
       task,
       toolCalls: task === null ? [] : this.dependencies.listToolCalls(taskId),
       trace: task === null ? [] : this.dependencies.listTrace(taskId)
     };
+  }
+
+  public listInbox(query: InboxListQuery = {}): InboxItem[] {
+    return this.dependencies.listInboxItems(query);
+  }
+
+  public showInboxItem(inboxId: string): InboxItem | null {
+    return this.dependencies.findInboxItem(inboxId);
+  }
+
+  public markInboxDone(inboxId: string, reviewerUserId: string): InboxItem {
+    return this.dependencies.inboxService.markDone(inboxId, reviewerUserId);
+  }
+
+  public markInboxDismissed(inboxId: string): InboxItem {
+    return this.dependencies.inboxService.markDismissed(inboxId);
+  }
+
+  public subscribeInbox(
+    filter: InboxListQuery,
+    listener: (event: InboxDeliveryEvent) => void
+  ): () => void {
+    return this.dependencies.inboxService.subscribe(filter, listener);
   }
 
   public startScheduler(): void {

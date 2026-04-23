@@ -5,6 +5,9 @@ import type {
   AdapterDescriptor,
   AdapterCapabilityName,
   GatewayRuntimeApi,
+  GatewayInboxFilter,
+  InboxDeliveryEvent,
+  InboxItem,
   GatewayTaskEvent,
   GatewayTaskLaunchResult,
   GatewayTaskRequest,
@@ -40,6 +43,7 @@ export class GatewayRuntimeFacade implements GatewayRuntimeApi {
         message: string;
         severity: "info" | "warning";
       }) => Promise<void>;
+      sendInboxEvent?: (event: InboxDeliveryEvent) => Promise<void>;
       sendEvent?: (event: GatewayTaskEvent) => Promise<void>;
       sendResult?: (result: GatewayTaskLaunchResult) => Promise<void>;
     }
@@ -212,6 +216,7 @@ export class GatewayRuntimeFacade implements GatewayRuntimeApi {
         message: string;
         severity: "info" | "warning";
       }) => Promise<void>;
+      sendInboxEvent?: (event: InboxDeliveryEvent) => Promise<void>;
       sendEvent?: (event: GatewayTaskEvent) => Promise<void>;
       sendResult?: (result: GatewayTaskLaunchResult) => Promise<void>;
     }
@@ -341,6 +346,44 @@ export class GatewayRuntimeFacade implements GatewayRuntimeApi {
       },
       trace: details.trace
     };
+  }
+
+  public listInbox(filter: GatewayInboxFilter = {}): InboxItem[] {
+    return this.dependencies.applicationService.listInbox(filter);
+  }
+
+  public markInboxDone(
+    inboxId: string,
+    reviewerRuntimeUserId: string
+  ): import("../types/index.js").InboxItem {
+    const item = this.dependencies.applicationService.markInboxDone(inboxId, reviewerRuntimeUserId);
+    this.dependencies.traceService.record({
+      actor: "gateway.runtime-facade",
+      eventType: "gateway_approval_resolved",
+      payload: {
+        adapterId: "gateway",
+        approvalId: item.approvalId ?? inboxId,
+        decision: "allow",
+        reviewerExternalUserId: null,
+        reviewerRuntimeUserId
+      },
+      stage: "gateway",
+      summary: `Gateway marked inbox item done: ${inboxId}`,
+      taskId: item.taskId ?? "gateway-inbox"
+    });
+    return item;
+  }
+
+  public subscribeToInbox(
+    filter: GatewayInboxFilter,
+    listener: (event: InboxDeliveryEvent) => void
+  ): () => void {
+    return this.dependencies.applicationService.subscribeInbox(filter, (event) => {
+      listener(event);
+      for (const outbound of this.outboundAdapters.values()) {
+        void outbound.sendInboxEvent?.(event);
+      }
+    });
   }
 
   public subscribeToTaskEvents(taskId: string, listener: (event: GatewayTaskEvent) => void): () => void {

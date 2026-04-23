@@ -185,6 +185,68 @@ export class LocalWebhookAdapter implements InboundMessageAdapter {
       return;
     }
 
+    if (request.method === "GET" && url.pathname === "/inbox") {
+      const filter = {
+        ...(url.searchParams.get("user_id") !== null
+          ? { userId: url.searchParams.get("user_id") ?? undefined }
+          : {}),
+        ...(url.searchParams.get("status") !== null
+          ? { status: url.searchParams.get("status") as "pending" | "seen" | "done" | "dismissed" }
+          : {}),
+        ...(url.searchParams.get("category") !== null
+          ? {
+              category: url.searchParams.get("category") as
+                | "task_completed"
+                | "task_failed"
+                | "approval_requested"
+                | "memory_suggestion"
+                | "skill_promotion"
+            }
+          : {})
+      };
+      const items = this.runtimeApi.listInbox(filter);
+      this.respondJson(response, 200, items);
+      return;
+    }
+
+    if (request.method === "POST" && /^\/inbox\/[^/]+\/done$/.test(url.pathname)) {
+      const inboxId = url.pathname.split("/")[2] ?? "";
+      const body = await readJsonBody<{ reviewerRuntimeUserId?: string }>(request);
+      const item = this.runtimeApi.markInboxDone(inboxId, body.reviewerRuntimeUserId ?? "gateway-user");
+      this.respondJson(response, 200, item);
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/inbox/events") {
+      const filter = {
+        ...(url.searchParams.get("user_id") !== null
+          ? { userId: url.searchParams.get("user_id") ?? undefined }
+          : {}),
+        status: "pending" as const
+      };
+
+      response.writeHead(200, {
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "Content-Type": "text/event-stream"
+      });
+
+      const initialItems = this.runtimeApi.listInbox(filter);
+      for (const item of initialItems) {
+        response.write(`data: ${JSON.stringify({ kind: "created", item })}\n\n`);
+      }
+
+      const unsubscribe = this.runtimeApi.subscribeToInbox(filter, (event) => {
+        response.write(`data: ${JSON.stringify(event)}\n\n`);
+      });
+
+      request.on("close", () => {
+        unsubscribe();
+        response.end();
+      });
+      return;
+    }
+
     this.respondJson(response, 404, {
       error: "not_found"
     });

@@ -66,7 +66,9 @@ export const TRACE_EVENT_TYPES = [
   "experience_reviewed",
   "experience_promoted",
   "experience_recall_ranked",
-  "reviewer_trace"
+  "reviewer_trace",
+  "inbox_item_created",
+  "inbox_item_done"
 ] as const;
 
 export type TraceEventType = (typeof TRACE_EVENT_TYPES)[number];
@@ -482,6 +484,21 @@ export interface ReviewerTracePayload extends JsonObject {
   blockingReason: string | null;
 }
 
+export interface InboxItemCreatedPayload extends JsonObject {
+  inboxId: string;
+  userId: string;
+  category: string;
+  status: string;
+  taskId: string | null;
+}
+
+export interface InboxItemDonePayload extends JsonObject {
+  inboxId: string;
+  userId: string;
+  status: string;
+  reviewerId: string;
+}
+
 export interface FileRollbackPayload extends JsonObject {
   artifactId: string;
   operation: string;
@@ -543,7 +560,9 @@ export type TraceEvent =
   | TraceEventBase<"experience_reviewed", ExperienceReviewedPayload>
   | TraceEventBase<"experience_promoted", ExperiencePromotedPayload>
   | TraceEventBase<"experience_recall_ranked", ExperienceRecallRankedPayload>
-  | TraceEventBase<"reviewer_trace", ReviewerTracePayload>;
+  | TraceEventBase<"reviewer_trace", ReviewerTracePayload>
+  | TraceEventBase<"inbox_item_created", InboxItemCreatedPayload>
+  | TraceEventBase<"inbox_item_done", InboxItemDonePayload>;
 
 export type TraceEventDraft = Omit<TraceEvent, "eventId" | "sequence" | "timestamp"> &
   Partial<Pick<TraceEvent, "eventId" | "sequence" | "timestamp">>;

@@ -4,6 +4,7 @@ import type {
   ApprovalRecord,
   AuditLogRecord,
   ExperienceRecord,
+  InboxItem,
   MemoryRecord,
   MemorySnapshotRecord,
   ProviderStatsSnapshot,
@@ -52,7 +53,8 @@ export function formatThreadList(threads: ThreadRecord[]): string {
 export function formatThreadDetail(
   thread: ThreadRecord,
   runs: ThreadRunRecord[],
-  lineage: ThreadLineageRecord[] = []
+  lineage: ThreadLineageRecord[] = [],
+  inboxItems: InboxItem[] = []
 ): string {
   const header = [
     `Thread ID: ${thread.threadId}`,
@@ -76,7 +78,13 @@ export function formatThreadDetail(
     lineage.length === 0
       ? "Lineage: none"
       : ["Lineage:", ...lineage.map((entry) => `- ${entry.createdAt} ${entry.eventType}`)].join("\n");
-  return `${header}\n${runsSection}\n${lineageSection}`;
+  const inboxSection =
+    inboxItems.length === 0
+      ? "Inbox Items: none"
+      : ["Inbox Items:", ...inboxItems.map((item) => `- ${item.inboxId} ${item.status} ${item.title}`)].join(
+          "\n"
+        );
+  return `${header}\n${runsSection}\n${lineageSection}\n${inboxSection}`;
 }
 
 export function formatThreadSnapshotList(snapshots: ThreadSnapshotRecord[]): string {
@@ -160,7 +168,8 @@ export function formatTask(
   task: TaskRecord,
   toolCalls: ToolCallRecord[],
   approvals: ApprovalRecord[] = [],
-  scheduleRuns: ScheduleRunRecord[] = []
+  scheduleRuns: ScheduleRunRecord[] = [],
+  inboxItems: InboxItem[] = []
 ): string {
   const header = [
     `Task ID: ${task.taskId}`,
@@ -211,7 +220,50 @@ export function formatTask(
           )
         ].join("\n");
 
-  return `${header}\n${toolCallSection}\n${approvalSection}\n${scheduleSection}`;
+  const inboxSection =
+    inboxItems.length === 0
+      ? "Inbox Items: none"
+      : [
+          "Inbox Items:",
+          ...inboxItems.map((item) => `- ${item.inboxId} ${item.category} ${item.status} ${item.title}`)
+        ].join("\n");
+
+  return `${header}\n${toolCallSection}\n${approvalSection}\n${scheduleSection}\n${inboxSection}`;
+}
+
+export function formatInboxList(items: InboxItem[]): string {
+  if (items.length === 0) {
+    return "No inbox items found.";
+  }
+  return items
+    .map(
+      (item) =>
+        `${item.inboxId} | ${item.status} | ${item.severity} | ${item.category} | task=${item.taskId ?? "-"} | ${item.title}`
+    )
+    .join("\n");
+}
+
+export function formatInboxDetail(item: InboxItem): string {
+  return [
+    `Inbox ID: ${item.inboxId}`,
+    `User: ${item.userId}`,
+    `Status: ${item.status}`,
+    `Category: ${item.category}`,
+    `Severity: ${item.severity}`,
+    `Task ID: ${item.taskId ?? "-"}`,
+    `Thread ID: ${item.threadId ?? "-"}`,
+    `Schedule Run ID: ${item.scheduleRunId ?? "-"}`,
+    `Approval ID: ${item.approvalId ?? "-"}`,
+    `Experience ID: ${item.experienceId ?? "-"}`,
+    `Skill ID: ${item.skillId ?? "-"}`,
+    `Title: ${item.title}`,
+    `Summary: ${item.summary}`,
+    `Body: ${item.bodyMd ?? "-"}`,
+    `Action Hint: ${item.actionHint ?? "-"}`,
+    `Created: ${item.createdAt}`,
+    `Updated: ${item.updatedAt}`,
+    `Done: ${item.doneAt ?? "-"}`
+  ].join("\n");
 }
 
 export function formatTrace(traceEvents: TraceEvent[]): string {

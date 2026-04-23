@@ -8,6 +8,7 @@ export * from "./error.js";
 export * from "./experience.js";
 export * from "./gateway.js";
 export * from "./governance.js";
+export * from "./inbox.js";
 export * from "./memory.js";
 export * from "./mcp.js";
 export * from "./policy.js";

@@ -40,6 +40,8 @@ import {
   formatExperienceDetail,
   formatExperienceList,
   formatExperienceSearch,
+  formatInboxDetail,
+  formatInboxList,
   formatMemoryList,
   formatMemoryScope,
   formatProviderCatalog,
@@ -182,7 +184,7 @@ export async function main(argv = process.argv): Promise<void> {
         process.exitCode = 1;
         return;
       }
-      console.log(formatThreadDetail(result.thread, result.runs, result.lineage));
+      console.log(formatThreadDetail(result.thread, result.runs, result.lineage, result.inboxItems));
     } finally {
       handle.close();
     }
@@ -245,7 +247,9 @@ export async function main(argv = process.argv): Promise<void> {
         return;
       }
 
-      console.log(formatTask(result.task, result.toolCalls, result.approvals, result.scheduleRuns));
+      console.log(
+        formatTask(result.task, result.toolCalls, result.approvals, result.scheduleRuns, result.inboxItems)
+      );
     } finally {
       handle.close();
     }
@@ -437,6 +441,104 @@ export async function main(argv = process.argv): Promise<void> {
         handle.close();
       }
     });
+
+  const inboxCommand = program.command("inbox").description("Inspect collaboration inbox items");
+  inboxCommand
+    .option("--user <user>", "Filter by runtime user id")
+    .option("--status <status>", "Filter status: pending | seen | done | dismissed", "pending")
+    .option(
+      "--category <category>",
+      "Filter category: task_completed | task_failed | approval_requested | memory_suggestion | skill_promotion"
+    )
+    .option("--limit <count>", "Limit entries", "50")
+    .action((commandOptions: {
+      category?: "task_completed" | "task_failed" | "approval_requested" | "memory_suggestion" | "skill_promotion";
+      limit?: string;
+      status?: "pending" | "seen" | "done" | "dismissed";
+      user?: string;
+    }) => {
+      const handle = createApplication(process.cwd());
+      try {
+        console.log(
+          formatInboxList(
+            handle.service.listInbox({
+              ...(commandOptions.user !== undefined ? { userId: commandOptions.user } : {}),
+              ...(commandOptions.status !== undefined ? { status: commandOptions.status } : {}),
+              ...(commandOptions.category !== undefined ? { category: commandOptions.category } : {}),
+              ...(commandOptions.limit !== undefined
+                ? { limit: Number.parseInt(commandOptions.limit, 10) }
+                : {})
+            })
+          )
+        );
+      } finally {
+        handle.close();
+      }
+    });
+  inboxCommand
+    .command("list")
+    .option("--user <user>", "Filter by runtime user id")
+    .option("--status <status>", "Filter status: pending | seen | done | dismissed", "pending")
+    .option(
+      "--category <category>",
+      "Filter category: task_completed | task_failed | approval_requested | memory_suggestion | skill_promotion"
+    )
+    .option("--limit <count>", "Limit entries", "50")
+    .action((commandOptions: {
+      category?: "task_completed" | "task_failed" | "approval_requested" | "memory_suggestion" | "skill_promotion";
+      limit?: string;
+      status?: "pending" | "seen" | "done" | "dismissed";
+      user?: string;
+    }) => {
+      const handle = createApplication(process.cwd());
+      try {
+        console.log(
+          formatInboxList(
+            handle.service.listInbox({
+              ...(commandOptions.user !== undefined ? { userId: commandOptions.user } : {}),
+              ...(commandOptions.status !== undefined ? { status: commandOptions.status } : {}),
+              ...(commandOptions.category !== undefined ? { category: commandOptions.category } : {}),
+              ...(commandOptions.limit !== undefined
+                ? { limit: Number.parseInt(commandOptions.limit, 10) }
+                : {})
+            })
+          )
+        );
+      } finally {
+        handle.close();
+      }
+    });
+  inboxCommand.command("show").argument("<inbox_id>").action((inboxId: string) => {
+    const handle = createApplication(process.cwd());
+    try {
+      const item = handle.service.showInboxItem(inboxId);
+      if (item === null) {
+        console.error(`Inbox item ${inboxId} not found.`);
+        process.exitCode = 1;
+        return;
+      }
+      console.log(formatInboxDetail(item));
+    } finally {
+      handle.close();
+    }
+  });
+  inboxCommand.command("done").argument("<inbox_id>").action((inboxId: string) => {
+    const handle = createApplication(process.cwd());
+    try {
+      const reviewer = process.env.USERNAME ?? process.env.USER ?? "local-reviewer";
+      console.log(formatInboxDetail(handle.service.markInboxDone(inboxId, reviewer)));
+    } finally {
+      handle.close();
+    }
+  });
+  inboxCommand.command("dismiss").argument("<inbox_id>").action((inboxId: string) => {
+    const handle = createApplication(process.cwd());
+    try {
+      console.log(formatInboxDetail(handle.service.markInboxDismissed(inboxId)));
+    } finally {
+      handle.close();
+    }
+  });
 
   const approveCommand = program.command("approve").description("Inspect and resolve approvals");
 

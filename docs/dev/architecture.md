@@ -5,6 +5,9 @@ flowchart LR
   CLI[CLIEntry] --> Bootstrap[createApplication]
   Bootstrap --> SchedulerSvc[SchedulerService]
   Bootstrap --> JobRunner[JobRunner]
+  Bootstrap --> DeliverySvc[DeliveryService]
+  Bootstrap --> InboxSvc[InboxService]
+  Bootstrap --> InboxCollector[InboxCollector]
   Bootstrap --> ThreadSvc[ThreadService]
   Bootstrap --> SnapshotSvc[SessionSnapshotService]
   Bootstrap --> CtxCompactor[ContextCompactor]
@@ -14,6 +17,10 @@ flowchart LR
   CtxCompactor --> Kernel
   SchedulerSvc --> JobRunner
   JobRunner --> Kernel
+  Trace --> InboxCollector
+  InboxCollector --> InboxSvc
+  InboxSvc --> Storage
+  InboxSvc --> DeliverySvc
   Kernel --> Tools[ToolOrchestrator]
   Tools --> Policy[PolicyEngine]
   Kernel --> Trace[TraceService]
@@ -31,3 +38,5 @@ Core data path:
 5. Threads own cross-run continuity; each task run is linked into thread lineage.
 6. Compaction emits structured `thread_snapshots`, and resume injects snapshot-derived goal/open-loop context.
 7. SchedulerService persists due work into `schedule_runs`; JobRunner executes queued runs, records retries with backoff, and links each background run back to task/thread.
+8. InboxCollector maps trace/approval/experience signals into `inbox_items` via InboxService; delivery events fan out through DeliveryService so CLI/Gateway read the same stream.
+9. External channels must consume runtime delivery subscriptions and must not bypass runtime to write direct notifications.
