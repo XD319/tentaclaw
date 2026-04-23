@@ -4,10 +4,10 @@ import { tmpdir } from "node:os";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createApplication, createDefaultRunOptions } from "../src/runtime";
-import { nextPanel, previousPanel } from "../src/tui/hooks/use-dashboard-controller";
-import { RuntimeDashboardQueryService } from "../src/tui/view-models/runtime-dashboard";
-import type { LocalPolicyConfig, Provider, ProviderInput, ProviderResponse } from "../src/types";
+import { createApplication, createDefaultRunOptions } from "../src/runtime/index.js";
+import { nextPanel, previousPanel } from "../src/tui/hooks/use-dashboard-controller.js";
+import { RuntimeDashboardQueryService } from "../src/tui/view-models/runtime-dashboard.js";
+import type { LocalPolicyConfig, Provider, ProviderInput, ProviderResponse } from "../src/types/index.js";
 
 class ScriptedProvider implements Provider {
   public readonly name = "scripted-provider";

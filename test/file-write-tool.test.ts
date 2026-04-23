@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { SandboxService } from "../src/sandbox/sandbox-service";
-import { FileWriteTool } from "../src/tools/file-write-tool";
-import type { ToolExecutionContext } from "../src/types";
+import { SandboxService } from "../src/sandbox/sandbox-service.js";
+import { FileWriteTool } from "../src/tools/file-write-tool.js";
+import type { ToolExecutionContext } from "../src/types/index.js";
 
 const tempPaths: string[] = [];
 

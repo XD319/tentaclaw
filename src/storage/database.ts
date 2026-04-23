@@ -2,19 +2,19 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import { runMigrations } from "./migrations";
-import { SqliteApprovalRepository } from "./repositories/approval-repository";
-import { SqliteArtifactRepository } from "./repositories/artifact-repository";
-import { SqliteAuditLogRepository } from "./repositories/audit-log-repository";
-import { SqliteExecutionCheckpointRepository } from "./repositories/execution-checkpoint-repository";
-import { SqliteExperienceRepository } from "./repositories/experience-repository";
-import { SqliteGatewaySessionRepository } from "./repositories/gateway-session-repository";
-import { SqliteMemoryRepository } from "./repositories/memory-repository";
-import { SqliteMemorySnapshotRepository } from "./repositories/memory-snapshot-repository";
-import { SqliteRunMetadataRepository } from "./repositories/run-metadata-repository";
-import { SqliteTaskRepository } from "./repositories/task-repository";
-import { SqliteToolCallRepository } from "./repositories/tool-call-repository";
-import { SqliteTraceRepository } from "./repositories/trace-repository";
+import { runMigrations } from "./migrations.js";
+import { SqliteApprovalRepository } from "./repositories/approval-repository.js";
+import { SqliteArtifactRepository } from "./repositories/artifact-repository.js";
+import { SqliteAuditLogRepository } from "./repositories/audit-log-repository.js";
+import { SqliteExecutionCheckpointRepository } from "./repositories/execution-checkpoint-repository.js";
+import { SqliteExperienceRepository } from "./repositories/experience-repository.js";
+import { SqliteGatewaySessionRepository } from "./repositories/gateway-session-repository.js";
+import { SqliteMemoryRepository } from "./repositories/memory-repository.js";
+import { SqliteMemorySnapshotRepository } from "./repositories/memory-snapshot-repository.js";
+import { SqliteRunMetadataRepository } from "./repositories/run-metadata-repository.js";
+import { SqliteTaskRepository } from "./repositories/task-repository.js";
+import { SqliteToolCallRepository } from "./repositories/tool-call-repository.js";
+import { SqliteTraceRepository } from "./repositories/trace-repository.js";
 
 export interface StorageConfig {
   databasePath: string;

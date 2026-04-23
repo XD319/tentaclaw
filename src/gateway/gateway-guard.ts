@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 
-import type { GatewayTaskRequest } from "../types";
+import type { GatewayTaskRequest } from "../types/index.js";
 
 const gatewayConfigSchema = z.object({
   allowlist: z.array(z.string().min(1)).optional(),

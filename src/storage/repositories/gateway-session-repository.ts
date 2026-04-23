@@ -5,9 +5,9 @@ import type {
   GatewaySessionBindingDraft,
   GatewaySessionRepository,
   JsonObject
-} from "../../types";
+} from "../../types/index.js";
 
-import { parseJsonValue, serializeJsonValue } from "./json";
+import { parseJsonValue, serializeJsonValue } from "./json.js";
 
 interface GatewaySessionBindingRow {
   adapter_id: string;

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { SandboxService } from "../src/sandbox/sandbox-service";
-import { WebFetchTool } from "../src/tools/web-fetch-tool";
-import type { ToolExecutionContext } from "../src/types";
+import { SandboxService } from "../src/sandbox/sandbox-service.js";
+import { WebFetchTool } from "../src/tools/web-fetch-tool.js";
+import type { ToolExecutionContext } from "../src/types/index.js";
 
 describe("WebFetchTool", () => {
   it("uses manual redirect mode to prevent host-allowlist bypass via redirects", async () => {

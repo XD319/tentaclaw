@@ -1,9 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { McpStdioTransport } from "./mcp-stdio-transport";
-import { McpToolAdapter } from "./mcp-tool-adapter";
-import type { McpConfigFile, McpServerConfig, ToolDefinition } from "../../types";
+import { McpStdioTransport } from "./mcp-stdio-transport.js";
+import { McpToolAdapter } from "./mcp-tool-adapter.js";
+import type { McpConfigFile, McpServerConfig, ToolDefinition } from "../../types/index.js";
 
 export class McpClientManager {
   private readonly configPath: string;

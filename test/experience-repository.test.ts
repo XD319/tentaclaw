@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { experienceDraftSchema, type ExperienceDraft } from "../src/types";
-import { StorageManager } from "../src/storage/database";
+import { experienceDraftSchema, type ExperienceDraft } from "../src/types/index.js";
+import { StorageManager } from "../src/storage/database.js";
 
 describe("experience repository", () => {
   it("validates experience drafts", () => {

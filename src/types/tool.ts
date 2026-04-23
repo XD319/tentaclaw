@@ -1,10 +1,10 @@
 import type { ZodTypeAny } from "zod";
 
-import type { JsonObject, JsonValue } from "./common";
-import type { RuntimeErrorCode } from "./error";
-import type { ToolCapability, ToolRiskLevel, PrivacyLevel, PathScope } from "./governance";
-import type { SandboxExecutionPlan } from "./sandbox";
-import type { AgentProfileId } from "./profile";
+import type { JsonObject, JsonValue } from "./common.js";
+import type { RuntimeErrorCode } from "./error.js";
+import type { ToolCapability, ToolRiskLevel, PrivacyLevel, PathScope } from "./governance.js";
+import type { SandboxExecutionPlan } from "./sandbox.js";
+import type { AgentProfileId } from "./profile.js";
 
 export const TOOL_CALL_STATUSES = [
   "requested",

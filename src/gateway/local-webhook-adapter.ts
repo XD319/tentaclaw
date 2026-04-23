@@ -10,7 +10,7 @@ import type {
   InboundMessageAdapter,
   JsonObject,
   JsonValue
-} from "../types";
+} from "../types/index.js";
 
 const MAX_REQUEST_BODY_BYTES = 256_000;
 

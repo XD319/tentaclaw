@@ -1,17 +1,17 @@
-import type { JsonObject } from "./common";
-import type { RuntimeErrorCode } from "./error";
-import type { PathScope, PrivacyLevel, ToolCapability, ToolRiskLevel } from "./governance";
-import type { MemoryScope, MemoryStatus, MemorySourceType } from "./memory";
+import type { JsonObject } from "./common.js";
+import type { RuntimeErrorCode } from "./error.js";
+import type { PathScope, PrivacyLevel, ToolCapability, ToolRiskLevel } from "./governance.js";
+import type { MemoryScope, MemoryStatus, MemorySourceType } from "./memory.js";
 import type {
   ExperiencePromotionTarget,
   ExperienceSourceType,
   ExperienceStatus,
   ExperienceType
-} from "./experience";
-import type { PolicyEffect } from "./policy";
-import type { ApprovalStatus } from "./approval";
-import type { ProviderErrorCategory } from "./runtime";
-import type { ContextAssemblyDebugView } from "./context";
+} from "./experience.js";
+import type { PolicyEffect } from "./policy.js";
+import type { ApprovalStatus } from "./approval.js";
+import type { ProviderErrorCategory } from "./runtime.js";
+import type { ContextAssemblyDebugView } from "./context.js";
 
 export const TRACE_EVENT_TYPES = [
   "gateway_request_received",

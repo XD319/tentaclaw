@@ -1,14 +1,14 @@
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, parse, relative, resolve } from "node:path";
 
-import { AppError } from "../runtime/app-error";
+import { AppError } from "../runtime/app-error.js";
 import type {
   JsonObject,
   PathScope,
   SandboxFileAccessPlan,
   SandboxShellPlan,
   SandboxWebPlan
-} from "../types";
+} from "../types/index.js";
 
 export interface SandboxConfig {
   workspaceRoot: string;

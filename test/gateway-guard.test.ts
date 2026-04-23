@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { GatewayGuard } from "../src/gateway";
+import { GatewayGuard } from "../src/gateway/index.js";
 
 describe("gateway guard", () => {
   it("rate limits repeated requests", async () => {

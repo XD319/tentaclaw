@@ -3,9 +3,9 @@ import type {
   ProviderResponse,
   ProviderResponseMetadata,
   ProviderToolCall
-} from "../types";
+} from "../types/index.js";
 
-import { ProviderError } from "./provider-error";
+import { ProviderError } from "./provider-error.js";
 
 export function assertProviderResponse(
   response: unknown,

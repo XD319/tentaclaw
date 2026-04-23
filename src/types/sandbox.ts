@@ -1,5 +1,5 @@
-import type { JsonObject } from "./common";
-import type { PathScope } from "./governance";
+import type { JsonObject } from "./common.js";
+import type { PathScope } from "./governance.js";
 
 export interface SandboxFileAccessPlan extends JsonObject {
   kind: "file";

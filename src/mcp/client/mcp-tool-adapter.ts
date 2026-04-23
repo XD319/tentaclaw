@@ -9,7 +9,7 @@ import type {
   ToolDefinition,
   ToolExecutionResult,
   ToolPreparation
-} from "../../types";
+} from "../../types/index.js";
 
 interface PreparedMcpToolInput {
   input: JsonObject;

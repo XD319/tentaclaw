@@ -3,15 +3,15 @@ import { basename, extname, join } from "node:path";
 
 import { z } from "zod";
 
-import type { SandboxService } from "../sandbox/sandbox-service";
-import { AppError } from "../runtime/app-error";
+import type { SandboxService } from "../sandbox/sandbox-service.js";
+import { AppError } from "../runtime/app-error.js";
 import type {
   SandboxFileAccessPlan,
   ToolDefinition,
   ToolExecutionContext,
   ToolExecutionResult,
   ToolPreparation
-} from "../types";
+} from "../types/index.js";
 
 const fileReadSchema = z
   .object({

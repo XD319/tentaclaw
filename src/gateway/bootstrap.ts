@@ -1,14 +1,14 @@
-import type { AppRuntimeHandle, CreateApplicationOptions } from "../runtime";
-import { createApplication } from "../runtime";
+import type { AppRuntimeHandle, CreateApplicationOptions } from "../runtime/index.js";
+import { createApplication } from "../runtime/index.js";
 
-import type { GatewayAdapterPlugin } from "./plugins";
-import type { LocalWebhookAdapter } from "./local-webhook-adapter";
-import { GatewayManager } from "./gateway-manager";
-import { GatewayGuard } from "./gateway-guard";
-import { DefaultGatewayIdentityMapper } from "./identity-mapper";
-import { createFeishuGatewayPlugin, createLocalWebhookPlugin } from "./plugins";
-import { GatewayRuntimeFacade } from "./runtime-facade";
-import { RepositoryBackedGatewaySessionMapper } from "./session-mapper";
+import type { GatewayAdapterPlugin } from "./plugins.js";
+import type { LocalWebhookAdapter } from "./local-webhook-adapter.js";
+import { GatewayManager } from "./gateway-manager.js";
+import { GatewayGuard } from "./gateway-guard.js";
+import { DefaultGatewayIdentityMapper } from "./identity-mapper.js";
+import { createFeishuGatewayPlugin, createLocalWebhookPlugin } from "./plugins.js";
+import { GatewayRuntimeFacade } from "./runtime-facade.js";
+import { RepositoryBackedGatewaySessionMapper } from "./session-mapper.js";
 
 export function createGatewayRuntime(runtimeHandle: AppRuntimeHandle): GatewayRuntimeFacade {
   return new GatewayRuntimeFacade({

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CompactTriggerPolicy } from "../src/memory/compact-policy";
+import { CompactTriggerPolicy } from "../src/memory/compact-policy.js";
 
 describe("CompactTriggerPolicy breakpoints", () => {
   it("does not compact while pending tool calls exist", () => {

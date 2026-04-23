@@ -1,5 +1,5 @@
-import type { SkillRegistry } from "../../skills";
-import type { SkillAttachmentKind } from "../../types";
+import type { SkillRegistry } from "../../skills/index.js";
+import type { SkillAttachmentKind } from "../../types/index.js";
 
 export class McpSkillBridge {
   public constructor(private readonly skillRegistry: SkillRegistry) {}

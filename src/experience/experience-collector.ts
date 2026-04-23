@@ -1,7 +1,7 @@
-import type { ExperienceDraft, TraceEvent } from "../types";
-import type { TraceService } from "../tracing/trace-service";
+import type { ExperienceDraft, TraceEvent } from "../types/index.js";
+import type { TraceService } from "../tracing/trace-service.js";
 
-import type { ExperiencePlane } from "./experience-plane";
+import type { ExperiencePlane } from "./experience-plane.js";
 
 export interface ExperienceCollectorDependencies {
   experiencePlane: ExperiencePlane;

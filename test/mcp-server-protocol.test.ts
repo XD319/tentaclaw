@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { McpServer } from "../src/mcp";
+import { McpServer } from "../src/mcp/index.js";
 
 describe("McpServer protocol", () => {
   it("supports initialize and tool/resource listing", async () => {

@@ -6,6 +6,13 @@
   Node 22 verification.
 - Node.js 20: covered by a CI compatibility-floor check. It is not a supported
   runtime because auto-talon uses the built-in `node:sqlite` storage module.
+- Package module format: ESM (`"type": "module"`).
+
+## Terminal UI
+
+- Ink `^7.0.1`: supported for TUI and dashboard surfaces.
+- React `^19.2.5` with `@types/react` `^19.2.14`: supported.
+- React 17 / Ink 3 are no longer supported.
 
 ## Provider
 

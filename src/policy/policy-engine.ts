@@ -13,7 +13,7 @@ import {
   type PolicyDecision,
   type PolicyEvaluationInput,
   type PolicyRule
-} from "../types";
+} from "../types/index.js";
 
 const policyRuleConditionSchema = z.object({
   agentProfiles: z.array(z.enum(AGENT_PROFILE_IDS)).optional(),

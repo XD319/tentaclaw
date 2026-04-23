@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import type { JsonObject } from "./common";
-import type { MemoryScope } from "./memory";
+import type { JsonObject } from "./common.js";
+import type { MemoryScope } from "./memory.js";
 
 export const EXPERIENCE_TYPES = [
   "decision",

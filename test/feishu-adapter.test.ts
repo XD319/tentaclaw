@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { FeishuAdapter } from "../src/gateway";
+import { FeishuAdapter } from "../src/gateway/index.js";
 
 afterEach(() => {
   vi.restoreAllMocks();

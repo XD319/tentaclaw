@@ -6,7 +6,7 @@ import type {
   Provider,
   ProviderRequest,
   ProviderResponse
-} from "../types";
+} from "../types/index.js";
 
 export class MockProvider implements Provider {
   public readonly capabilities = {

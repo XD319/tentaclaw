@@ -17,7 +17,7 @@ if (!isSupportedNodeVersion(process.versions.node)) {
     originalEmitWarning(warning, ...args);
   }) as typeof process.emitWarning;
 
-  void import("./index").then(({ main }) => main()).catch((error: unknown) => {
+  void import("./index.js").then(({ main }) => main()).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`Fatal CLI error: ${message}`);
     process.exitCode = 1;

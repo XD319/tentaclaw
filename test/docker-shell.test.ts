@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { DockerShellExecutor } from "../src/tools/shell/docker-shell-executor";
+import { DockerShellExecutor } from "../src/tools/shell/docker-shell-executor.js";
 
 const tempPaths: string[] = [];
 

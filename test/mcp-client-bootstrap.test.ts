@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 
 import { describe, expect, it } from "vitest";
 
-import { McpClientManager } from "../src/mcp";
+import { McpClientManager } from "../src/mcp/index.js";
 
 describe("McpClientManager", () => {
   it("discovers configured mcp tools with runtime-safe naming", () => {

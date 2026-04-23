@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { replayTaskById } from "../src/diagnostics";
-import { createApplication, createDefaultRunOptions } from "../src/runtime";
-import type { Provider, ProviderInput, ProviderResponse } from "../src/types";
+import { replayTaskById } from "../src/diagnostics/index.js";
+import { createApplication, createDefaultRunOptions } from "../src/runtime/index.js";
+import type { Provider, ProviderInput, ProviderResponse } from "../src/types/index.js";
 
 class ScriptedProvider implements Provider {
   public readonly name = "replay-scripted-provider";

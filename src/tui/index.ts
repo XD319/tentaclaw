@@ -2,14 +2,14 @@ import { randomUUID } from "node:crypto";
 import React from "react";
 import { render } from "ink";
 
-import { createApplication } from "../runtime";
-import type { ResolveAppConfigOptions } from "../runtime";
+import { createApplication } from "../runtime/index.js";
+import type { ResolveAppConfigOptions } from "../runtime/index.js";
 
-import { ChatTuiApp } from "./chat-app";
-import { AgentTuiApp } from "./dashboard-app";
-import type { ChatMessage } from "./view-models/chat-messages";
-import { loadSession } from "./session-store";
-import { RuntimeDashboardQueryService } from "./view-models/runtime-dashboard";
+import { ChatTuiApp } from "./chat-app.js";
+import { AgentTuiApp } from "./dashboard-app.js";
+import type { ChatMessage } from "./view-models/chat-messages.js";
+import { loadSession } from "./session-store.js";
+import { RuntimeDashboardQueryService } from "./view-models/runtime-dashboard.js";
 
 export interface StartTuiOptions {
   cwd?: string;

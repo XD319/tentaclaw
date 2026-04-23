@@ -5,8 +5,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { parseSkillMarkdown, SkillDraftManager, SkillRegistry } from "../src/skills";
-import type { ExperienceRecord } from "../src/types";
+import { parseSkillMarkdown, SkillDraftManager, SkillRegistry } from "../src/skills/index.js";
+import type { ExperienceRecord } from "../src/types/index.js";
 
 describe("SkillDraftManager", () => {
   it("creates a skill draft only from accepted experiences", async () => {

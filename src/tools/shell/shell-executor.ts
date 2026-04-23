@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 
-import { AppError } from "../../runtime/app-error";
+import { AppError } from "../../runtime/app-error.js";
 
 export interface ShellExecutionRequest {
   command: string;

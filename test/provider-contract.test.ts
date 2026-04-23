@@ -8,8 +8,8 @@ import {
   OpenAiCompatibleProvider,
   ProviderError,
   classifyProviderHttpError
-} from "../src/providers";
-import type { Provider, ProviderConfig, ProviderInput, ProviderResponse } from "../src/types";
+} from "../src/providers/index.js";
+import type { Provider, ProviderConfig, ProviderInput, ProviderResponse } from "../src/types/index.js";
 
 interface ProviderContractHarness {
   createAuthErrorProvider(): Provider;

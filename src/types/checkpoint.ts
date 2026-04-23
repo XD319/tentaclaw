@@ -1,5 +1,5 @@
-import type { ConversationMessage, ProviderToolCall } from "./runtime";
-import type { ContextFragment } from "./memory";
+import type { ConversationMessage, ProviderToolCall } from "./runtime.js";
+import type { ContextFragment } from "./memory.js";
 
 export interface ExecutionCheckpointRecord {
   taskId: string;

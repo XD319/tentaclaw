@@ -1,7 +1,7 @@
 import React from "react";
 import { Text } from "ink";
 
-import { sanitizeTerminalText } from "../text-sanitize";
+import { sanitizeTerminalText } from "../text-sanitize.js";
 
 export function UserMessage({ text }: { text: string }): React.ReactElement {
   const safeText = sanitizeTerminalText(text);

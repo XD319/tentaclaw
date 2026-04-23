@@ -1,3 +1,3 @@
-export * from "./smoke-fixtures";
-export * from "./smoke-harness";
-export * from "./smoke-provider";
+export * from "./smoke-fixtures.js";
+export * from "./smoke-harness.js";
+export * from "./smoke-provider.js";

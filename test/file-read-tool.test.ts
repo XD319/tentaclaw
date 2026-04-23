@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { SandboxService } from "../src/sandbox/sandbox-service";
-import { FileReadTool } from "../src/tools/file-read-tool";
-import type { ToolExecutionContext } from "../src/types";
+import { SandboxService } from "../src/sandbox/sandbox-service.js";
+import { FileReadTool } from "../src/tools/file-read-tool.js";
+import type { ToolExecutionContext } from "../src/types/index.js";
 
 const tempPaths: string[] = [];
 

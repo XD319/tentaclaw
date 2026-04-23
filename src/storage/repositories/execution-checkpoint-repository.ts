@@ -6,9 +6,9 @@ import type {
   ExecutionCheckpointRecord,
   ExecutionCheckpointRepository,
   ProviderToolCall
-} from "../../types";
+} from "../../types/index.js";
 
-import { parseJsonValue, serializeJsonValue } from "./json";
+import { parseJsonValue, serializeJsonValue } from "./json.js";
 
 interface ExecutionCheckpointRow {
   task_id: string;

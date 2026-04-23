@@ -1,18 +1,18 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { delimiter, join, resolve } from "node:path";
 
-import { ApprovalService } from "../approvals/approval-service";
-import { AuditService } from "../audit/audit-service";
-import { ExperienceCollector } from "../experience/experience-collector";
-import { ExperiencePlane } from "../experience/experience-plane";
-import { MemoryPlane } from "../memory/memory-plane";
-import { CompactTriggerPolicy } from "../memory/compact-policy";
-import { DeterministicCompactSummarizer, ProviderSubagentSummarizer } from "../memory/compact-summarizer";
-import { McpClientManager } from "../mcp";
-import { ContextPolicy } from "../policy/context-policy";
-import { DEFAULT_LOCAL_POLICY_CONFIG } from "../policy/default-policy-config";
-import { PolicyEngine } from "../policy/policy-engine";
-import { AgentProfileRegistry } from "../profiles/agent-profile-registry";
+import { ApprovalService } from "../approvals/approval-service.js";
+import { AuditService } from "../audit/audit-service.js";
+import { ExperienceCollector } from "../experience/experience-collector.js";
+import { ExperiencePlane } from "../experience/experience-plane.js";
+import { MemoryPlane } from "../memory/memory-plane.js";
+import { CompactTriggerPolicy } from "../memory/compact-policy.js";
+import { DeterministicCompactSummarizer, ProviderSubagentSummarizer } from "../memory/compact-summarizer.js";
+import { McpClientManager } from "../mcp/index.js";
+import { ContextPolicy } from "../policy/context-policy.js";
+import { DEFAULT_LOCAL_POLICY_CONFIG } from "../policy/default-policy-config.js";
+import { PolicyEngine } from "../policy/policy-engine.js";
+import { AgentProfileRegistry } from "../profiles/agent-profile-registry.js";
 import {
   createProvider,
   ManagedProvider,
@@ -20,12 +20,12 @@ import {
   resolveProviderConfig,
   type ProviderCatalogEntry,
   type ResolvedProviderConfig
-} from "../providers";
-import { SandboxService } from "../sandbox/sandbox-service";
-import { SkillContextService, SkillDraftManager, SkillRegistry } from "../skills";
-import { StorageManager } from "../storage/database";
-import { migrateConfigFiles } from "../storage/config-migration";
-import { TraceService } from "../tracing/trace-service";
+} from "../providers/index.js";
+import { SandboxService } from "../sandbox/sandbox-service.js";
+import { SkillContextService, SkillDraftManager, SkillRegistry } from "../skills/index.js";
+import { StorageManager } from "../storage/database.js";
+import { migrateConfigFiles } from "../storage/config-migration.js";
+import { TraceService } from "../tracing/trace-service.js";
 import type {
   LocalPolicyConfig,
   Provider,
@@ -33,15 +33,15 @@ import type {
   SandboxMode,
   SandboxProfile,
   TokenBudget
-} from "../types";
-import { FileReadTool, FileWriteTool, ShellTool, SkillViewTool, TestRunTool, ToolOrchestrator, WebFetchTool } from "../tools";
-import { DockerShellExecutor } from "../tools/shell/docker-shell-executor";
-import { ShellExecutor } from "../tools/shell/shell-executor";
+} from "../types/index.js";
+import { FileReadTool, FileWriteTool, ShellTool, SkillViewTool, TestRunTool, ToolOrchestrator, WebFetchTool } from "../tools/index.js";
+import { DockerShellExecutor } from "../tools/shell/docker-shell-executor.js";
+import { ShellExecutor } from "../tools/shell/shell-executor.js";
 
-import { AgentApplicationService } from "./application-service";
-import { ExecutionKernel } from "./execution-kernel";
-import { resolveRuntimeConfig, type WorkflowRuntimeConfig } from "./runtime-config";
-import { initializeWorkspaceFiles, migrateWorkspaceConfigFiles } from "./workspace-setup";
+import { AgentApplicationService } from "./application-service.js";
+import { ExecutionKernel } from "./execution-kernel.js";
+import { resolveRuntimeConfig, type WorkflowRuntimeConfig } from "./runtime-config.js";
+import { initializeWorkspaceFiles, migrateWorkspaceConfigFiles } from "./workspace-setup.js";
 
 export interface AppConfig {
   approvalTtlMs: number;

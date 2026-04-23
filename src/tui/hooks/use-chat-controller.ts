@@ -2,18 +2,18 @@ import { randomUUID } from "node:crypto";
 
 import React from "react";
 
-import { createDefaultRunOptions, type AgentApplicationService, type AppConfig } from "../../runtime";
-import type { ApprovalRecord, TaskRecord, ToolCallRecord, TraceEvent } from "../../types";
+import { createDefaultRunOptions, type AgentApplicationService, type AppConfig } from "../../runtime/index.js";
+import type { ApprovalRecord, TaskRecord, ToolCallRecord, TraceEvent } from "../../types/index.js";
 import {
   contextWindowPercent,
   estimateSessionCostUsd
-} from "../token-pricing";
+} from "../token-pricing.js";
 import {
   toApprovalResultMessage,
   toApprovalMessage,
   toTraceActivityMessage,
   type ChatMessage
-} from "../view-models/chat-messages";
+} from "../view-models/chat-messages.js";
 
 export interface UseChatControllerOptions {
   config: AppConfig;

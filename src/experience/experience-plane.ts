@@ -1,14 +1,14 @@
 import { z } from "zod";
 
-import { createAgentScopeKey, type MemoryPlane } from "../memory/memory-plane";
+import { createAgentScopeKey, type MemoryPlane } from "../memory/memory-plane.js";
 import {
   RecallEngine,
   extractKeywordPhrases,
   tokenize,
   uniqueStrings,
   type ExperienceRecallCandidate
-} from "../recall/recall-engine";
-import type { TraceService } from "../tracing/trace-service";
+} from "../recall/recall-engine.js";
+import type { TraceService } from "../tracing/trace-service.js";
 import {
   EXPERIENCE_PROMOTION_TARGETS,
   experienceDraftSchema,
@@ -20,7 +20,7 @@ import {
   type ExperienceStatus,
   type MemoryRecord,
   type TaskRecord
-} from "../types";
+} from "../types/index.js";
 
 export interface ExperiencePlaneDependencies {
   experienceRepository: ExperienceRepository;

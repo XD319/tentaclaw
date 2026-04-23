@@ -1,5 +1,5 @@
-import type { AdapterCapabilityName, GatewayRuntimeApi, InboundMessageAdapter } from "../types";
-import type { OutboundResponseAdapter } from "../types";
+import type { AdapterCapabilityName, GatewayRuntimeApi, InboundMessageAdapter } from "../types/index.js";
+import type { OutboundResponseAdapter } from "../types/index.js";
 
 const ALL_CAPABILITIES: AdapterCapabilityName[] = [
   "textInteraction",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { SandboxService } from "../src/sandbox/sandbox-service";
+import { SandboxService } from "../src/sandbox/sandbox-service.js";
 
 describe("SandboxService", () => {
   it("denies shell command chaining syntax", () => {

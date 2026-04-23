@@ -1,4 +1,4 @@
-import type { RuntimeErrorCode } from "./error";
+import type { RuntimeErrorCode } from "./error.js";
 
 export const APPROVAL_STATUSES = [
   "pending",

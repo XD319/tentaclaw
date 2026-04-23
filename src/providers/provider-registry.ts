@@ -1,4 +1,4 @@
-import type { ProviderConfig } from "../types";
+import type { ProviderConfig } from "../types/index.js";
 
 export const SUPPORTED_PROVIDER_NAMES = [
   "mock",

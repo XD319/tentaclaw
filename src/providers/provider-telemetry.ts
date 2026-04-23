@@ -1,4 +1,4 @@
-import type { ProviderErrorCategory, ProviderStatsSnapshot, ProviderUsage } from "../types";
+import type { ProviderErrorCategory, ProviderStatsSnapshot, ProviderUsage } from "../types/index.js";
 
 const EMPTY_USAGE: ProviderUsage = {
   inputTokens: 0,

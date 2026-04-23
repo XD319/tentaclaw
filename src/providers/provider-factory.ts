@@ -1,11 +1,11 @@
-import { AnthropicCompatibleProvider } from "./anthropic-compatible-provider";
-import type { Provider } from "../types";
+import { AnthropicCompatibleProvider } from "./anthropic-compatible-provider.js";
+import type { Provider } from "../types/index.js";
 
-import { MockProvider } from "./mock-provider";
-import { OpenAiCompatibleProvider } from "./openai-compatible-provider";
-import type { ResolvedProviderConfig } from "./config";
-import { requireProviderManifest } from "./provider-registry";
-import { ManagedProvider } from "./provider-runtime";
+import { MockProvider } from "./mock-provider.js";
+import { OpenAiCompatibleProvider } from "./openai-compatible-provider.js";
+import type { ResolvedProviderConfig } from "./config.js";
+import { requireProviderManifest } from "./provider-registry.js";
+import { ManagedProvider } from "./provider-runtime.js";
 
 export function createProvider(config: ResolvedProviderConfig): Provider {
   const manifest =

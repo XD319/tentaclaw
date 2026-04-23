@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 
 import { z } from "zod";
 
-import type { TokenBudget } from "../types";
+import type { TokenBudget } from "../types/index.js";
 
 const tokenBudgetConfigSchema = z.object({
   inputLimit: z.number().int().positive().optional(),

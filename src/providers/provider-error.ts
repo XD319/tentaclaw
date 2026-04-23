@@ -1,4 +1,4 @@
-import type { ProviderErrorShape } from "../types";
+import type { ProviderErrorShape } from "../types/index.js";
 
 export class ProviderError extends Error implements ProviderErrorShape {
   public readonly category: ProviderErrorShape["category"];

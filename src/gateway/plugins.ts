@@ -1,9 +1,9 @@
-import type { AppRuntimeHandle } from "../runtime";
-import type { InboundMessageAdapter } from "../types";
+import type { AppRuntimeHandle } from "../runtime/index.js";
+import type { InboundMessageAdapter } from "../types/index.js";
 
-import { FeishuAdapter } from "./feishu/feishu-adapter";
-import { resolveFeishuGatewayConfig } from "./feishu/feishu-config";
-import { LocalWebhookAdapter } from "./local-webhook-adapter";
+import { FeishuAdapter } from "./feishu/feishu-adapter.js";
+import { resolveFeishuGatewayConfig } from "./feishu/feishu-config.js";
+import { LocalWebhookAdapter } from "./local-webhook-adapter.js";
 
 export interface GatewayAdapterPlugin {
   createAdapter(runtimeHandle: AppRuntimeHandle): InboundMessageAdapter;

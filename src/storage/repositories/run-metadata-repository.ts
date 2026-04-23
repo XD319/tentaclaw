@@ -1,8 +1,8 @@
 import type { DatabaseSync } from "node:sqlite";
 
-import type { JsonObject, RunMetadataRecord, RunMetadataRepository, TokenBudget } from "../../types";
+import type { JsonObject, RunMetadataRecord, RunMetadataRepository, TokenBudget } from "../../types/index.js";
 
-import { parseJsonValue, serializeJsonValue } from "./json";
+import { parseJsonValue, serializeJsonValue } from "./json.js";
 
 interface RunMetadataRow {
   created_at: string;

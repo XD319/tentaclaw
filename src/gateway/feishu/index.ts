@@ -1,3 +1,3 @@
-export * from "./feishu-adapter";
-export * from "./feishu-card";
-export * from "./feishu-config";
+export * from "./feishu-adapter.js";
+export * from "./feishu-card.js";
+export * from "./feishu-config.js";

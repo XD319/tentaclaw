@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 
-import type { SelectedTaskViewModel } from "../view-models/runtime-dashboard";
+import type { SelectedTaskViewModel } from "../view-models/runtime-dashboard.js";
 
 export interface TaskPanelProps {
   selectedTask: SelectedTaskViewModel | null;

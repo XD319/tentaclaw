@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { SkillRegistry } from "../src/skills";
+import { SkillRegistry } from "../src/skills/index.js";
 
 describe("SkillRegistry", () => {
   it("lists only metadata and views attachments on demand", () => {

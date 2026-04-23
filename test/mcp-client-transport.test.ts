@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { McpStdioTransport } from "../src/mcp";
+import { McpStdioTransport } from "../src/mcp/index.js";
 
 describe("McpStdioTransport", () => {
   it("lists tools and invokes tool calls through stdio json-rpc", async () => {

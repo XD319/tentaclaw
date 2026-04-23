@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createApplication, resolveRuntimeConfig } from "../src/runtime";
-import { SandboxService } from "../src/sandbox/sandbox-service";
+import { createApplication, resolveRuntimeConfig } from "../src/runtime/index.js";
+import { SandboxService } from "../src/sandbox/sandbox-service.js";
 
 const tempPaths: string[] = [];
 

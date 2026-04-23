@@ -7,10 +7,10 @@ import type {
   TaskRepository,
   TaskUpdatePatch,
   TokenBudget
-} from "../../types";
-import { canTransitionTaskStatus } from "../../types";
+} from "../../types/index.js";
+import { canTransitionTaskStatus } from "../../types/index.js";
 
-import { parseJsonValue, serializeJsonValue } from "./json";
+import { parseJsonValue, serializeJsonValue } from "./json.js";
 
 interface TaskRow {
   task_id: string;

@@ -1,14 +1,14 @@
-import type { GatewaySessionBinding } from "./adapter";
-import type { GatewaySessionBindingDraft } from "./gateway";
-import type { ApprovalDraft, ApprovalRecord, ApprovalUpdatePatch } from "./approval";
-import type { AuditLogDraft, AuditLogRecord } from "./audit";
-import type { ExecutionCheckpointRecord } from "./checkpoint";
+import type { GatewaySessionBinding } from "./adapter.js";
+import type { GatewaySessionBindingDraft } from "./gateway.js";
+import type { ApprovalDraft, ApprovalRecord, ApprovalUpdatePatch } from "./approval.js";
+import type { AuditLogDraft, AuditLogRecord } from "./audit.js";
+import type { ExecutionCheckpointRecord } from "./checkpoint.js";
 import type {
   ExperienceDraft,
   ExperienceQuery,
   ExperienceRecord,
   ExperienceUpdatePatch
-} from "./experience";
+} from "./experience.js";
 import type {
   MemoryDraft,
   MemoryQuery,
@@ -16,11 +16,11 @@ import type {
   MemorySnapshotDraft,
   MemorySnapshotRecord,
   MemoryUpdatePatch
-} from "./memory";
-import type { ArtifactDraft, ArtifactRecord, ToolCallRecord } from "./tool";
-import type { TraceEvent } from "./trace";
-import type { RunMetadataRecord, TaskDraft, TaskRecord, TaskStatus } from "./task";
-import type { RuntimeErrorCode } from "./error";
+} from "./memory.js";
+import type { ArtifactDraft, ArtifactRecord, ToolCallRecord } from "./tool.js";
+import type { TraceEvent } from "./trace.js";
+import type { RunMetadataRecord, TaskDraft, TaskRecord, TaskStatus } from "./task.js";
+import type { RuntimeErrorCode } from "./error.js";
 
 export interface TaskUpdatePatch {
   status?: TaskStatus;

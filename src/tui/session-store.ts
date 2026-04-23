@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { ChatMessage } from "./view-models/chat-messages";
+import type { ChatMessage } from "./view-models/chat-messages.js";
 
 export interface PersistedChatSession {
   id: string;

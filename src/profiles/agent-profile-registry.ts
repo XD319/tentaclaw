@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { AgentProfile, AgentProfileId } from "../types";
+import type { AgentProfile, AgentProfileId } from "../types/index.js";
 
 const agentProfileSchema = z.object({
   allowedToolNames: z.array(z.string().min(1)).min(1),

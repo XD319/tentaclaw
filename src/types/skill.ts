@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { JsonObject } from "./common";
+import type { JsonObject } from "./common.js";
 
 export const SKILL_ATTACHMENT_KINDS = [
   "references",

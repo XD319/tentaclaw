@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 
-import type { ErrorViewModel } from "../view-models/runtime-dashboard";
+import type { ErrorViewModel } from "../view-models/runtime-dashboard.js";
 
 export interface ErrorsPanelProps {
   errors: ErrorViewModel[];

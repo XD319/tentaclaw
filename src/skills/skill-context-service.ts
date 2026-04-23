@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 
-import { tokenize, uniqueStrings } from "../recall/recall-engine";
-import type { SkillRegistry } from "./skill-registry";
-import type { ContextFragment, SkillMetadata, TaskRecord } from "../types";
+import { tokenize, uniqueStrings } from "../recall/recall-engine.js";
+import type { SkillRegistry } from "./skill-registry.js";
+import type { ContextFragment, SkillMetadata, TaskRecord } from "../types/index.js";
 
 export interface SkillContextServiceOptions {
   limit?: number;

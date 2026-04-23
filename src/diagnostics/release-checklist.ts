@@ -3,9 +3,9 @@ import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import { runEvalReport } from "./eval";
-import { runBetaReadinessCheck } from "./beta-readiness";
-import type { SupportedProviderName } from "../providers";
+import { runEvalReport } from "./eval.js";
+import { runBetaReadinessCheck } from "./beta-readiness.js";
+import type { SupportedProviderName } from "../providers/index.js";
 
 export interface ReleaseChecklistItem {
   id: string;

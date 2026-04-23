@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { SandboxService } from "../src/sandbox/sandbox-service";
-import { ShellTool } from "../src/tools/shell-tool";
-import type { ShellCommandExecutor } from "../src/tools/shell/shell-executor";
-import type { ToolExecutionContext } from "../src/types";
+import { SandboxService } from "../src/sandbox/sandbox-service.js";
+import { ShellTool } from "../src/tools/shell-tool.js";
+import type { ShellCommandExecutor } from "../src/tools/shell/shell-executor.js";
+import type { ToolExecutionContext } from "../src/types/index.js";
 
 describe("ShellTool", () => {
   it("returns failure for non-zero exit by default", async () => {

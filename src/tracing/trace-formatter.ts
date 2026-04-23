@@ -1,4 +1,4 @@
-import type { TraceEvent } from "../types";
+import type { TraceEvent } from "../types/index.js";
 
 export function formatTraceEvent(event: TraceEvent): string {
   const headline = `#${event.sequence} ${event.timestamp} [${event.stage}] ${event.eventType}`;

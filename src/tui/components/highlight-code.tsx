@@ -4,7 +4,7 @@ import { HTMLElement, parse, TextNode } from "node-html-parser";
 import React from "react";
 import { Box, Text } from "ink";
 
-import { theme } from "../theme";
+import { theme } from "../theme.js";
 
 const HLJS_CLASS: Record<string, string> = {
   "hljs-attr": "cyan",

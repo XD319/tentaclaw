@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 
-import type { ArtifactDraft, ArtifactRecord, ArtifactRepository, JsonValue } from "../../types";
+import type { ArtifactDraft, ArtifactRecord, ArtifactRepository, JsonValue } from "../../types/index.js";
 
-import { parseJsonValue, serializeJsonValue } from "./json";
+import { parseJsonValue, serializeJsonValue } from "./json.js";
 
 interface ArtifactRow {
   artifact_id: string;

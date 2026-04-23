@@ -1,5 +1,5 @@
-import type { AgentDoctorReport, ContextTraceDebugReport, TaskTimelineReport } from "../runtime";
-import type { BetaReadinessReport, EvalReport, ReplayRunResult, ReleaseChecklistReport } from "../diagnostics";
+import type { AgentDoctorReport, ContextTraceDebugReport, TaskTimelineReport } from "../runtime/index.js";
+import type { BetaReadinessReport, EvalReport, ReplayRunResult, ReleaseChecklistReport } from "../diagnostics/index.js";
 import type {
   ApprovalRecord,
   AuditLogRecord,
@@ -13,10 +13,10 @@ import type {
   TaskRecord,
   TraceEvent,
   ToolCallRecord
-} from "../types";
-import type { ExperienceRecallCandidate } from "../recall/recall-engine";
+} from "../types/index.js";
+import type { ExperienceRecallCandidate } from "../recall/recall-engine.js";
 
-import { formatTraceEvent } from "../tracing/trace-formatter";
+import { formatTraceEvent } from "../tracing/trace-formatter.js";
 
 export function formatTaskList(tasks: TaskRecord[]): string {
   if (tasks.length === 0) {

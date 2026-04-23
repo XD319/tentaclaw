@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createApplication, createDefaultRunOptions } from "../src/runtime";
+import { createApplication, createDefaultRunOptions } from "../src/runtime/index.js";
 import {
   AnthropicCompatibleProvider,
   createProvider,
@@ -14,14 +14,14 @@ import {
   ProviderError,
   resolveProviderCatalog,
   resolveProviderConfig
-} from "../src/providers";
+} from "../src/providers/index.js";
 import type {
   Provider,
   ProviderConfig,
   ProviderHealthCheck,
   ProviderInput,
   ProviderResponse
-} from "../src/types";
+} from "../src/types/index.js";
 
 class ScriptedProvider implements Provider {
   public readonly name = "scripted-provider";

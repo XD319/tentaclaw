@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { McpToolBridge } from "../src/mcp";
-import { createApplication } from "../src/runtime";
+import { McpToolBridge } from "../src/mcp/index.js";
+import { createApplication } from "../src/runtime/index.js";
 
 describe("McpToolBridge governance", () => {
   it("denies shell execution for default mcp_external identity", async () => {

@@ -6,9 +6,9 @@ import type {
   MemorySnapshotDraft,
   MemorySnapshotRecord,
   MemorySnapshotRepository
-} from "../../types";
+} from "../../types/index.js";
 
-import { parseJsonValue, serializeJsonValue } from "./json";
+import { parseJsonValue, serializeJsonValue } from "./json.js";
 
 interface MemorySnapshotRow {
   snapshot_id: string;

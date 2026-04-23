@@ -1,4 +1,4 @@
-import type { SessionCompactInput } from "../types";
+import type { SessionCompactInput } from "../types/index.js";
 
 export interface CompactSummarizerResult {
   summary: string;

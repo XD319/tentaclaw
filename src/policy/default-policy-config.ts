@@ -1,4 +1,4 @@
-import type { LocalPolicyConfig } from "../types";
+import type { LocalPolicyConfig } from "../types/index.js";
 
 export const DEFAULT_LOCAL_POLICY_CONFIG: LocalPolicyConfig = {
   defaultEffect: "deny",

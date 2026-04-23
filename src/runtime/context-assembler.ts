@@ -8,7 +8,7 @@ import type {
   ProviderToolDescriptor,
   TaskRecord,
   TokenBudget
-} from "../types";
+} from "../types/index.js";
 
 export interface ContextAssemblerInput {
   availableTools: ProviderToolDescriptor[];

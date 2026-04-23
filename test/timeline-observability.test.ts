@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { formatTaskTimeline } from "../src/cli/formatters";
-import { createApplication, createDefaultRunOptions } from "../src/runtime";
-import type { Provider, ProviderInput, ProviderResponse } from "../src/types";
+import { formatTaskTimeline } from "../src/cli/formatters.js";
+import { createApplication, createDefaultRunOptions } from "../src/runtime/index.js";
+import type { Provider, ProviderInput, ProviderResponse } from "../src/types/index.js";
 
 class ScriptedProvider implements Provider {
   public readonly name = "timeline-scripted-provider";

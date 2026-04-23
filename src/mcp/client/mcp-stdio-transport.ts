@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 
-import { AppError } from "../../runtime/app-error";
+import { AppError } from "../../runtime/app-error.js";
 import type {
   JsonObject,
   JsonValue,
@@ -10,7 +10,7 @@ import type {
   McpToolCallRequest,
   McpToolCallResult,
   McpToolDescriptor
-} from "../../types";
+} from "../../types/index.js";
 
 interface JsonRpcMessage {
   id?: number;

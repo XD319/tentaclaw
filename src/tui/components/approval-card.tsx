@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 
-import type { ApprovalRecord, ToolCallRecord } from "../../types";
+import type { ApprovalRecord, ToolCallRecord } from "../../types/index.js";
 
 export interface ApprovalCardProps {
   approval: ApprovalRecord;

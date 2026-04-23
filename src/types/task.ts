@@ -1,6 +1,6 @@
-import type { JsonObject, TokenBudget } from "./common";
-import type { RuntimeErrorCode } from "./error";
-import type { AgentProfileId } from "./profile";
+import type { JsonObject, TokenBudget } from "./common.js";
+import type { RuntimeErrorCode } from "./error.js";
+import type { AgentProfileId } from "./profile.js";
 
 export const TASK_STATUSES = [
   "pending",

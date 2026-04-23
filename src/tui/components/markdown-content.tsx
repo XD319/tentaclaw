@@ -1,8 +1,8 @@
 import React from "react";
 import { Box, Text } from "ink";
 
-import { theme } from "../theme";
-import { HighlightCode } from "./highlight-code";
+import { theme } from "../theme.js";
+import { HighlightCode } from "./highlight-code.js";
 
 type MarkdownBlock =
   | {

@@ -4,14 +4,14 @@ import { tmpdir } from "node:os";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { formatTraceContextDebug } from "../src/cli/formatters";
-import { MemoryPlane } from "../src/memory/memory-plane";
-import { ContextPolicy } from "../src/policy/context-policy";
-import { ExecutionContextAssembler } from "../src/runtime/context-assembler";
-import { createApplication, createDefaultRunOptions } from "../src/runtime";
-import { StorageManager } from "../src/storage/database";
-import { TraceService } from "../src/tracing/trace-service";
-import type { Provider, ProviderInput, ProviderResponse, TaskRecord } from "../src/types";
+import { formatTraceContextDebug } from "../src/cli/formatters.js";
+import { MemoryPlane } from "../src/memory/memory-plane.js";
+import { ContextPolicy } from "../src/policy/context-policy.js";
+import { ExecutionContextAssembler } from "../src/runtime/context-assembler.js";
+import { createApplication, createDefaultRunOptions } from "../src/runtime/index.js";
+import { StorageManager } from "../src/storage/database.js";
+import { TraceService } from "../src/tracing/trace-service.js";
+import type { Provider, ProviderInput, ProviderResponse, TaskRecord } from "../src/types/index.js";
 
 class ScriptedProvider implements Provider {
   public readonly name = "scripted-provider";

@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, Text, useApp, useInput } from "ink";
 
-import { useDashboardController, nextPanel, previousPanel } from "./hooks/use-dashboard-controller";
+import { useDashboardController, nextPanel, previousPanel } from "./hooks/use-dashboard-controller.js";
 import {
   ApprovalPanel,
   DiffPanel,
@@ -11,12 +11,12 @@ import {
   SkillsPanel,
   TaskPanel,
   TracePanel
-} from "./panels";
+} from "./panels/index.js";
 import {
   PANEL_ORDER,
   type RuntimeDashboardQueryService,
   type TuiPanelId
-} from "./view-models/runtime-dashboard";
+} from "./view-models/runtime-dashboard.js";
 
 export interface AgentTuiAppProps {
   queryService: RuntimeDashboardQueryService;

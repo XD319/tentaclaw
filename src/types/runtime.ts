@@ -1,9 +1,9 @@
-import type { JsonObject, TokenBudget } from "./common";
-import type { ToolCapability, PrivacyLevel } from "./governance";
-import type { ContextFragment } from "./memory";
-import type { AgentProfileId } from "./profile";
-import type { TaskRecord } from "./task";
-import type { ToolSchemaDescriptor } from "./tool";
+import type { JsonObject, TokenBudget } from "./common.js";
+import type { ToolCapability, PrivacyLevel } from "./governance.js";
+import type { ContextFragment } from "./memory.js";
+import type { AgentProfileId } from "./profile.js";
+import type { TaskRecord } from "./task.js";
+import type { ToolSchemaDescriptor } from "./tool.js";
 
 export type ConversationRole = "assistant" | "system" | "tool" | "user";
 

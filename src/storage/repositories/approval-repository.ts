@@ -5,8 +5,8 @@ import type {
   ApprovalRecord,
   ApprovalRepository,
   ApprovalUpdatePatch
-} from "../../types";
-import { canTransitionApprovalStatus } from "../../types";
+} from "../../types/index.js";
+import { canTransitionApprovalStatus } from "../../types/index.js";
 
 interface ApprovalRow {
   approval_id: string;

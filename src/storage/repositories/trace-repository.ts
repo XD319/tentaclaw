@@ -1,8 +1,8 @@
 import type { DatabaseSync } from "node:sqlite";
 
-import type { TraceEvent, TraceRepository } from "../../types";
+import type { TraceEvent, TraceRepository } from "../../types/index.js";
 
-import { parseJsonValue, serializeJsonValue } from "./json";
+import { parseJsonValue, serializeJsonValue } from "./json.js";
 
 interface TraceRow {
   actor: string;

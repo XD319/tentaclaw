@@ -11,9 +11,9 @@ import type {
   ExperienceScope,
   ExperienceUpdatePatch,
   JsonObject
-} from "../../types";
+} from "../../types/index.js";
 
-import { parseJsonValue, serializeJsonValue } from "./json";
+import { parseJsonValue, serializeJsonValue } from "./json.js";
 
 interface ExperienceRow {
   experience_id: string;

@@ -4,8 +4,8 @@ import { dirname, join } from "node:path";
 
 import { z } from "zod";
 
-import { AppError } from "../runtime/app-error";
-import type { SandboxService } from "../sandbox/sandbox-service";
+import { AppError } from "../runtime/app-error.js";
+import type { SandboxService } from "../sandbox/sandbox-service.js";
 import type {
   ArtifactDraft,
   SandboxFileAccessPlan,
@@ -13,7 +13,7 @@ import type {
   ToolExecutionContext,
   ToolExecutionResult,
   ToolPreparation
-} from "../types";
+} from "../types/index.js";
 
 const patchSchema = z.object({
   find: z.string().min(1),

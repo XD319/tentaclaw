@@ -4,7 +4,7 @@ import {
   completeApprovalMessage,
   mergeTraceMessages,
   syncPendingApprovalMessages
-} from "../src/tui/hooks/use-chat-controller";
+} from "../src/tui/hooks/use-chat-controller.js";
 import {
   canSubmitTextInput,
   deleteCharacterAfter,
@@ -12,14 +12,14 @@ import {
   deletePreviousWord,
   moveCursorVertical,
   resolveApprovalShortcut
-} from "../src/tui/hooks/use-text-input";
+} from "../src/tui/hooks/use-text-input.js";
 import {
   displayChatMessages,
   resolveApprovalMessage,
   toApprovalMessage,
   toTraceActivityMessage
-} from "../src/tui/view-models/chat-messages";
-import type { ApprovalRecord, ToolCallRecord, TraceEvent } from "../src/types";
+} from "../src/tui/view-models/chat-messages.js";
+import type { ApprovalRecord, ToolCallRecord, TraceEvent } from "../src/types/index.js";
 
 describe("chat tui view-models", () => {
   it("formats trace events into activity messages", () => {

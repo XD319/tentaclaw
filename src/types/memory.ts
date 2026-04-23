@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import type { JsonObject } from "./common";
-import type { PrivacyLevel } from "./governance";
+import type { JsonObject } from "./common.js";
+import type { PrivacyLevel } from "./governance.js";
 
 export const MEMORY_SCOPES = ["session", "project", "agent"] as const;
 

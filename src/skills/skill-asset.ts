@@ -13,7 +13,7 @@ import {
   type SkillAttachmentManifest,
   type SkillFrontmatter,
   type SkillSource
-} from "../types";
+} from "../types/index.js";
 
 export interface ParseSkillAssetInput {
   attachments: SkillAttachmentManifest;

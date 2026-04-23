@@ -1,4 +1,4 @@
-import type { ExperienceQuery, ExperienceRecord, MemoryRecallCandidate, MemoryRecord } from "../types";
+import type { ExperienceQuery, ExperienceRecord, MemoryRecallCandidate, MemoryRecord } from "../types/index.js";
 
 export interface ExperienceRecallRequest {
   query: string;

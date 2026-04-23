@@ -1,4 +1,4 @@
-import type { JsonObject, JsonValue, TokenBudget } from "../types";
+import type { JsonObject, JsonValue, TokenBudget } from "../types/index.js";
 
 export function tokenBudgetToJson(tokenBudget: TokenBudget): JsonObject {
   return {

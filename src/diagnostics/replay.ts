@@ -1,7 +1,7 @@
-import { ProviderError } from "../providers";
-import { MockProvider } from "../providers/mock-provider";
-import { createApplication, createDefaultRunOptions, resolveAppConfig } from "../runtime";
-import { requireProviderManifest } from "../providers";
+import { ProviderError } from "../providers/index.js";
+import { MockProvider } from "../providers/mock-provider.js";
+import { createApplication, createDefaultRunOptions, resolveAppConfig } from "../runtime/index.js";
+import { requireProviderManifest } from "../providers/index.js";
 import type {
   ApprovalRecord,
   AuditLogRecord,
@@ -10,7 +10,7 @@ import type {
   TaskRecord,
   TraceEvent,
   ToolCallRecord
-} from "../types";
+} from "../types/index.js";
 
 export interface ReplayOptions {
   cwd?: string;

@@ -1,5 +1,5 @@
-import type { JsonObject } from "./common";
-import type { PrivacyLevel } from "./governance";
+import type { JsonObject } from "./common.js";
+import type { PrivacyLevel } from "./governance.js";
 import type {
   ContextFilterDecision,
   ContextFragment,
@@ -8,7 +8,7 @@ import type {
   MemoryScope,
   MemorySourceType,
   RetentionPolicy
-} from "./memory";
+} from "./memory.js";
 
 export interface ContextBoundaryRecord {
   fragmentId: string;

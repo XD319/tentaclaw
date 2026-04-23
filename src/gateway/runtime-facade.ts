@@ -1,6 +1,6 @@
-import type { AuditService } from "../audit/audit-service";
-import type { TraceService } from "../tracing/trace-service";
-import type { AgentApplicationService } from "../runtime/application-service";
+import type { AuditService } from "../audit/audit-service.js";
+import type { TraceService } from "../tracing/trace-service.js";
+import type { AgentApplicationService } from "../runtime/application-service.js";
 import type {
   AdapterDescriptor,
   AdapterCapabilityName,
@@ -11,12 +11,12 @@ import type {
   GatewayTaskSnapshot,
   GatewayTaskResultView,
   RuntimeRunOptions
-} from "../types";
+} from "../types/index.js";
 
-import { collectCapabilityNotices } from "./capability-policy";
-import type { GatewayGuard } from "./gateway-guard";
-import type { GatewayIdentityMapper } from "./identity-mapper";
-import type { GatewaySessionMapper } from "./session-mapper";
+import { collectCapabilityNotices } from "./capability-policy.js";
+import type { GatewayGuard } from "./gateway-guard.js";
+import type { GatewayIdentityMapper } from "./identity-mapper.js";
+import type { GatewaySessionMapper } from "./session-mapper.js";
 
 export interface GatewayRuntimeFacadeDependencies {
   applicationService: AgentApplicationService;

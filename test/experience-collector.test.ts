@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createApplication, createDefaultRunOptions } from "../src/runtime";
-import type { Provider, ProviderInput, ProviderResponse } from "../src/types";
+import { createApplication, createDefaultRunOptions } from "../src/runtime/index.js";
+import type { Provider, ProviderInput, ProviderResponse } from "../src/types/index.js";
 
 class ScriptedProvider implements Provider {
   public readonly name = "scripted-provider";

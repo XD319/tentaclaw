@@ -1,6 +1,6 @@
 import { isAbsolute, relative, resolve } from "node:path";
 
-import { AppError } from "../runtime/app-error";
+import { AppError } from "../runtime/app-error.js";
 
 export interface PathPolicyConfig {
   workspaceRoot: string;

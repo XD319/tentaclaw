@@ -1,5 +1,7 @@
-const js = require("@eslint/js");
-const tseslint = require("typescript-eslint");
+import js from "@eslint/js";
+import tseslint from "typescript-eslint";
+
+const tsconfigRootDir = import.meta.dirname;
 
 const typedConfigs = tseslint.configs.recommendedTypeChecked.map((config) => ({
   ...config,
@@ -9,12 +11,12 @@ const typedConfigs = tseslint.configs.recommendedTypeChecked.map((config) => ({
     parserOptions: {
       ...config.languageOptions?.parserOptions,
       project: "./tsconfig.eslint.json",
-      tsconfigRootDir: __dirname
+      tsconfigRootDir
     }
   }
 }));
 
-module.exports = tseslint.config(
+export default tseslint.config(
   {
     ignores: [
       "dist/**",

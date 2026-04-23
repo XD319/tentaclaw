@@ -9,7 +9,7 @@ import {
   validatePackageMetadata,
   validatePackContents,
   validateReleaseRepository
-} from "../src/diagnostics";
+} from "../src/diagnostics/index.js";
 
 const tempPaths: string[] = [];
 

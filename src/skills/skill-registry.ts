@@ -7,7 +7,7 @@ import {
   createAttachment,
   createEmptyAttachmentManifest,
   parseSkillAsset
-} from "./skill-asset";
+} from "./skill-asset.js";
 import type {
   LoadedSkillAttachment,
   SkillAsset,
@@ -20,7 +20,7 @@ import type {
   SkillRegistryIssue,
   SkillSource,
   SkillView
-} from "../types";
+} from "../types/index.js";
 
 export interface RemoteSkillSource {
   listMetadata(): SkillListResult;

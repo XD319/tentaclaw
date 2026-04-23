@@ -3,7 +3,7 @@ import type {
   ContextPolicyFilterResult,
   LongTermMemoryWriteDecision,
   LongTermMemoryWriteRequest
-} from "../types/context";
+} from "../types/context.js";
 
 export class ContextPolicy {
   public filterForModelContext(input: ContextPolicyFilterInput): ContextPolicyFilterResult {

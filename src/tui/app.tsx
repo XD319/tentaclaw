@@ -1,2 +1,2 @@
-export { AgentTuiApp } from "./dashboard-app";
-export type { AgentTuiAppProps } from "./dashboard-app";
+export { AgentTuiApp } from "./dashboard-app.js";
+export type { AgentTuiAppProps } from "./dashboard-app.js";

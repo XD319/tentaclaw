@@ -1,4 +1,4 @@
-import type { ApprovalRecord, ToolCallRecord, TraceEvent } from "../../types";
+import type { ApprovalRecord, ToolCallRecord, TraceEvent } from "../../types/index.js";
 
 export type ChatMessage =
   | {

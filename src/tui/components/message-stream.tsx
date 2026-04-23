@@ -1,12 +1,12 @@
 import React from "react";
 import { Box, Static, Text } from "ink";
 
-import { sanitizeTerminalText } from "../text-sanitize";
-import type { ChatMessage } from "../view-models/chat-messages";
-import { AgentMessage } from "./agent-message";
-import { ApprovalCard } from "./approval-card";
-import { ErrorMessage } from "./error-message";
-import { UserMessage } from "./user-message";
+import { sanitizeTerminalText } from "../text-sanitize.js";
+import type { ChatMessage } from "../view-models/chat-messages.js";
+import { AgentMessage } from "./agent-message.js";
+import { ApprovalCard } from "./approval-card.js";
+import { ErrorMessage } from "./error-message.js";
+import { UserMessage } from "./user-message.js";
 
 export interface MessageStreamProps {
   messages: ChatMessage[];

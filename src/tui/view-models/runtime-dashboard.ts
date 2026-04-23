@@ -1,5 +1,5 @@
-import type { AgentApplicationService } from "../../runtime";
-import type { ApprovalActionResult } from "../../runtime/application-service";
+import type { AgentApplicationService } from "../../runtime/index.js";
+import type { ApprovalActionResult } from "../../runtime/application-service.js";
 import type {
   ApprovalRecord,
   ArtifactRecord,
@@ -10,7 +10,7 @@ import type {
   TaskRecord,
   TraceEvent,
   ToolCallRecord
-} from "../../types";
+} from "../../types/index.js";
 
 export const PANEL_ORDER = [
   "tasks",

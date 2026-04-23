@@ -5,10 +5,10 @@ import type {
   JsonValue,
   ToolCallRecord,
   ToolCallRepository
-} from "../../types";
-import { canTransitionToolCallStatus } from "../../types";
+} from "../../types/index.js";
+import { canTransitionToolCallStatus } from "../../types/index.js";
 
-import { parseJsonValue, serializeJsonValue } from "./json";
+import { parseJsonValue, serializeJsonValue } from "./json.js";
 
 interface ToolCallRow {
   error_code: ToolCallRecord["errorCode"];

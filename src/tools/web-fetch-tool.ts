@@ -1,14 +1,14 @@
 import { z } from "zod";
 import { parse } from "node-html-parser";
 
-import type { SandboxService } from "../sandbox/sandbox-service";
+import type { SandboxService } from "../sandbox/sandbox-service.js";
 import type {
   SandboxWebPlan,
   ToolDefinition,
   ToolExecutionContext,
   ToolExecutionResult,
   ToolPreparation
-} from "../types";
+} from "../types/index.js";
 
 export interface WebFetchClient {
   fetch(input: string, init: RequestInit): Promise<Response>;

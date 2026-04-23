@@ -7,13 +7,13 @@ import type {
   GatewayTaskResultView,
   InboundMessageAdapter,
   OutboundResponseAdapter
-} from "../../types";
+} from "../../types/index.js";
 import {
   renderApprovalCard,
   renderTaskProgressCard,
   renderTaskResultCard
-} from "./feishu-card";
-import type { FeishuGatewayConfig } from "./feishu-config";
+} from "./feishu-card.js";
+import type { FeishuGatewayConfig } from "./feishu-config.js";
 
 interface FeishuClientLike {
   im: {

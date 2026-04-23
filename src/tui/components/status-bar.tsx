@@ -1,8 +1,8 @@
 import React from "react";
 import { Box, Text } from "ink";
 
-import { contextUsageColor } from "../token-pricing";
-import { theme } from "../theme";
+import { contextUsageColor } from "../token-pricing.js";
+import { theme } from "../theme.js";
 
 export interface StatusBarProps {
   contextPercent: number;

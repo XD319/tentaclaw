@@ -4,7 +4,7 @@ import type {
   GatewayCapabilityNotice,
   GatewayTaskRequest,
   TaskRecord
-} from "../types";
+} from "../types/index.js";
 
 export function collectCapabilityNotices(
   adapterId: string,

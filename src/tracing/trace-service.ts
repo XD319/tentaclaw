@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { TraceEvent, TraceEventDraft, TraceRepository } from "../types";
+import type { TraceEvent, TraceEventDraft, TraceRepository } from "../types/index.js";
 
 export class TraceService {
   private readonly listeners = new Set<(event: TraceEvent) => void>();

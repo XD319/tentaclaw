@@ -1,6 +1,6 @@
-import type { JsonObject } from "./common";
-import type { AuditLogRecord } from "./audit";
-import type { TraceEvent } from "./trace";
+import type { JsonObject } from "./common.js";
+import type { AuditLogRecord } from "./audit.js";
+import type { TraceEvent } from "./trace.js";
 
 export type AdapterCapabilityName =
   | "textInteraction"

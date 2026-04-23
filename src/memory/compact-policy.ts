@@ -1,4 +1,4 @@
-import type { SessionCompactInput, SessionCompactTriggerReason } from "../types";
+import type { SessionCompactInput, SessionCompactTriggerReason } from "../types/index.js";
 
 export interface CompactDecision {
   triggered: boolean;

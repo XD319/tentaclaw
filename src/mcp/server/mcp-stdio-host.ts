@@ -1,7 +1,7 @@
 import { createInterface } from "node:readline";
 
-import type { McpServer } from "./mcp-server";
-import type { JsonObject } from "../../types";
+import type { McpServer } from "./mcp-server.js";
+import type { JsonObject } from "../../types/index.js";
 
 export class McpStdioHost {
   public constructor(private readonly server: McpServer) {}

@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 
-import type { SkillItemViewModel } from "../view-models/runtime-dashboard";
+import type { SkillItemViewModel } from "../view-models/runtime-dashboard.js";
 
 export interface SkillsPanelProps {
   skills: SkillItemViewModel[];

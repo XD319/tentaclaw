@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { AuditLogDraft, AuditLogRecord, AuditLogRepository } from "../types";
+import type { AuditLogDraft, AuditLogRecord, AuditLogRepository } from "../types/index.js";
 
 export class AuditService {
   private readonly listeners = new Set<(event: AuditLogRecord) => void>();

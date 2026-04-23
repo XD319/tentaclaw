@@ -1,6 +1,6 @@
-import { loadSmokeTaskFixtures } from "../testing/smoke-fixtures";
-import { runSmokeSuite } from "../testing/smoke-harness";
-import type { SupportedProviderName } from "../providers";
+import { loadSmokeTaskFixtures } from "../testing/smoke-fixtures.js";
+import { runSmokeSuite } from "../testing/smoke-harness.js";
+import type { SupportedProviderName } from "../providers/index.js";
 
 export interface EvalReport {
   averageDurationMs: number;

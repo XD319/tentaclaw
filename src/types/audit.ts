@@ -1,4 +1,4 @@
-import type { JsonObject } from "./common";
+import type { JsonObject } from "./common.js";
 
 export const AUDIT_ACTIONS = [
   "gateway_capability_degraded",

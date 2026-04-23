@@ -9,25 +9,25 @@ import {
   startLocalWebhookGateway,
   GatewayManager,
   LocalWebhookAdapter
-} from "../gateway";
+} from "../gateway/index.js";
 import {
   McpServer,
   McpSkillBridge,
   McpStdioHost,
   McpToolBridge,
   resolveMcpServerConfig
-} from "../mcp";
-import { replayTaskById, runBetaReadinessCheck, runEvalReport, runReleaseChecklist } from "../diagnostics";
-import type { SupportedProviderName } from "../providers";
+} from "../mcp/index.js";
+import { replayTaskById, runBetaReadinessCheck, runEvalReport, runReleaseChecklist } from "../diagnostics/index.js";
+import type { SupportedProviderName } from "../providers/index.js";
 import {
   buildRepoMap,
   createApplication,
   createDefaultRunOptions,
   initializeWorkspaceFiles,
   type ResolveAppConfigOptions
-} from "../runtime";
-import { formatSmokeSuiteReport, runSmokeSuite } from "../testing";
-import { startDashboardTui, startTui } from "../tui";
+} from "../runtime/index.js";
+import { formatSmokeSuiteReport, runSmokeSuite } from "../testing/index.js";
+import { startDashboardTui, startTui } from "../tui/index.js";
 
 import {
   formatApprovalList,
@@ -58,10 +58,10 @@ import {
   formatTraceContextDebug,
   summarizeAudit,
   summarizeTrace
-} from "./formatters";
-import type { ExperienceQuery, ExperienceSourceType, ExperienceStatus, ExperienceType } from "../types";
-import type { InboundMessageAdapter } from "../types";
-import type { SkillAttachmentKind } from "../types/skill";
+} from "./formatters.js";
+import type { ExperienceQuery, ExperienceSourceType, ExperienceStatus, ExperienceType } from "../types/index.js";
+import type { InboundMessageAdapter } from "../types/index.js";
+import type { SkillAttachmentKind } from "../types/skill.js";
 
 export async function main(argv = process.argv): Promise<void> {
   const program = new Command();

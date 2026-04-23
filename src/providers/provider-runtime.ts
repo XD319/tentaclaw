@@ -8,11 +8,11 @@ import type {
   ProviderResponse,
   ProviderStatsSnapshot,
   ProviderStreamEvent
-} from "../types";
+} from "../types/index.js";
 
-import { ProviderError } from "./provider-error";
-import { assertProviderResponse, withRetryCount } from "./provider-contract";
-import { ProviderTelemetry } from "./provider-telemetry";
+import { ProviderError } from "./provider-error.js";
+import { assertProviderResponse, withRetryCount } from "./provider-contract.js";
+import { ProviderTelemetry } from "./provider-telemetry.js";
 
 export class ManagedProvider implements Provider {
   private readonly telemetry: ProviderTelemetry;

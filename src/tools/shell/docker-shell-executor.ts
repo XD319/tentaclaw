@@ -1,13 +1,13 @@
 import { spawn, spawnSync } from "node:child_process";
 import { isAbsolute, relative, resolve } from "node:path";
 
-import { AppError } from "../../runtime/app-error";
+import { AppError } from "../../runtime/app-error.js";
 
 import type {
   ShellCommandExecutor,
   ShellExecutionRequest,
   ShellExecutionResult
-} from "./shell-executor";
+} from "./shell-executor.js";
 
 export interface DockerShellExecutorConfig {
   dockerImage: string;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { runEvalReport } from "../src/diagnostics";
+import { runEvalReport } from "../src/diagnostics/index.js";
 
 describe("eval report", () => {
   it("generates the minimal aggregate report for fixed task samples", async () => {

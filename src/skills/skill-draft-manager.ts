@@ -1,13 +1,13 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
-import { parseSkillMarkdown } from "./skill-asset";
+import { parseSkillMarkdown } from "./skill-asset.js";
 import type {
   ExperienceRecord,
   SkillCandidateGroup,
   SkillDraftRecord,
   SkillFrontmatter
-} from "../types";
+} from "../types/index.js";
 
 export interface SkillDraftManagerOptions {
   workspaceRoot: string;

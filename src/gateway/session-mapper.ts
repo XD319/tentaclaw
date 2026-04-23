@@ -4,7 +4,7 @@ import type {
   GatewaySessionBinding,
   GatewaySessionRepository,
   JsonObject
-} from "../types";
+} from "../types/index.js";
 
 export interface GatewaySessionMapper {
   bindTask(params: {

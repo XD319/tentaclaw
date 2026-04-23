@@ -1,14 +1,14 @@
 import { z } from "zod";
 
-import type { PreparedShellInput, SandboxService } from "../sandbox/sandbox-service";
+import type { PreparedShellInput, SandboxService } from "../sandbox/sandbox-service.js";
 import type {
   ToolDefinition,
   ToolExecutionContext,
   ToolExecutionResult,
   ToolPreparation
-} from "../types";
+} from "../types/index.js";
 
-import type { ShellCommandExecutor } from "./shell/shell-executor";
+import type { ShellCommandExecutor } from "./shell/shell-executor.js";
 
 const shellToolSchema = z.object({
   command: z.string().min(1),

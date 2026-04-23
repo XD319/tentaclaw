@@ -6,7 +6,7 @@ import {
   type RuntimeDashboardQueryService,
   type RuntimeDashboardViewModel,
   type TuiPanelId
-} from "../view-models/runtime-dashboard";
+} from "../view-models/runtime-dashboard.js";
 
 export interface DashboardController {
   busy: boolean;

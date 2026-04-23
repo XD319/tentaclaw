@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildCapabilityDeclaration } from "../src/memory/capability-declaration-builder";
+import { buildCapabilityDeclaration } from "../src/memory/capability-declaration-builder.js";
 
 describe("capability declaration reinjection", () => {
   it("includes tools and skill declarations in a system payload", () => {

@@ -1,12 +1,12 @@
 import { z } from "zod";
 
-import type { SkillRegistry } from "../skills";
+import type { SkillRegistry } from "../skills/index.js";
 import type {
   ToolDefinition,
   ToolExecutionContext,
   ToolExecutionResult,
   ToolPreparation
-} from "../types";
+} from "../types/index.js";
 
 const skillViewSchema = z.object({
   attachmentKinds: z.array(z.enum(["references", "templates", "scripts", "assets"])).default([]),

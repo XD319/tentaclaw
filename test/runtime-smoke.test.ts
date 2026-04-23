@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { loadSmokeTaskFixtures, runSmokeSuite } from "../src/testing";
+import { loadSmokeTaskFixtures, runSmokeSuite } from "../src/testing/index.js";
 
 describe("runtime smoke harness", () => {
   it("loads at least ten fixed smoke task fixtures", () => {

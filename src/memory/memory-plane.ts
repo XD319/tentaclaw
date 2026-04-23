@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
-import type { ContextPolicy } from "../policy/context-policy";
-import { RecallEngine, overlapRatio, tokenize, uniqueStrings } from "../recall/recall-engine";
-import type { TraceService } from "../tracing/trace-service";
-import { CompactTriggerPolicy } from "./compact-policy";
-import { DeterministicCompactSummarizer, type CompactSummarizer } from "./compact-summarizer";
+import type { ContextPolicy } from "../policy/context-policy.js";
+import { RecallEngine, overlapRatio, tokenize, uniqueStrings } from "../recall/recall-engine.js";
+import type { TraceService } from "../tracing/trace-service.js";
+import { CompactTriggerPolicy } from "./compact-policy.js";
+import { DeterministicCompactSummarizer, type CompactSummarizer } from "./compact-summarizer.js";
 import type {
   ContextFragment,
   MemoryDraft,
@@ -23,7 +23,7 @@ import type {
   SessionCompactInput,
   SessionCompactResult,
   TaskRecord
-} from "../types";
+} from "../types/index.js";
 
 const memoryReviewSchema = z.object({
   memoryId: z.string().min(1),

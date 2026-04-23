@@ -6,9 +6,9 @@ import { tmpdir } from "node:os";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createGatewayRuntime, GatewayManager, startLocalWebhookGateway } from "../src/gateway";
-import { createApplication } from "../src/runtime";
-import type { LocalPolicyConfig, Provider, ProviderInput, ProviderResponse } from "../src/types";
+import { createGatewayRuntime, GatewayManager, startLocalWebhookGateway } from "../src/gateway/index.js";
+import { createApplication } from "../src/runtime/index.js";
+import type { LocalPolicyConfig, Provider, ProviderInput, ProviderResponse } from "../src/types/index.js";
 
 class ScriptedProvider implements Provider {
   public readonly name = "gateway-scripted-provider";

@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
-import { AppError, toAppError } from "../runtime/app-error";
-import { safePreview } from "../runtime/serialization";
-import type { ApprovalService } from "../approvals/approval-service";
-import type { AuditService } from "../audit/audit-service";
-import type { ContextPolicy } from "../policy/context-policy";
-import type { PolicyEngine } from "../policy/policy-engine";
-import type { TraceService } from "../tracing/trace-service";
+import { AppError, toAppError } from "../runtime/app-error.js";
+import { safePreview } from "../runtime/serialization.js";
+import type { ApprovalService } from "../approvals/approval-service.js";
+import type { AuditService } from "../audit/audit-service.js";
+import type { ContextPolicy } from "../policy/context-policy.js";
+import type { PolicyEngine } from "../policy/policy-engine.js";
+import type { TraceService } from "../tracing/trace-service.js";
 import type {
   ApprovalRecord,
   ArtifactRepository,
@@ -20,7 +20,7 @@ import type {
   ToolDefinition,
   ToolExecutionContext,
   ToolExecutionSuccess
-} from "../types";
+} from "../types/index.js";
 
 export interface ToolOrchestratorDependencies {
   approvalService: ApprovalService;

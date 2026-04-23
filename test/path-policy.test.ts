@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { PathPolicy } from "../src/policy/path-policy";
+import { PathPolicy } from "../src/policy/path-policy.js";
 
 describe("PathPolicy", () => {
   it("denies write paths that only match root by case on case-sensitive platforms", () => {

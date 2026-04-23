@@ -1,5 +1,5 @@
-import type { JsonObject, JsonValue } from "./common";
-import type { PrivacyLevel, ToolRiskLevel } from "./governance";
+import type { JsonObject, JsonValue } from "./common.js";
+import type { PrivacyLevel, ToolRiskLevel } from "./governance.js";
 
 export interface McpServerConfig {
   id: string;

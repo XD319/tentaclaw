@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
-import type { ToolOrchestrator } from "../../tools";
-import type { AgentProfileId, JsonObject } from "../../types";
+import type { ToolOrchestrator } from "../../tools/index.js";
+import type { AgentProfileId, JsonObject } from "../../types/index.js";
 
 export interface McpExternalIdentity {
   agentProfileId: AgentProfileId;

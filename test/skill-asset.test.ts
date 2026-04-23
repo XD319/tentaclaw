@@ -5,7 +5,7 @@ import {
   createEmptyAttachmentManifest,
   parseSkillAsset,
   parseSkillMarkdown
-} from "../src/skills";
+} from "../src/skills/index.js";
 
 const validFrontmatter = {
   category: "testing",

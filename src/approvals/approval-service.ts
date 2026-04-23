@@ -2,13 +2,13 @@ import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
-import { AppError } from "../runtime/app-error";
+import { AppError } from "../runtime/app-error.js";
 import type {
   ApprovalRecord,
   ApprovalRepository,
   ApprovalStatus,
   RuntimeErrorCode
-} from "../types";
+} from "../types/index.js";
 
 export interface ApprovalServiceConfig {
   approvalTtlMs: number;

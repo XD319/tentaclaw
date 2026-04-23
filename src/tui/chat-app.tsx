@@ -2,17 +2,17 @@ import { randomUUID } from "node:crypto";
 import React from "react";
 import { Box, Text, useApp } from "ink";
 
-import type { AgentApplicationService, AppConfig } from "../runtime";
-import { displayChatMessages, type ChatMessage } from "./view-models/chat-messages";
-import { Banner } from "./components/banner";
-import { InputBox } from "./components/input-box";
-import { MessageStream, StaticMessageStream } from "./components/message-stream";
-import { Spinner } from "./components/spinner";
-import { StatusBar } from "./components/status-bar";
-import { useChatController } from "./hooks/use-chat-controller";
-import { useTextInput } from "./hooks/use-text-input";
-import { listSessionIds, saveSession } from "./session-store";
-import { completeSlashCommand } from "./slash-commands";
+import type { AgentApplicationService, AppConfig } from "../runtime/index.js";
+import { displayChatMessages, type ChatMessage } from "./view-models/chat-messages.js";
+import { Banner } from "./components/banner.js";
+import { InputBox } from "./components/input-box.js";
+import { MessageStream, StaticMessageStream } from "./components/message-stream.js";
+import { Spinner } from "./components/spinner.js";
+import { StatusBar } from "./components/status-bar.js";
+import { useChatController } from "./hooks/use-chat-controller.js";
+import { useTextInput } from "./hooks/use-text-input.js";
+import { listSessionIds, saveSession } from "./session-store.js";
+import { completeSlashCommand } from "./slash-commands.js";
 
 export interface ChatTuiAppProps {
   config: AppConfig;

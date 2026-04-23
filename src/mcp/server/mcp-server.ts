@@ -1,7 +1,7 @@
-import type { McpServerRuntimeConfig } from "./mcp-server-config";
-import type { McpSkillBridge } from "./mcp-skill-bridge";
-import type { McpToolBridge } from "./mcp-tool-bridge";
-import type { JsonObject } from "../../types";
+import type { McpServerRuntimeConfig } from "./mcp-server-config.js";
+import type { McpSkillBridge } from "./mcp-skill-bridge.js";
+import type { McpToolBridge } from "./mcp-tool-bridge.js";
+import type { JsonObject } from "../../types/index.js";
 
 export interface McpJsonRpcRequest {
   id?: number | undefined;

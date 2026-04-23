@@ -1,4 +1,4 @@
-import type { Provider, ProviderInput, ProviderResponse, ProviderToolCall } from "../types";
+import type { Provider, ProviderInput, ProviderResponse, ProviderToolCall } from "../types/index.js";
 
 interface ScriptedSmokeProviderConfig {
   model?: string;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { RecallEngine, tokenize } from "../src/recall/recall-engine";
-import type { ExperienceRecord } from "../src/types";
+import { RecallEngine, tokenize } from "../src/recall/recall-engine.js";
+import type { ExperienceRecord } from "../src/types/index.js";
 
 describe("RecallEngine", () => {
   it("keeps MemoryPlane-compatible token overlap behavior", () => {

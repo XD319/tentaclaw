@@ -1,7 +1,7 @@
-import type { ProviderConfig } from "../types";
+import type { ProviderConfig } from "../types/index.js";
 
-import { AnthropicCompatibleProvider } from "./anthropic-compatible-provider";
-import { requireProviderManifest } from "./provider-registry";
+import { AnthropicCompatibleProvider } from "./anthropic-compatible-provider.js";
+import { requireProviderManifest } from "./provider-registry.js";
 
 export class AnthropicProvider extends AnthropicCompatibleProvider {
   public constructor(config: ProviderConfig) {

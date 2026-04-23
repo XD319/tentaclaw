@@ -2,13 +2,13 @@ import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { createApplication, createDefaultRunOptions } from "../runtime";
+import { createApplication, createDefaultRunOptions } from "../runtime/index.js";
 import {
   requireProviderManifest,
   resolveDefaultProviderSettings,
   type ResolvedProviderConfig,
   type SupportedProviderName
-} from "../providers";
+} from "../providers/index.js";
 import type {
   AgentProfileId,
   ApprovalRecord,
@@ -18,9 +18,9 @@ import type {
   TaskRecord,
   ToolCallRecord,
   TraceEvent
-} from "../types";
-import { loadSmokeTaskFixtures, type SmokeTaskFixture } from "./smoke-fixtures";
-import { ScriptedSmokeProvider } from "./smoke-provider";
+} from "../types/index.js";
+import { loadSmokeTaskFixtures, type SmokeTaskFixture } from "./smoke-fixtures.js";
+import { ScriptedSmokeProvider } from "./smoke-provider.js";
 
 export interface SmokeHarnessOptions {
   autoApprove?: boolean;

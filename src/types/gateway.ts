@@ -1,4 +1,4 @@
-import type { JsonObject } from "./common";
+import type { JsonObject } from "./common.js";
 
 export interface GatewaySessionBindingDraft {
   adapterId: string;

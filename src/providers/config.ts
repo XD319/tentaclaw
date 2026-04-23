@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-import type { JsonObject, ProviderConfig } from "../types";
+import type { JsonObject, ProviderConfig } from "../types/index.js";
 import {
   PROVIDER_CATALOG,
   type ProviderCatalogEntry,
@@ -12,7 +12,7 @@ import {
   resolveDefaultProviderSettings,
   requireProviderManifest,
   resolveProviderModel
-} from "./provider-registry";
+} from "./provider-registry.js";
 
 interface ProviderFileEntry extends JsonObject {
   apiKey?: string | null;

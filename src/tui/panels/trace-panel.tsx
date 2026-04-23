@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 
-import type { TraceEntryViewModel } from "../view-models/runtime-dashboard";
+import type { TraceEntryViewModel } from "../view-models/runtime-dashboard.js";
 
 export interface TracePanelProps {
   trace: TraceEntryViewModel[];

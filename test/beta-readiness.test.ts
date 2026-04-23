@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { runBetaReadinessCheck } from "../src/diagnostics";
+import { runBetaReadinessCheck } from "../src/diagnostics/index.js";
 
 describe("beta readiness", () => {
   it("returns a structured checklist with concrete gate results", async () => {

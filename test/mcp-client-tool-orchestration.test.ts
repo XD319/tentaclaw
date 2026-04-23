@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { McpToolAdapter } from "../src/mcp";
-import { ToolOrchestrator } from "../src/tools";
+import { McpToolAdapter } from "../src/mcp/index.js";
+import { ToolOrchestrator } from "../src/tools/index.js";
 import type {
   AuditAction,
   AuditOutcome,
@@ -11,7 +11,7 @@ import type {
   ToolCallRecord,
   ToolCallRepository,
   ToolExecutionContext
-} from "../src/types";
+} from "../src/types/index.js";
 
 describe("McpToolAdapter orchestration", () => {
   it("runs through policy, trace, and audit paths", async () => {

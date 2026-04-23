@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import type { AgentProfileId } from "../../types";
+import type { AgentProfileId } from "../../types/index.js";
 
 export interface McpServerRuntimeConfig {
   exposeSkills: boolean;

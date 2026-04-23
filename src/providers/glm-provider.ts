@@ -1,7 +1,7 @@
-import type { ProviderConfig } from "../types";
+import type { ProviderConfig } from "../types/index.js";
 
-import { OpenAiCompatibleProvider } from "./openai-compatible-provider";
-import { requireProviderManifest } from "./provider-registry";
+import { OpenAiCompatibleProvider } from "./openai-compatible-provider.js";
+import { requireProviderManifest } from "./provider-registry.js";
 
 export class GlmProvider extends OpenAiCompatibleProvider {
   public constructor(config: ProviderConfig) {

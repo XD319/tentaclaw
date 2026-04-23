@@ -1,8 +1,8 @@
 import React from "react";
 import { Box, Text } from "ink";
 
-import { sanitizeTerminalText } from "../text-sanitize";
-import { MarkdownContent } from "./markdown-content";
+import { sanitizeTerminalText } from "../text-sanitize.js";
+import { MarkdownContent } from "./markdown-content.js";
 
 export interface AgentMessageProps {
   streaming?: boolean;

@@ -10,15 +10,15 @@ import type {
   ProviderToolCall,
   ProviderToolDescriptor,
   ProviderUsage
-} from "../types";
+} from "../types/index.js";
 
-import type { ProviderError } from "./provider-error";
+import type { ProviderError } from "./provider-error.js";
 import {
   classifyProviderHttpError,
   createProviderError,
   isRetriableCategory,
   toProviderError
-} from "./provider-runtime";
+} from "./provider-runtime.js";
 
 type AnthropicCompatibleContentBlock =
   | {

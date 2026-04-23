@@ -1,5 +1,5 @@
-import { ProviderError } from "../providers";
-import type { RuntimeErrorCode, RuntimeErrorShape } from "../types";
+import { ProviderError } from "../providers/index.js";
+import type { RuntimeErrorCode, RuntimeErrorShape } from "../types/index.js";
 
 export class AppError extends Error implements RuntimeErrorShape {
   public readonly code: RuntimeErrorCode;

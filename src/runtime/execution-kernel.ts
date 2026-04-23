@@ -1,16 +1,16 @@
 import { randomUUID } from "node:crypto";
 
-import { createManagedAbortController, throwIfAborted } from "./abort-controller";
-import { AppError, toAppError } from "./app-error";
+import { createManagedAbortController, throwIfAborted } from "./abort-controller.js";
+import { AppError, toAppError } from "./app-error.js";
 import {
   buildFilteredContextDebugFragments,
   ExecutionContextAssembler
-} from "./context-assembler";
-import { buildRepoMap } from "./repo-map";
-import { tokenBudgetToJson } from "./serialization";
-import type { RuntimeConfig, WorkflowRuntimeConfig } from "./runtime-config";
-import { ProviderError } from "../providers";
-import type { AgentProfileRegistry } from "../profiles/agent-profile-registry";
+} from "./context-assembler.js";
+import { buildRepoMap } from "./repo-map.js";
+import { tokenBudgetToJson } from "./serialization.js";
+import type { RuntimeConfig, WorkflowRuntimeConfig } from "./runtime-config.js";
+import { ProviderError } from "../providers/index.js";
+import type { AgentProfileRegistry } from "../profiles/agent-profile-registry.js";
 import type {
   ConversationMessage,
   ContextAssemblyDebugView,
@@ -26,12 +26,12 @@ import type {
   TaskRecord,
   TaskRepository,
   TokenBudget
-} from "../types";
-import type { MemoryPlane } from "../memory/memory-plane";
-import { buildCapabilityDeclaration } from "../memory/capability-declaration-builder";
-import type { SkillContextService } from "../skills";
-import type { ToolOrchestrator } from "../tools";
-import type { TraceService } from "../tracing/trace-service";
+} from "../types/index.js";
+import type { MemoryPlane } from "../memory/memory-plane.js";
+import { buildCapabilityDeclaration } from "../memory/capability-declaration-builder.js";
+import type { SkillContextService } from "../skills/index.js";
+import type { ToolOrchestrator } from "../tools/index.js";
+import type { TraceService } from "../tracing/trace-service.js";
 
 export interface ExecutionKernelDependencies {
   agentProfileRegistry: AgentProfileRegistry;

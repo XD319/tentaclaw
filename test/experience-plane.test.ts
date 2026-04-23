@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { ExperiencePlane } from "../src/experience/experience-plane";
+import { ExperiencePlane } from "../src/experience/experience-plane.js";
 import {
   formatExperienceDetail,
   formatExperienceList,
   formatExperienceSearch
-} from "../src/cli/formatters";
-import { MemoryPlane } from "../src/memory/memory-plane";
-import { ContextPolicy } from "../src/policy/context-policy";
-import { StorageManager } from "../src/storage/database";
-import { TraceService } from "../src/tracing/trace-service";
-import type { ExperienceDraft, TaskRecord } from "../src/types";
+} from "../src/cli/formatters.js";
+import { MemoryPlane } from "../src/memory/memory-plane.js";
+import { ContextPolicy } from "../src/policy/context-policy.js";
+import { StorageManager } from "../src/storage/database.js";
+import { TraceService } from "../src/tracing/trace-service.js";
+import type { ExperienceDraft, TaskRecord } from "../src/types/index.js";
 
 describe("ExperiencePlane", () => {
   it("captures, reviews, searches, and promotes accepted experience", () => {

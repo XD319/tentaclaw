@@ -1,6 +1,6 @@
-import type { JsonObject } from "./common";
-import type { PathScope, PrivacyLevel, ToolCapability, ToolRiskLevel } from "./governance";
-import type { AgentProfileId } from "./profile";
+import type { JsonObject } from "./common.js";
+import type { PathScope, PrivacyLevel, ToolCapability, ToolRiskLevel } from "./governance.js";
+import type { AgentProfileId } from "./profile.js";
 
 export const POLICY_EFFECTS = ["allow", "allow_with_approval", "deny"] as const;
 

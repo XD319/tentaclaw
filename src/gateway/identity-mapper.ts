@@ -1,4 +1,4 @@
-import type { GatewayIdentityBinding, GatewayRequesterIdentity } from "../types";
+import type { GatewayIdentityBinding, GatewayRequesterIdentity } from "../types/index.js";
 
 export interface GatewayIdentityMapper {
   bind(adapterId: string, requester: GatewayRequesterIdentity): GatewayIdentityBinding;

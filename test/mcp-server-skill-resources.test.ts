@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { McpSkillBridge } from "../src/mcp";
+import { McpSkillBridge } from "../src/mcp/index.js";
 
 describe("McpSkillBridge", () => {
   it("maps skills into MCP resources and supports resource read", () => {

@@ -5,14 +5,14 @@ import { DatabaseSync } from "node:sqlite";
 
 import { z } from "zod";
 
-import type { ApprovalService } from "../approvals/approval-service";
-import type { AuditService } from "../audit/audit-service";
+import type { ApprovalService } from "../approvals/approval-service.js";
+import type { AuditService } from "../audit/audit-service.js";
 import type {
   ExperiencePlane,
   ExperiencePromoteResult,
   ExperienceReviewRequest
-} from "../experience/experience-plane";
-import type { ProviderCatalogEntry, ResolvedProviderConfig } from "../providers";
+} from "../experience/experience-plane.js";
+import type { ProviderCatalogEntry, ResolvedProviderConfig } from "../providers/index.js";
 import type {
   ApprovalRecord,
   ArtifactRecord,
@@ -31,14 +31,14 @@ import type {
   TaskRecord,
   TraceEvent,
   ToolCallRecord
-} from "../types";
-import type { TraceService } from "../tracing/trace-service";
-import type { MemoryPlane } from "../memory/memory-plane";
-import type { SkillAttachmentKind } from "../types/skill";
-import type { SkillDraftManager, SkillRegistry } from "../skills";
-import type { ExecutionKernel } from "./execution-kernel";
+} from "../types/index.js";
+import type { TraceService } from "../tracing/trace-service.js";
+import type { MemoryPlane } from "../memory/memory-plane.js";
+import type { SkillAttachmentKind } from "../types/skill.js";
+import type { SkillDraftManager, SkillRegistry } from "../skills/index.js";
+import type { ExecutionKernel } from "./execution-kernel.js";
 
-import { AppError, toAppError } from "./app-error";
+import { AppError, toAppError } from "./app-error.js";
 
 export interface RunTaskResult {
   error?: AppError;

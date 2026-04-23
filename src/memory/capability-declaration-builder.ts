@@ -1,4 +1,4 @@
-import type { ContextFragment, ProviderToolDescriptor } from "../types";
+import type { ContextFragment, ProviderToolDescriptor } from "../types/index.js";
 
 export function buildCapabilityDeclaration(input: {
   agentProfileId: string;

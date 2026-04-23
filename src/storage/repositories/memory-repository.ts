@@ -9,9 +9,9 @@ import type {
   MemoryRepository,
   MemoryUpdatePatch,
   RetentionPolicy
-} from "../../types";
+} from "../../types/index.js";
 
-import { parseJsonValue, serializeJsonValue } from "./json";
+import { parseJsonValue, serializeJsonValue } from "./json.js";
 
 interface MemoryRow {
   memory_id: string;

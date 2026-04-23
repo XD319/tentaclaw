@@ -1,7 +1,7 @@
 import React from "react";
 import { useInput } from "ink";
 
-import { readClipboardText } from "../clipboard";
+import { readClipboardText } from "../clipboard.js";
 
 export interface UseTextInputOptions {
   onHistoryNext: () => string | null;

@@ -5,9 +5,9 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { formatSkillList, formatSkillView } from "../src/cli/formatters";
-import { createApplication } from "../src/runtime";
-import { RuntimeDashboardQueryService } from "../src/tui/view-models/runtime-dashboard";
+import { formatSkillList, formatSkillView } from "../src/cli/formatters.js";
+import { createApplication } from "../src/runtime/index.js";
+import { RuntimeDashboardQueryService } from "../src/tui/view-models/runtime-dashboard.js";
 
 describe("skill management surface", () => {
   it("surfaces skills through service, formatters, doctor, and dashboard query models", async () => {

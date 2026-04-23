@@ -1,4 +1,4 @@
-import { AppError } from "./app-error";
+import { AppError } from "./app-error.js";
 
 export type AbortReason = "interrupt" | "timeout";
 
