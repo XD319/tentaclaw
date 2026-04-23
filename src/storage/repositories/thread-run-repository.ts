@@ -59,7 +59,7 @@ export class SqliteThreadRunRepository implements ThreadRunRepository {
   public listByThreadId(threadId: string): ThreadRunRecord[] {
     const rows = this.database
       .prepare("SELECT * FROM thread_runs WHERE thread_id = ? ORDER BY run_number ASC")
-      .all(threadId) as ThreadRunRow[];
+      .all(threadId) as unknown as ThreadRunRow[];
     return rows.map((row) => this.mapRow(row));
   }
 

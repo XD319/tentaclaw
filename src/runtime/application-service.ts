@@ -28,6 +28,10 @@ import type {
   ProviderHealthCheck,
   ProviderUsage,
   RuntimeRunOptions,
+  ScheduleListQuery,
+  ScheduleRecord,
+  ScheduleRunListQuery,
+  ScheduleRunRecord,
   TaskRecord,
   ThreadLineageRecord,
   ThreadRecord,
@@ -42,6 +46,7 @@ import type { SkillAttachmentKind } from "../types/skill.js";
 import type { SkillDraftManager, SkillRegistry } from "../skills/index.js";
 import type { ExecutionKernel } from "./execution-kernel.js";
 import type { ResumePacketBuilder, ThreadService } from "./threads/index.js";
+import type { CreateScheduleInput, SchedulerService } from "./scheduler/index.js";
 
 import { AppError, toAppError } from "./app-error.js";
 
@@ -144,6 +149,11 @@ export interface RuntimeReadModel {
   listThreadRuns(threadId: string): ThreadRunRecord[];
   listThreadSnapshots(threadId: string): ThreadSnapshotRecord[];
   findThreadSnapshot(snapshotId: string): ThreadSnapshotRecord | null;
+  listSchedules(query?: ScheduleListQuery): ScheduleRecord[];
+  findSchedule(scheduleId: string): ScheduleRecord | null;
+  listScheduleRuns(scheduleId: string, query?: ScheduleRunListQuery): ScheduleRunRecord[];
+  listScheduleRunsByTask(taskId: string): ScheduleRunRecord[];
+  listScheduleRunsByThread(threadId: string): ScheduleRunRecord[];
   listThreads(): ThreadRecord[];
   findThread(threadId: string): ThreadRecord | null;
   listToolCalls(taskId: string): ToolCallRecord[];
@@ -156,6 +166,7 @@ export interface AgentApplicationServiceDependencies extends RuntimeReadModel {
   auditService: AuditService;
   databasePath: string;
   executionKernel: ExecutionKernel;
+  schedulerService: SchedulerService;
   resumePacketBuilder: ResumePacketBuilder;
   threadService: ThreadService;
   experiencePlane: ExperiencePlane;
@@ -209,7 +220,7 @@ export class AgentApplicationService {
         cwd: options.cwd,
         ownerUserId: options.userId,
         providerName: this.dependencies.provider.name,
-        threadId: options.threadId,
+        ...(options.threadId !== undefined ? { threadId: options.threadId } : {}),
         title: options.taskInput.slice(0, 80)
       });
       const result = await this.dependencies.executionKernel.run({
@@ -260,15 +271,17 @@ export class AgentApplicationService {
     thread: ThreadRecord | null;
     runs: ThreadRunRecord[];
     lineage: ThreadLineageRecord[];
+    scheduleRuns: ScheduleRunRecord[];
   } {
     const thread = this.dependencies.findThread(threadId);
     if (thread === null) {
-      return { thread: null, runs: [], lineage: [] };
+      return { thread: null, runs: [], lineage: [], scheduleRuns: [] };
     }
     return {
       thread,
       runs: this.dependencies.listThreadRuns(threadId),
-      lineage: this.dependencies.listThreadLineage(threadId)
+      lineage: this.dependencies.listThreadLineage(threadId),
+      scheduleRuns: this.dependencies.listScheduleRunsByThread(threadId)
     };
   }
 
@@ -517,6 +530,7 @@ export class AgentApplicationService {
   public showTask(taskId: string): {
     approvals: ApprovalRecord[];
     artifacts: ArtifactRecord[];
+    scheduleRuns: ScheduleRunRecord[];
     task: TaskRecord | null;
     toolCalls: ToolCallRecord[];
     trace: TraceEvent[];
@@ -526,10 +540,47 @@ export class AgentApplicationService {
     return {
       approvals: task === null ? [] : this.dependencies.listApprovals(taskId),
       artifacts: task === null ? [] : this.dependencies.listArtifacts(taskId),
+      scheduleRuns: task === null ? [] : this.dependencies.listScheduleRunsByTask(taskId),
       task,
       toolCalls: task === null ? [] : this.dependencies.listToolCalls(taskId),
       trace: task === null ? [] : this.dependencies.listTrace(taskId)
     };
+  }
+
+  public startScheduler(): void {
+    this.dependencies.schedulerService.start();
+  }
+
+  public stopScheduler(): void {
+    this.dependencies.schedulerService.stop();
+  }
+
+  public createSchedule(input: CreateScheduleInput): ScheduleRecord {
+    return this.dependencies.schedulerService.createSchedule(input);
+  }
+
+  public listSchedules(query?: ScheduleListQuery): ScheduleRecord[] {
+    return this.dependencies.schedulerService.listSchedules(query);
+  }
+
+  public showSchedule(scheduleId: string): ScheduleRecord | null {
+    return this.dependencies.schedulerService.showSchedule(scheduleId);
+  }
+
+  public listScheduleRuns(scheduleId: string, query?: ScheduleRunListQuery): ScheduleRunRecord[] {
+    return this.dependencies.schedulerService.listScheduleRuns(scheduleId, query);
+  }
+
+  public pauseSchedule(scheduleId: string): ScheduleRecord {
+    return this.dependencies.schedulerService.pauseSchedule(scheduleId);
+  }
+
+  public resumeSchedule(scheduleId: string): ScheduleRecord {
+    return this.dependencies.schedulerService.resumeSchedule(scheduleId);
+  }
+
+  public runScheduleNow(scheduleId: string): ScheduleRunRecord {
+    return this.dependencies.schedulerService.runNow(scheduleId);
   }
 
   public listArtifacts(taskId: string): ArtifactRecord[] {

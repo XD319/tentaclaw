@@ -4,5 +4,7 @@ export * from "./execution-kernel.js";
 export * from "./context/index.js";
 export * from "./repo-map.js";
 export * from "./runtime-config.js";
+export * from "./scheduler/index.js";
+export * from "./jobs/index.js";
 export * from "./threads/index.js";
 export * from "./workspace-setup.js";

@@ -51,7 +51,7 @@ export class SqliteThreadLineageRepository implements ThreadLineageRepository {
   public listByThreadId(threadId: string): ThreadLineageRecord[] {
     const rows = this.database
       .prepare("SELECT * FROM thread_lineage WHERE thread_id = ? ORDER BY created_at ASC")
-      .all(threadId) as ThreadLineageRow[];
+      .all(threadId) as unknown as ThreadLineageRow[];
     return rows.map((row) => this.mapRow(row));
   }
 

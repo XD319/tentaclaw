@@ -84,7 +84,7 @@ export class SqliteThreadSnapshotRepository implements ThreadSnapshotRepository 
       .prepare(
         "SELECT * FROM thread_snapshots WHERE thread_id = ? ORDER BY created_at DESC, snapshot_id DESC"
       )
-      .all(threadId) as ThreadSnapshotRow[];
+      .all(threadId) as unknown as ThreadSnapshotRow[];
     return rows.map((row) => this.mapRow(row));
   }
 

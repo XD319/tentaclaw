@@ -739,6 +739,7 @@ export class ExecutionKernel {
         toolCallThreshold: this.dependencies.compact.toolCallThreshold
       });
       if (compacted.triggered) {
+        const compactReason = compacted.reason ?? "message_count";
         const preCompactMessages = [...messages];
         if (task.threadId !== null && task.threadId !== undefined) {
           const latestRun = this.dependencies.threadRunRepository.findLatestByThreadId(task.threadId);
@@ -747,7 +748,7 @@ export class ExecutionKernel {
             lineageId: randomUUID(),
             payload: {
               messageCount: messages.length,
-              reason: compacted.reason
+              reason: compactReason
             },
             sourceRunId: latestRun?.runId ?? null,
             targetRunId: latestRun?.runId ?? null,
@@ -759,7 +760,7 @@ export class ExecutionKernel {
               maxMessagesBeforeCompact: this.dependencies.compact.messageThreshold,
               messages: preCompactMessages,
               pendingToolCalls,
-              reason: compacted.reason,
+              reason: compactReason,
               sessionScopeKey: task.taskId,
               taskId: task.taskId,
               tokenEstimate: estimateTokenCount(preCompactMessages),

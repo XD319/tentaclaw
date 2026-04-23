@@ -45,6 +45,9 @@ import {
   formatProviderCatalog,
   formatProviderHealth,
   formatProviderStats,
+  formatScheduleDetail,
+  formatScheduleList,
+  formatScheduleRunList,
   formatReplayReport,
   formatRunError,
   formatSkillDraft,
@@ -242,7 +245,7 @@ export async function main(argv = process.argv): Promise<void> {
         return;
       }
 
-      console.log(formatTask(result.task, result.toolCalls, result.approvals));
+      console.log(formatTask(result.task, result.toolCalls, result.approvals, result.scheduleRuns));
     } finally {
       handle.close();
     }
@@ -258,6 +261,140 @@ export async function main(argv = process.argv): Promise<void> {
   });
 
   const traceCommand = program.command("trace").description("Inspect persisted trace data");
+
+  const scheduleCommand = program.command("schedule").description("Manage scheduled background jobs");
+  scheduleCommand
+    .command("create")
+    .argument("<input>", "Scheduled task prompt")
+    .requiredOption("--name <name>", "Schedule display name")
+    .option("--every <duration>", "Recurring interval, e.g. 5m, 1h, 1d")
+    .option("--at <iso>", "One-shot run time in ISO-8601")
+    .option("--cron <expression>", "Cron expression")
+    .option("--timezone <timezone>", "IANA timezone for cron, e.g. Asia/Shanghai")
+    .option("--thread <thread_id>", "Continue an existing thread")
+    .option("--profile <profile>", "Agent profile id", "executor")
+    .option("--cwd <cwd>", "Working directory", process.cwd())
+    .option("--max-attempts <num>", "Max retry attempts", "3")
+    .option("--backoff-base <ms>", "Backoff base milliseconds", "5000")
+    .option("--backoff-max <ms>", "Backoff max milliseconds", "300000")
+    .action((input: string, commandOptions: Record<string, string | undefined>) => {
+      const handle = createApplication(process.cwd());
+      try {
+        const ownerUserId = process.env.USERNAME ?? process.env.USER ?? "local-user";
+        const name = commandOptions.name ?? "scheduled-run";
+        const cwd = commandOptions.cwd ?? process.cwd();
+        const profile = (commandOptions.profile ?? "executor") as "executor" | "planner" | "reviewer";
+        const schedule = handle.service.createSchedule({
+          agentProfileId: profile,
+          backoffBaseMs: Number.parseInt(commandOptions.backoffBase ?? "5000", 10),
+          backoffMaxMs: Number.parseInt(commandOptions.backoffMax ?? "300000", 10),
+          cwd,
+          input,
+          maxAttempts: Number.parseInt(commandOptions.maxAttempts ?? "3", 10),
+          name,
+          ownerUserId,
+          providerName: handle.config.provider.name,
+          ...(commandOptions.cron !== undefined ? { cron: commandOptions.cron } : {}),
+          ...(commandOptions.every !== undefined ? { every: commandOptions.every } : {}),
+          ...(commandOptions.at !== undefined ? { runAt: commandOptions.at } : {}),
+          ...(commandOptions.thread !== undefined ? { threadId: commandOptions.thread } : {}),
+          ...(commandOptions.timezone !== undefined ? { timezone: commandOptions.timezone } : {})
+        });
+        console.log(formatScheduleDetail(schedule));
+      } finally {
+        handle.close();
+      }
+    });
+  scheduleCommand
+    .command("list")
+    .option("--status <status>", "Filter status: active | paused | completed | archived")
+    .action((commandOptions: { status?: "active" | "paused" | "completed" | "archived" }) => {
+      const handle = createApplication(process.cwd());
+      try {
+        const query = commandOptions.status === undefined ? undefined : { status: commandOptions.status };
+        console.log(formatScheduleList(handle.service.listSchedules(query)));
+      } finally {
+        handle.close();
+      }
+    });
+  scheduleCommand.command("show").argument("<schedule_id>").action((scheduleId: string) => {
+    const handle = createApplication(process.cwd());
+    try {
+      const schedule = handle.service.showSchedule(scheduleId);
+      if (schedule === null) {
+        console.error(`Schedule ${scheduleId} not found.`);
+        process.exitCode = 1;
+        return;
+      }
+      console.log(formatScheduleDetail(schedule));
+    } finally {
+      handle.close();
+    }
+  });
+  scheduleCommand.command("pause").argument("<schedule_id>").action((scheduleId: string) => {
+    const handle = createApplication(process.cwd());
+    try {
+      console.log(formatScheduleDetail(handle.service.pauseSchedule(scheduleId)));
+    } finally {
+      handle.close();
+    }
+  });
+  scheduleCommand.command("resume").argument("<schedule_id>").action((scheduleId: string) => {
+    const handle = createApplication(process.cwd());
+    try {
+      console.log(formatScheduleDetail(handle.service.resumeSchedule(scheduleId)));
+    } finally {
+      handle.close();
+    }
+  });
+  scheduleCommand.command("run-now").argument("<schedule_id>").action((scheduleId: string) => {
+    const handle = createApplication(process.cwd());
+    try {
+      const run = handle.service.runScheduleNow(scheduleId);
+      console.log(formatScheduleRunList([run]));
+    } finally {
+      handle.close();
+    }
+  });
+  scheduleCommand
+    .command("runs")
+    .argument("<schedule_id>")
+    .option("--status <status>", "Filter status")
+    .option("--tail <count>", "Number of latest runs", "20")
+    .action((scheduleId: string, commandOptions: { status?: string; tail: string }) => {
+      const handle = createApplication(process.cwd());
+      try {
+        const parsedStatus = commandOptions.status as
+          | "queued"
+          | "running"
+          | "waiting_approval"
+          | "blocked"
+          | "completed"
+          | "failed"
+          | "cancelled"
+          | undefined;
+        const query =
+          parsedStatus === undefined
+            ? { tail: Number.parseInt(commandOptions.tail, 10) }
+            : { status: parsedStatus, tail: Number.parseInt(commandOptions.tail, 10) };
+        const runs = handle.service.listScheduleRuns(scheduleId, query);
+        console.log(formatScheduleRunList(runs));
+      } finally {
+        handle.close();
+      }
+    });
+  scheduleCommand.command("run").description("Run scheduler daemon").action(async () => {
+    const handle = createApplication(process.cwd(), {
+      scheduler: { autoStart: true }
+    });
+    console.log("Scheduler started. Press Ctrl+C to stop.");
+    await new Promise<void>((resolve) => {
+      process.on("SIGINT", () => {
+        handle.close();
+        resolve();
+      });
+    });
+  });
 
   traceCommand
     .argument("[task_id]", "Task identifier")

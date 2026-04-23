@@ -41,6 +41,8 @@ import { ShellExecutor } from "../tools/shell/shell-executor.js";
 import { AgentApplicationService } from "./application-service.js";
 import { ContextCompactor, SessionSnapshotService } from "./context/index.js";
 import { ExecutionKernel } from "./execution-kernel.js";
+import { JobRunner } from "./jobs/index.js";
+import { SchedulerService } from "./scheduler/index.js";
 import { ResumePacketBuilder, ThreadService, ThreadStateProjector } from "./threads/index.js";
 import { resolveRuntimeConfig, type WorkflowRuntimeConfig } from "./runtime-config.js";
 import { initializeWorkspaceFiles, migrateWorkspaceConfigFiles } from "./workspace-setup.js";
@@ -126,6 +128,9 @@ export interface CreateApplicationOptions {
   policyConfig?: LocalPolicyConfig;
   provider?: Provider;
   providerCatalog?: ProviderCatalogEntry[];
+  scheduler?: {
+    autoStart?: boolean;
+  };
   sandbox?: ResolveAppConfigOptions;
 }
 
@@ -279,8 +284,40 @@ export function createApplication(
     config,
     stateProjector: threadStateProjector
   });
+  let service: AgentApplicationService | null = null;
+  const jobRunner = new JobRunner({
+    scheduleRepository: storage.schedules,
+    scheduleRunRepository: storage.scheduleRuns,
+    traceService,
+    execute: async ({ schedule }) => {
+      if (service === null) {
+        throw new Error("Application service has not been initialized.");
+      }
+      const runResult = await service.runTask({
+        agentProfileId: schedule.agentProfileId,
+        cwd: schedule.cwd,
+        maxIterations: config.defaultMaxIterations,
+        taskInput: schedule.input,
+        ...(schedule.threadId !== null ? { threadId: schedule.threadId } : {}),
+        timeoutMs: config.defaultTimeoutMs,
+        tokenBudget: {
+          ...config.tokenBudget,
+          usedInput: 0,
+          usedOutput: 0
+        },
+        userId: schedule.ownerUserId
+      });
+      return runResult;
+    }
+  });
+  const schedulerService = new SchedulerService({
+    jobRunner,
+    scheduleRepository: storage.schedules,
+    scheduleRunRepository: storage.scheduleRuns,
+    traceService
+  });
 
-  const service = new AgentApplicationService({
+  service = new AgentApplicationService({
     databasePath: config.databasePath,
     executionKernel,
     findArtifact: (artifactId) => storage.artifacts.findById(artifactId),
@@ -298,7 +335,12 @@ export function createApplication(
     findTask: (taskId) => storage.tasks.findById(taskId),
     listTasks: () => storage.tasks.list(),
     findThread: (threadId) => storage.threads.findById(threadId),
+    findSchedule: (scheduleId) => storage.schedules.findById(scheduleId),
     listThreads: () => storage.threads.list(),
+    listSchedules: (query) => storage.schedules.list(query),
+    listScheduleRuns: (scheduleId, query) => storage.scheduleRuns.listByScheduleId(scheduleId, query),
+    listScheduleRunsByTask: (taskId) => storage.scheduleRuns.listByTaskId(taskId),
+    listScheduleRunsByThread: (threadId) => storage.scheduleRuns.listByThreadId(threadId),
     listThreadRuns: (threadId) => storage.threadRuns.listByThreadId(threadId),
     listThreadSnapshots: (threadId) => storage.threadSnapshots.listByThread(threadId),
     findThreadSnapshot: (snapshotId) => storage.threadSnapshots.findById(snapshotId),
@@ -313,6 +355,7 @@ export function createApplication(
     runtimeConfigPath: config.runtimeConfigPath,
     runtimeConfigSource: config.runtimeConfigSource,
     runtimeVersion: config.runtimeVersion,
+    schedulerService,
     resumePacketBuilder,
     threadService,
     tokenBudget: {
@@ -328,10 +371,14 @@ export function createApplication(
     skillRegistry,
     workspaceRoot: config.workspaceRoot
   });
+  if (options.scheduler?.autoStart === true) {
+    service.startScheduler();
+  }
 
   return {
     close: () => {
       experienceCollector.stop();
+      service?.stopScheduler();
       void mcpClientManager.close();
       storage.close();
     },

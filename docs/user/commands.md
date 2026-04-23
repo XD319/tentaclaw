@@ -14,6 +14,7 @@ Operational:
 
 - `talon task list|show|timeline`
 - `talon thread list|show|archive|snapshots <thread_id>|snapshot <snapshot_id>`
+- `talon schedule create|list|show|pause|resume|run-now|runs|run`
 - `talon trace [task_id] [--summary]`
 - `talon audit <task_id> [--summary]`
 - `talon approve pending|allow|deny`

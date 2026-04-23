@@ -54,6 +54,7 @@
   "dependencies": {
     "clipboardy": "^3.0.0",
     "commander": "^14.0.0",
+    "cron-parser": "^5.5.0",
     "highlight.js": "^11.11.1",
     "ink": "^7.0.1",
     "node-html-parser": "^6.1.13",

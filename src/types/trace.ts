@@ -53,6 +53,14 @@ export const TRACE_EVENT_TYPES = [
   "memory_written",
   "session_compacted",
   "thread_snapshot_created",
+  "schedule_created",
+  "schedule_paused",
+  "schedule_resumed",
+  "schedule_run_enqueued",
+  "schedule_run_started",
+  "schedule_run_finished",
+  "schedule_run_failed",
+  "schedule_run_retry_scheduled",
   "memory_snapshot_created",
   "experience_captured",
   "experience_reviewed",
@@ -364,6 +372,64 @@ export interface ThreadSnapshotCreatedPayload extends JsonObject {
   goal: string;
 }
 
+export interface ScheduleCreatedPayload extends JsonObject {
+  scheduleId: string;
+  status: "active" | "paused";
+  nextFireAt: string | null;
+}
+
+export interface SchedulePausedPayload extends JsonObject {
+  scheduleId: string;
+  status: "paused";
+}
+
+export interface ScheduleResumedPayload extends JsonObject {
+  scheduleId: string;
+  status: "active";
+  nextFireAt: string | null;
+}
+
+export interface ScheduleRunEnqueuedPayload extends JsonObject {
+  runId: string;
+  scheduleId: string;
+  trigger: "scheduled" | "manual" | "retry";
+  attemptNumber: number;
+  scheduledAt: string;
+}
+
+export interface ScheduleRunStartedPayload extends JsonObject {
+  runId: string;
+  scheduleId: string;
+  attemptNumber: number;
+}
+
+export interface ScheduleRunFinishedPayload extends JsonObject {
+  runId: string;
+  scheduleId: string;
+  attemptNumber: number;
+  status: "completed" | "waiting_approval" | "blocked" | "cancelled";
+  taskId: string | null;
+  threadId: string | null;
+}
+
+export interface ScheduleRunFailedPayload extends JsonObject {
+  runId: string;
+  scheduleId: string;
+  attemptNumber: number;
+  errorCode: RuntimeErrorCode | null;
+  errorMessage: string | null;
+  taskId: string | null;
+}
+
+export interface ScheduleRunRetryScheduledPayload extends JsonObject {
+  priorRunId: string;
+  retryRunId: string;
+  scheduleId: string;
+  nextAttemptNumber: number;
+  retryAt: string;
+  delayMs: number;
+}
+
 export interface MemorySnapshotCreatedPayload extends JsonObject {
   snapshotId: string;
   scope: MemoryScope;
@@ -464,6 +530,14 @@ export type TraceEvent =
   | TraceEventBase<"memory_written", MemoryWrittenPayload>
   | TraceEventBase<"session_compacted", SessionCompactedPayload>
   | TraceEventBase<"thread_snapshot_created", ThreadSnapshotCreatedPayload>
+  | TraceEventBase<"schedule_created", ScheduleCreatedPayload>
+  | TraceEventBase<"schedule_paused", SchedulePausedPayload>
+  | TraceEventBase<"schedule_resumed", ScheduleResumedPayload>
+  | TraceEventBase<"schedule_run_enqueued", ScheduleRunEnqueuedPayload>
+  | TraceEventBase<"schedule_run_started", ScheduleRunStartedPayload>
+  | TraceEventBase<"schedule_run_finished", ScheduleRunFinishedPayload>
+  | TraceEventBase<"schedule_run_failed", ScheduleRunFailedPayload>
+  | TraceEventBase<"schedule_run_retry_scheduled", ScheduleRunRetryScheduledPayload>
   | TraceEventBase<"memory_snapshot_created", MemorySnapshotCreatedPayload>
   | TraceEventBase<"experience_captured", ExperienceCapturedPayload>
   | TraceEventBase<"experience_reviewed", ExperienceReviewedPayload>

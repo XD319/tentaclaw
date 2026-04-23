@@ -69,7 +69,7 @@ export class SqliteThreadRepository implements ThreadRepository {
 
   public list(query?: ThreadListQuery): ThreadRecord[] {
     const where: string[] = [];
-    const params: unknown[] = [];
+    const params: string[] = [];
     if (query?.ownerUserId !== undefined) {
       where.push("owner_user_id = ?");
       params.push(query.ownerUserId);
@@ -81,7 +81,7 @@ export class SqliteThreadRepository implements ThreadRepository {
     const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
     const rows = this.database
       .prepare(`SELECT * FROM threads ${whereSql} ORDER BY updated_at DESC`)
-      .all(...params) as ThreadRow[];
+      .all(...params) as unknown as ThreadRow[];
     return rows.map((row) => this.mapRow(row));
   }
 

@@ -110,6 +110,9 @@ function collectNextActions(messages: SessionCompactInput["messages"]): string[]
 function findBlockedReason(messages: SessionCompactInput["messages"]): string | null {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
+    if (message === undefined) {
+      continue;
+    }
     if (message.role !== "tool") {
       continue;
     }

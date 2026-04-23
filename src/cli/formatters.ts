@@ -7,6 +7,8 @@ import type {
   MemoryRecord,
   MemorySnapshotRecord,
   ProviderStatsSnapshot,
+  ScheduleRecord,
+  ScheduleRunRecord,
   SkillDraftRecord,
   SkillListResult,
   SkillView,
@@ -107,10 +109,58 @@ export function formatThreadSnapshot(snapshot: ThreadSnapshotRecord): string {
   ].join("\n");
 }
 
+export function formatScheduleList(schedules: ScheduleRecord[]): string {
+  if (schedules.length === 0) {
+    return "No schedules found.";
+  }
+  return schedules
+    .map(
+      (schedule) =>
+        `${schedule.scheduleId} | ${schedule.status} | next=${schedule.nextFireAt ?? "-"} | ${schedule.name}`
+    )
+    .join("\n");
+}
+
+export function formatScheduleDetail(schedule: ScheduleRecord): string {
+  return [
+    `Schedule ID: ${schedule.scheduleId}`,
+    `Name: ${schedule.name}`,
+    `Status: ${schedule.status}`,
+    `Thread ID: ${schedule.threadId ?? "-"}`,
+    `Owner: ${schedule.ownerUserId}`,
+    `Profile: ${schedule.agentProfileId}`,
+    `Provider: ${schedule.providerName}`,
+    `CWD: ${schedule.cwd}`,
+    `Input: ${schedule.input}`,
+    `Run At: ${schedule.runAt ?? "-"}`,
+    `Interval (ms): ${schedule.intervalMs ?? "-"}`,
+    `Cron: ${schedule.cron ?? "-"}`,
+    `Timezone: ${schedule.timezone ?? "-"}`,
+    `Next Fire: ${schedule.nextFireAt ?? "-"}`,
+    `Last Fire: ${schedule.lastFireAt ?? "-"}`,
+    `Max Attempts: ${schedule.maxAttempts}`,
+    `Backoff Base (ms): ${schedule.backoffBaseMs}`,
+    `Backoff Max (ms): ${schedule.backoffMaxMs}`
+  ].join("\n");
+}
+
+export function formatScheduleRunList(runs: ScheduleRunRecord[]): string {
+  if (runs.length === 0) {
+    return "No schedule runs found.";
+  }
+  return runs
+    .map(
+      (run) =>
+        `${run.runId} | attempt=${run.attemptNumber} | ${run.status} | trigger=${run.trigger} | task=${run.taskId ?? "-"} | thread=${run.threadId ?? "-"}`
+    )
+    .join("\n");
+}
+
 export function formatTask(
   task: TaskRecord,
   toolCalls: ToolCallRecord[],
-  approvals: ApprovalRecord[] = []
+  approvals: ApprovalRecord[] = [],
+  scheduleRuns: ScheduleRunRecord[] = []
 ): string {
   const header = [
     `Task ID: ${task.taskId}`,
@@ -150,7 +200,18 @@ export function formatTask(
           )
         ].join("\n");
 
-  return `${header}\n${toolCallSection}\n${approvalSection}`;
+  const scheduleSection =
+    scheduleRuns.length === 0
+      ? "Schedule Runs: none"
+      : [
+          "Schedule Runs:",
+          ...scheduleRuns.map(
+            (scheduleRun) =>
+              `- ${scheduleRun.runId} ${scheduleRun.status} attempt=${scheduleRun.attemptNumber} schedule=${scheduleRun.scheduleId}`
+          )
+        ].join("\n");
+
+  return `${header}\n${toolCallSection}\n${approvalSection}\n${scheduleSection}`;
 }
 
 export function formatTrace(traceEvents: TraceEvent[]): string {

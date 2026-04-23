@@ -22,6 +22,11 @@ export function runMigrations(database: DatabaseSync): void {
       description: "add thread snapshots table",
       up: migrateV4,
       version: 4
+    },
+    {
+      description: "add schedule and schedule run tables",
+      up: migrateV5,
+      version: 5
     }
   ];
 
@@ -350,6 +355,60 @@ function migrateV4(database: DatabaseSync): void {
 
     CREATE INDEX IF NOT EXISTS idx_thread_snapshots_thread
       ON thread_snapshots(thread_id, created_at DESC);
+  `);
+}
+
+function migrateV5(database: DatabaseSync): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS schedules (
+      schedule_id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      status TEXT NOT NULL,
+      thread_id TEXT REFERENCES threads(thread_id),
+      owner_user_id TEXT NOT NULL,
+      cwd TEXT NOT NULL,
+      agent_profile_id TEXT NOT NULL DEFAULT 'executor',
+      provider_name TEXT NOT NULL,
+      input TEXT NOT NULL,
+      run_at TEXT,
+      interval_ms INTEGER,
+      cron TEXT,
+      timezone TEXT,
+      max_attempts INTEGER NOT NULL DEFAULT 3,
+      backoff_base_ms INTEGER NOT NULL DEFAULT 5000,
+      backoff_max_ms INTEGER NOT NULL DEFAULT 300000,
+      next_fire_at TEXT,
+      last_fire_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      metadata_json TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_schedules_status_fire
+      ON schedules(status, next_fire_at);
+
+    CREATE TABLE IF NOT EXISTS schedule_runs (
+      run_id TEXT PRIMARY KEY,
+      schedule_id TEXT NOT NULL REFERENCES schedules(schedule_id),
+      attempt_number INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      scheduled_at TEXT NOT NULL,
+      started_at TEXT,
+      finished_at TEXT,
+      task_id TEXT REFERENCES tasks(task_id),
+      thread_id TEXT REFERENCES threads(thread_id),
+      error_code TEXT,
+      error_message TEXT,
+      trigger TEXT NOT NULL,
+      metadata_json TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_schedule_runs_schedule
+      ON schedule_runs(schedule_id, scheduled_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_schedule_runs_status_due
+      ON schedule_runs(status, scheduled_at);
+    CREATE INDEX IF NOT EXISTS idx_schedule_runs_task
+      ON schedule_runs(task_id);
   `);
 }
 

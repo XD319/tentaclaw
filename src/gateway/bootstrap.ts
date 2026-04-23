@@ -37,7 +37,12 @@ export function createGatewayApplication(
   cwd = process.cwd(),
   options: CreateApplicationOptions = {}
 ): GatewayApplicationHandle {
-  const runtime = createApplication(cwd, options);
+  const runtime = createApplication(cwd, {
+    ...options,
+    scheduler: {
+      autoStart: options.scheduler?.autoStart ?? true
+    }
+  });
   return {
     close: () => runtime.close(),
     gateway: createGatewayRuntime(runtime),

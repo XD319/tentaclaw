@@ -12,6 +12,8 @@ import { SqliteGatewaySessionRepository } from "./repositories/gateway-session-r
 import { SqliteMemoryRepository } from "./repositories/memory-repository.js";
 import { SqliteMemorySnapshotRepository } from "./repositories/memory-snapshot-repository.js";
 import { SqliteRunMetadataRepository } from "./repositories/run-metadata-repository.js";
+import { SqliteScheduleRepository } from "./repositories/schedules/schedule-repository.js";
+import { SqliteScheduleRunRepository } from "./repositories/schedules/schedule-run-repository.js";
 import { SqliteTaskRepository } from "./repositories/task-repository.js";
 import { SqliteThreadLineageRepository } from "./repositories/thread-lineage-repository.js";
 import { SqliteThreadRepository } from "./repositories/thread-repository.js";
@@ -31,6 +33,8 @@ export class StorageManager {
   public readonly threadRuns: SqliteThreadRunRepository;
   public readonly threadLineage: SqliteThreadLineageRepository;
   public readonly threadSnapshots: SqliteThreadSnapshotRepository;
+  public readonly schedules: SqliteScheduleRepository;
+  public readonly scheduleRuns: SqliteScheduleRunRepository;
   public readonly traces: SqliteTraceRepository;
   public readonly toolCalls: SqliteToolCallRepository;
   public readonly artifacts: SqliteArtifactRepository;
@@ -56,6 +60,8 @@ export class StorageManager {
     this.threadRuns = new SqliteThreadRunRepository(this.database);
     this.threadLineage = new SqliteThreadLineageRepository(this.database);
     this.threadSnapshots = new SqliteThreadSnapshotRepository(this.database);
+    this.schedules = new SqliteScheduleRepository(this.database);
+    this.scheduleRuns = new SqliteScheduleRunRepository(this.database);
     this.traces = new SqliteTraceRepository(this.database);
     this.toolCalls = new SqliteToolCallRepository(this.database);
     this.artifacts = new SqliteArtifactRepository(this.database);

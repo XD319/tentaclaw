@@ -32,6 +32,17 @@ import type { ArtifactDraft, ArtifactRecord, ToolCallRecord } from "./tool.js";
 import type { TraceEvent } from "./trace.js";
 import type { RunMetadataRecord, TaskDraft, TaskRecord, TaskStatus } from "./task.js";
 import type { RuntimeErrorCode } from "./error.js";
+import type {
+  ScheduleDraft,
+  ScheduleDueQuery,
+  ScheduleListQuery,
+  ScheduleRecord,
+  ScheduleRunDraft,
+  ScheduleRunListQuery,
+  ScheduleRunRecord,
+  ScheduleRunUpdatePatch,
+  ScheduleUpdatePatch
+} from "./schedule.js";
 
 export interface TaskUpdatePatch {
   status?: TaskStatus;
@@ -80,6 +91,24 @@ export interface ThreadSnapshotRepository {
   findById(snapshotId: string): ThreadSnapshotRecord | null;
   findLatestByThread(threadId: string): ThreadSnapshotRecord | null;
   listByThread(threadId: string): ThreadSnapshotRecord[];
+}
+
+export interface ScheduleRepository {
+  create(record: ScheduleDraft): ScheduleRecord;
+  findById(scheduleId: string): ScheduleRecord | null;
+  list(query?: ScheduleListQuery): ScheduleRecord[];
+  update(scheduleId: string, patch: ScheduleUpdatePatch): ScheduleRecord;
+  findDue(query: ScheduleDueQuery): ScheduleRecord[];
+}
+
+export interface ScheduleRunRepository {
+  create(record: ScheduleRunDraft): ScheduleRunRecord;
+  findById(runId: string): ScheduleRunRecord | null;
+  listByScheduleId(scheduleId: string, query?: ScheduleRunListQuery): ScheduleRunRecord[];
+  listByTaskId(taskId: string): ScheduleRunRecord[];
+  listByThreadId(threadId: string): ScheduleRunRecord[];
+  claimDue(now: string, limit: number): ScheduleRunRecord[];
+  update(runId: string, patch: ScheduleRunUpdatePatch): ScheduleRunRecord;
 }
 
 export interface TraceRepository {

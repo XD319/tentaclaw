@@ -20,6 +20,7 @@ export interface StartTuiOptions {
 export async function startTui(options: StartTuiOptions = {}): Promise<void> {
   const cwd = options.cwd ?? process.cwd();
   const handle = createApplication(cwd, {
+    scheduler: { autoStart: true },
     ...(options.sandbox !== undefined ? { sandbox: options.sandbox } : {})
   });
   try {
@@ -63,6 +64,7 @@ export async function startDashboardTui(
   sandbox?: ResolveAppConfigOptions
 ): Promise<void> {
   const handle = createApplication(cwd, {
+    scheduler: { autoStart: true },
     ...(sandbox !== undefined ? { sandbox } : {})
   });
   try {
