@@ -27,6 +27,14 @@ describe("inbox collector", () => {
         traceService
       });
 
+      storage.threads.create({
+        agentProfileId: "executor",
+        cwd: process.cwd(),
+        ownerUserId: "u1",
+        providerName: "test-provider",
+        threadId: "thread-1",
+        title: "Thread one"
+      });
       storage.tasks.create({
         agentProfileId: "executor",
         cwd: process.cwd(),
@@ -37,6 +45,7 @@ describe("inbox collector", () => {
         requesterUserId: "u1",
         status: "succeeded",
         taskId: "task-1",
+        threadId: "thread-1",
         tokenBudget: {
           inputLimit: 1000,
           outputLimit: 1000,
@@ -72,11 +81,25 @@ describe("inbox collector", () => {
         summary: "task success",
         taskId: "task-1"
       });
+      traceService.record({
+        actor: "runtime.commitment",
+        eventType: "commitment_blocked",
+        payload: {
+          blockedReason: "awaiting user decision",
+          commitmentId: "commitment-1",
+          taskId: "task-1",
+          threadId: "thread-1"
+        },
+        stage: "planning",
+        summary: "commitment blocked",
+        taskId: "task-1"
+      });
       collector.stop();
 
       const items = storage.inbox.list({ userId: "u1" });
       expect(items.some((item) => item.category === "approval_requested")).toBe(true);
       expect(items.some((item) => item.category === "task_completed")).toBe(true);
+      expect(items.some((item) => item.category === "task_blocked")).toBe(true);
     } finally {
       storage.close();
     }

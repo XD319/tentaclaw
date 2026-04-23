@@ -68,7 +68,17 @@ export const TRACE_EVENT_TYPES = [
   "experience_recall_ranked",
   "reviewer_trace",
   "inbox_item_created",
-  "inbox_item_done"
+  "inbox_item_done",
+  "commitment_created",
+  "commitment_updated",
+  "commitment_blocked",
+  "commitment_unblocked",
+  "commitment_completed",
+  "commitment_cancelled",
+  "next_action_created",
+  "next_action_updated",
+  "next_action_blocked",
+  "next_action_done"
 ] as const;
 
 export type TraceEventType = (typeof TRACE_EVENT_TYPES)[number];
@@ -499,6 +509,81 @@ export interface InboxItemDonePayload extends JsonObject {
   reviewerId: string;
 }
 
+export interface CommitmentCreatedPayload extends JsonObject {
+  commitmentId: string;
+  threadId: string;
+  taskId: string | null;
+  status: string;
+  title: string;
+}
+
+export interface CommitmentUpdatedPayload extends JsonObject {
+  commitmentId: string;
+  threadId: string;
+  taskId: string | null;
+  status: string;
+  blockedReason: string | null;
+  pendingDecision: string | null;
+}
+
+export interface CommitmentBlockedPayload extends JsonObject {
+  commitmentId: string;
+  threadId: string;
+  taskId: string | null;
+  blockedReason: string;
+}
+
+export interface CommitmentUnblockedPayload extends JsonObject {
+  commitmentId: string;
+  threadId: string;
+  taskId: string | null;
+}
+
+export interface CommitmentCompletedPayload extends JsonObject {
+  commitmentId: string;
+  threadId: string;
+  taskId: string | null;
+}
+
+export interface CommitmentCancelledPayload extends JsonObject {
+  commitmentId: string;
+  threadId: string;
+  taskId: string | null;
+}
+
+export interface NextActionCreatedPayload extends JsonObject {
+  nextActionId: string;
+  commitmentId: string | null;
+  threadId: string;
+  taskId: string | null;
+  status: string;
+  title: string;
+}
+
+export interface NextActionUpdatedPayload extends JsonObject {
+  nextActionId: string;
+  commitmentId: string | null;
+  threadId: string;
+  taskId: string | null;
+  status: string;
+  blockedReason: string | null;
+}
+
+export interface NextActionBlockedPayload extends JsonObject {
+  nextActionId: string;
+  commitmentId: string | null;
+  threadId: string;
+  taskId: string | null;
+  blockedReason: string;
+}
+
+export interface NextActionDonePayload extends JsonObject {
+  nextActionId: string;
+  commitmentId: string | null;
+  threadId: string;
+  taskId: string | null;
+}
+
 export interface FileRollbackPayload extends JsonObject {
   artifactId: string;
   operation: string;
@@ -562,7 +647,17 @@ export type TraceEvent =
   | TraceEventBase<"experience_recall_ranked", ExperienceRecallRankedPayload>
   | TraceEventBase<"reviewer_trace", ReviewerTracePayload>
   | TraceEventBase<"inbox_item_created", InboxItemCreatedPayload>
-  | TraceEventBase<"inbox_item_done", InboxItemDonePayload>;
+  | TraceEventBase<"inbox_item_done", InboxItemDonePayload>
+  | TraceEventBase<"commitment_created", CommitmentCreatedPayload>
+  | TraceEventBase<"commitment_updated", CommitmentUpdatedPayload>
+  | TraceEventBase<"commitment_blocked", CommitmentBlockedPayload>
+  | TraceEventBase<"commitment_unblocked", CommitmentUnblockedPayload>
+  | TraceEventBase<"commitment_completed", CommitmentCompletedPayload>
+  | TraceEventBase<"commitment_cancelled", CommitmentCancelledPayload>
+  | TraceEventBase<"next_action_created", NextActionCreatedPayload>
+  | TraceEventBase<"next_action_updated", NextActionUpdatedPayload>
+  | TraceEventBase<"next_action_blocked", NextActionBlockedPayload>
+  | TraceEventBase<"next_action_done", NextActionDonePayload>;
 
 export type TraceEventDraft = Omit<TraceEvent, "eventId" | "sequence" | "timestamp"> &
   Partial<Pick<TraceEvent, "eventId" | "sequence" | "timestamp">>;

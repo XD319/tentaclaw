@@ -3,6 +3,7 @@ export * from "./adapter.js";
 export * from "./audit.js";
 export * from "./checkpoint.js";
 export * from "./common.js";
+export * from "./commitment.js";
 export * from "./context.js";
 export * from "./error.js";
 export * from "./experience.js";

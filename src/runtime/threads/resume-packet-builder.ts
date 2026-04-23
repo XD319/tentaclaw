@@ -19,8 +19,12 @@ export class ResumePacketBuilder {
     const metadata: JsonObject = {
       ...(overrides?.metadata ?? {}),
       threadResume: {
+        blockedReason: projection.commitmentState.blockedReason,
+        commitments: projection.commitmentState.openCommitments,
         contextMessages: projection.messages,
         memoryContext: projection.memoryContext,
+        nextAction: projection.commitmentState.nextAction,
+        pendingDecision: projection.commitmentState.pendingDecision,
         projectedMessageCount: projection.messages.length
       } as unknown as JsonObject
     };

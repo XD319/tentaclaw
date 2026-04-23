@@ -43,6 +43,12 @@ import { ContextCompactor, SessionSnapshotService } from "./context/index.js";
 import { ExecutionKernel } from "./execution-kernel.js";
 import { DeliveryService } from "./delivery/index.js";
 import { InboxCollector, InboxService } from "./inbox/index.js";
+import {
+  CommitmentCollector,
+  CommitmentService,
+  NextActionService,
+  ThreadCommitmentProjector
+} from "./commitments/index.js";
 import { JobRunner } from "./jobs/index.js";
 import { SchedulerService } from "./scheduler/index.js";
 import { ResumePacketBuilder, ThreadService, ThreadStateProjector } from "./threads/index.js";
@@ -269,6 +275,27 @@ export function createApplication(
     traceService
   });
   inboxCollector.start();
+  const commitmentService = new CommitmentService({
+    commitmentRepository: storage.commitments,
+    traceService
+  });
+  const nextActionService = new NextActionService({
+    nextActionRepository: storage.nextActions,
+    traceService
+  });
+  const threadCommitmentProjector = new ThreadCommitmentProjector({
+    commitmentService,
+    nextActionService,
+    snapshotService: sessionSnapshotService
+  });
+  const commitmentCollector = new CommitmentCollector({
+    commitmentService,
+    findTask: (taskId) => storage.tasks.findById(taskId),
+    nextActionService,
+    snapshotService: sessionSnapshotService,
+    traceService
+  });
+  commitmentCollector.start();
 
   const executionKernel = new ExecutionKernel({
     compact: config.compact,
@@ -295,6 +322,7 @@ export function createApplication(
     threadRunRepository: storage.threadRuns
   });
   const threadStateProjector = new ThreadStateProjector({
+    commitmentProjector: threadCommitmentProjector,
     memoryRepository: storage.memories,
     snapshotService: sessionSnapshotService,
     threadRunRepository: storage.threadRuns
@@ -391,6 +419,9 @@ export function createApplication(
     skillDraftManager,
     skillRegistry,
     inboxService,
+    commitmentService,
+    nextActionService,
+    threadCommitmentProjector,
     workspaceRoot: config.workspaceRoot
   });
   if (options.scheduler?.autoStart === true) {
@@ -401,6 +432,7 @@ export function createApplication(
     close: () => {
       experienceCollector.stop();
       inboxCollector.stop();
+      commitmentCollector.stop();
       service?.stopScheduler();
       void mcpClientManager.close();
       storage.close();

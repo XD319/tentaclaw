@@ -17,6 +17,9 @@ import type {
   ApprovalRecord,
   ArtifactRecord,
   AuditLogRecord,
+  CommitmentDraft,
+  CommitmentListQuery,
+  CommitmentRecord,
   ExperienceQuery,
   ExperienceRecord,
   InboxDeliveryEvent,
@@ -31,6 +34,9 @@ import type {
   ProviderHealthCheck,
   ProviderUsage,
   RuntimeRunOptions,
+  NextActionDraft,
+  NextActionRecord,
+  NextActionListQuery,
   ScheduleListQuery,
   ScheduleRecord,
   ScheduleRunListQuery,
@@ -40,6 +46,7 @@ import type {
   ThreadRecord,
   ThreadRunRecord,
   ThreadSnapshotRecord,
+  ThreadCommitmentState,
   TraceEvent,
   ToolCallRecord
 } from "../types/index.js";
@@ -51,6 +58,11 @@ import type { ExecutionKernel } from "./execution-kernel.js";
 import type { ResumePacketBuilder, ThreadService } from "./threads/index.js";
 import type { CreateScheduleInput, SchedulerService } from "./scheduler/index.js";
 import type { InboxService } from "./inbox/index.js";
+import type {
+  CommitmentService,
+  NextActionService,
+  ThreadCommitmentProjector
+} from "./commitments/index.js";
 
 import { AppError, toAppError } from "./app-error.js";
 
@@ -187,6 +199,9 @@ export interface AgentApplicationServiceDependencies extends RuntimeReadModel {
   skillDraftManager: SkillDraftManager;
   skillRegistry: SkillRegistry;
   inboxService: InboxService;
+  commitmentService: CommitmentService;
+  nextActionService: NextActionService;
+  threadCommitmentProjector: ThreadCommitmentProjector;
   tokenBudget: {
     inputLimit: number;
     outputLimit: number;
@@ -275,7 +290,10 @@ export class AgentApplicationService {
   }
 
   public showThread(threadId: string): {
+    commitments: CommitmentRecord[];
     inboxItems: InboxItem[];
+    nextActions: NextActionRecord[];
+    state: ThreadCommitmentState;
     thread: ThreadRecord | null;
     runs: ThreadRunRecord[];
     lineage: ThreadLineageRecord[];
@@ -283,14 +301,33 @@ export class AgentApplicationService {
   } {
     const thread = this.dependencies.findThread(threadId);
     if (thread === null) {
-      return { thread: null, runs: [], lineage: [], scheduleRuns: [], inboxItems: [] };
+      return {
+        commitments: [],
+        inboxItems: [],
+        lineage: [],
+        nextActions: [],
+        runs: [],
+        scheduleRuns: [],
+        state: {
+          activeNextActions: [],
+          blockedReason: null,
+          currentObjective: null,
+          nextAction: null,
+          openCommitments: [],
+          pendingDecision: null
+        },
+        thread: null
+      };
     }
     return {
+      commitments: this.dependencies.commitmentService.list({ threadId }),
       inboxItems: this.dependencies.listInboxItems({ threadId }),
+      nextActions: this.dependencies.nextActionService.list({ threadId }),
       thread,
       runs: this.dependencies.listThreadRuns(threadId),
       lineage: this.dependencies.listThreadLineage(threadId),
-      scheduleRuns: this.dependencies.listScheduleRunsByThread(threadId)
+      scheduleRuns: this.dependencies.listScheduleRunsByThread(threadId),
+      state: this.dependencies.threadCommitmentProjector.project(threadId)
     };
   }
 
@@ -316,7 +353,7 @@ export class AgentApplicationService {
   }
 
   public async continueLatest(
-    input: string,
+    input: string | undefined,
     overrides?: Partial<RuntimeRunOptions>
   ): Promise<RunTaskResult> {
     const ownerUserId = overrides?.userId ?? process.env.USERNAME ?? process.env.USER ?? "local-user";
@@ -324,7 +361,74 @@ export class AgentApplicationService {
     if (latest === null) {
       throw new Error("No threads found for current user.");
     }
-    return this.continueThread(latest.threadId, input, overrides);
+    const resolvedInput =
+      input ??
+      this.dependencies.threadCommitmentProjector.project(latest.threadId).nextAction?.title ??
+      null;
+    if (resolvedInput === null) {
+      throw new Error("No next action found for latest thread. Provide an explicit task input.");
+    }
+    return this.continueThread(latest.threadId, resolvedInput, overrides);
+  }
+
+  public listCommitments(query: CommitmentListQuery = {}): CommitmentRecord[] {
+    return this.dependencies.commitmentService.list(query);
+  }
+
+  public showCommitment(commitmentId: string): CommitmentRecord | null {
+    return this.dependencies.commitmentService.get(commitmentId);
+  }
+
+  public createCommitment(draft: CommitmentDraft): CommitmentRecord {
+    return this.dependencies.commitmentService.create(draft);
+  }
+
+  public updateCommitment(commitmentId: string, patch: Parameters<CommitmentService["update"]>[1]): CommitmentRecord {
+    return this.dependencies.commitmentService.update(commitmentId, patch);
+  }
+
+  public blockCommitment(commitmentId: string, reason: string): CommitmentRecord {
+    return this.dependencies.commitmentService.block(commitmentId, reason);
+  }
+
+  public unblockCommitment(commitmentId: string): CommitmentRecord {
+    return this.dependencies.commitmentService.unblock(commitmentId);
+  }
+
+  public completeCommitment(commitmentId: string): CommitmentRecord {
+    return this.dependencies.commitmentService.complete(commitmentId);
+  }
+
+  public cancelCommitment(commitmentId: string): CommitmentRecord {
+    return this.dependencies.commitmentService.cancel(commitmentId);
+  }
+
+  public listNextActions(query: NextActionListQuery = {}): NextActionRecord[] {
+    return this.dependencies.nextActionService.list(query);
+  }
+
+  public appendNextAction(draft: NextActionDraft): NextActionRecord {
+    return this.dependencies.nextActionService.create(draft);
+  }
+
+  public markNextActionDone(nextActionId: string): NextActionRecord {
+    return this.dependencies.nextActionService.markDone(nextActionId);
+  }
+
+  public blockNextAction(nextActionId: string, reason: string): NextActionRecord {
+    return this.dependencies.nextActionService.block(nextActionId, reason);
+  }
+
+  public unblockNextAction(nextActionId: string): NextActionRecord {
+    return this.dependencies.nextActionService.unblock(nextActionId);
+  }
+
+  public cancelNextAction(nextActionId: string): NextActionRecord {
+    return this.dependencies.nextActionService.cancel(nextActionId);
+  }
+
+  public reorderNextActions(threadId: string, orderedIds: string[]): NextActionRecord[] {
+    return this.dependencies.nextActionService.reorder(threadId, orderedIds);
   }
 
   public listMemories(): MemoryRecord[] {

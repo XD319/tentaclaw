@@ -32,6 +32,11 @@ export function runMigrations(database: DatabaseSync): void {
       description: "add inbox items table",
       up: migrateV6,
       version: 6
+    },
+    {
+      description: "add commitments and next actions tables",
+      up: migrateV7,
+      version: 7
     }
   ];
 
@@ -454,6 +459,58 @@ function migrateV6(database: DatabaseSync): void {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_inbox_user_dedup
       ON inbox_items(user_id, dedup_key)
       WHERE dedup_key IS NOT NULL;
+  `);
+}
+
+function migrateV7(database: DatabaseSync): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS commitments (
+      commitment_id TEXT PRIMARY KEY,
+      thread_id TEXT NOT NULL REFERENCES threads(thread_id),
+      task_id TEXT REFERENCES tasks(task_id),
+      owner_user_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      status TEXT NOT NULL,
+      blocked_reason TEXT,
+      pending_decision TEXT,
+      source TEXT NOT NULL,
+      source_trace_id TEXT,
+      due_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      completed_at TEXT,
+      metadata_json TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_commitments_thread_status_updated
+      ON commitments(thread_id, status, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_commitments_owner_status_updated
+      ON commitments(owner_user_id, status, updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS next_actions (
+      next_action_id TEXT PRIMARY KEY,
+      thread_id TEXT NOT NULL REFERENCES threads(thread_id),
+      commitment_id TEXT REFERENCES commitments(commitment_id),
+      task_id TEXT REFERENCES tasks(task_id),
+      title TEXT NOT NULL,
+      detail TEXT,
+      status TEXT NOT NULL,
+      rank INTEGER NOT NULL DEFAULT 0,
+      blocked_reason TEXT,
+      source TEXT NOT NULL,
+      source_trace_id TEXT,
+      due_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      completed_at TEXT,
+      metadata_json TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_next_actions_thread_status_rank
+      ON next_actions(thread_id, status, rank);
+    CREATE INDEX IF NOT EXISTS idx_next_actions_commitment_rank
+      ON next_actions(commitment_id, rank);
   `);
 }
 

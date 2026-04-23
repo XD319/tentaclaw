@@ -32,3 +32,9 @@ SQLite runtime schema now includes thread continuity tables:
 - `schedules` for persisted one-shot/interval/cron schedule definitions
 - `schedule_runs` for queued/running/completed/failed execution attempts, retry records, and task/thread traceability
 - `inbox_items` for user-facing delivery entries (task completion/failure, approvals, memory suggestions, skill promotion suggestions)
+- `commitments` for user-visible promises and their lifecycle (`open`/`blocked`/`completed` etc.)
+- `next_actions` for ordered actionable continuation steps, including blocked reason and status
+
+Trace stream also includes commitment lifecycle events:
+- `commitment_created|updated|blocked|unblocked|completed|cancelled`
+- `next_action_created|updated|blocked|done`

@@ -4,25 +4,30 @@ import type {
   ConversationMessage,
   ContextFragment,
   MemoryRepository,
+  ThreadCommitmentState,
   ThreadRunRepository
 } from "../../types/index.js";
 import type { SessionSnapshotService } from "../context/session-snapshot-service.js";
+import type { ThreadCommitmentProjector } from "../commitments/thread-commitment-projector.js";
 
 export interface ThreadStateProjection {
   messages: ConversationMessage[];
   memoryContext: ContextFragment[];
+  commitmentState: ThreadCommitmentState;
 }
 
 export interface ThreadStateProjectorDependencies {
   threadRunRepository: ThreadRunRepository;
   memoryRepository: MemoryRepository;
   snapshotService: SessionSnapshotService;
+  commitmentProjector: ThreadCommitmentProjector;
 }
 
 export class ThreadStateProjector {
   public constructor(private readonly dependencies: ThreadStateProjectorDependencies) {}
 
   public projectState(threadId: string): ThreadStateProjection {
+    const commitmentState = this.dependencies.commitmentProjector.project(threadId);
     const snapshot = this.dependencies.snapshotService.findLatestByThread(threadId);
     if (snapshot !== null) {
       const messages: ConversationMessage[] = [
@@ -49,6 +54,24 @@ export class ThreadStateProjector {
           content: `Next actions: ${snapshot.nextActions.join(", ")}`
         });
       }
+      if (commitmentState.currentObjective !== null) {
+        messages.push({
+          role: "system",
+          content: `Current objective: ${commitmentState.currentObjective.title}`
+        });
+      }
+      if (commitmentState.nextAction !== null) {
+        messages.push({
+          role: "system",
+          content: `Next action: ${commitmentState.nextAction.title} (${commitmentState.nextAction.status})`
+        });
+      }
+      if (commitmentState.pendingDecision !== null) {
+        messages.push({
+          role: "system",
+          content: `Pending decision: ${commitmentState.pendingDecision}`
+        });
+      }
       messages.push({
         role: "system",
         content: `Active capabilities: ${snapshot.toolCapabilitySummary.join(", ") || "[none]"}`
@@ -69,7 +92,7 @@ export class ThreadStateProjector {
           text: `[${record.scope}] ${record.title}: ${record.summary}`,
           title: record.title
         }));
-      return { messages, memoryContext };
+      return { commitmentState, messages, memoryContext };
     }
     const runs = this.dependencies.threadRunRepository.listByThreadId(threadId);
     const messages: ConversationMessage[] = runs.map((run) => ({
@@ -77,6 +100,7 @@ export class ThreadStateProjector {
       content: `ThreadRun#${run.runNumber} status=${run.status} input=${run.input}\nsummary=${JSON.stringify(run.summary)}`
     }));
     return {
+      commitmentState,
       messages,
       memoryContext: []
     };

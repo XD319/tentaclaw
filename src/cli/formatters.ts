@@ -3,10 +3,12 @@ import type { BetaReadinessReport, EvalReport, ReplayRunResult, ReleaseChecklist
 import type {
   ApprovalRecord,
   AuditLogRecord,
+  CommitmentRecord,
   ExperienceRecord,
   InboxItem,
   MemoryRecord,
   MemorySnapshotRecord,
+  NextActionRecord,
   ProviderStatsSnapshot,
   ScheduleRecord,
   ScheduleRunRecord,
@@ -17,6 +19,7 @@ import type {
   ThreadLineageRecord,
   ThreadRecord,
   ThreadRunRecord,
+  ThreadCommitmentState,
   ThreadSnapshotRecord,
   TraceEvent,
   ToolCallRecord
@@ -54,7 +57,10 @@ export function formatThreadDetail(
   thread: ThreadRecord,
   runs: ThreadRunRecord[],
   lineage: ThreadLineageRecord[] = [],
-  inboxItems: InboxItem[] = []
+  inboxItems: InboxItem[] = [],
+  commitments: CommitmentRecord[] = [],
+  nextActions: NextActionRecord[] = [],
+  state?: ThreadCommitmentState
 ): string {
   const header = [
     `Thread ID: ${thread.threadId}`,
@@ -84,7 +90,64 @@ export function formatThreadDetail(
       : ["Inbox Items:", ...inboxItems.map((item) => `- ${item.inboxId} ${item.status} ${item.title}`)].join(
           "\n"
         );
-  return `${header}\n${runsSection}\n${lineageSection}\n${inboxSection}`;
+  const commitmentSection = formatCommitmentList(commitments);
+  const nextActionSection = formatNextActionList(nextActions);
+  const stateSection =
+    state === undefined
+      ? "Thread State: unavailable"
+      : [
+          "Thread State:",
+          `- Current objective: ${state.currentObjective?.title ?? "-"}`,
+          `- Next action: ${state.nextAction?.title ?? "-"}`,
+          `- Blocked reason: ${state.blockedReason ?? "-"}`,
+          `- Pending decision: ${state.pendingDecision ?? "-"}`
+        ].join("\n");
+  return `${header}\n${stateSection}\n${runsSection}\n${lineageSection}\n${commitmentSection}\n${nextActionSection}\n${inboxSection}`;
+}
+
+export function formatCommitmentList(commitments: CommitmentRecord[]): string {
+  if (commitments.length === 0) {
+    return "Commitments: none";
+  }
+  return [
+    "Commitments:",
+    ...commitments.map(
+      (item) =>
+        `- ${item.commitmentId} ${item.status} title=${item.title} blocked=${item.blockedReason ?? "-"}`
+    )
+  ].join("\n");
+}
+
+export function formatCommitmentDetail(item: CommitmentRecord): string {
+  return [
+    `Commitment ID: ${item.commitmentId}`,
+    `Thread ID: ${item.threadId}`,
+    `Task ID: ${item.taskId ?? "-"}`,
+    `Owner: ${item.ownerUserId}`,
+    `Status: ${item.status}`,
+    `Title: ${item.title}`,
+    `Summary: ${item.summary}`,
+    `Blocked Reason: ${item.blockedReason ?? "-"}`,
+    `Pending Decision: ${item.pendingDecision ?? "-"}`,
+    `Source: ${item.source}`,
+    `Due At: ${item.dueAt ?? "-"}`,
+    `Created: ${item.createdAt}`,
+    `Updated: ${item.updatedAt}`,
+    `Completed: ${item.completedAt ?? "-"}`
+  ].join("\n");
+}
+
+export function formatNextActionList(actions: NextActionRecord[]): string {
+  if (actions.length === 0) {
+    return "Next Actions: none";
+  }
+  return [
+    "Next Actions:",
+    ...actions.map(
+      (item) =>
+        `- ${item.nextActionId} rank=${item.rank} ${item.status} title=${item.title} blocked=${item.blockedReason ?? "-"}`
+    )
+  ].join("\n");
 }
 
 export function formatThreadSnapshotList(snapshots: ThreadSnapshotRecord[]): string {

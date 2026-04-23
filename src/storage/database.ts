@@ -10,6 +10,8 @@ import { SqliteExecutionCheckpointRepository } from "./repositories/execution-ch
 import { SqliteExperienceRepository } from "./repositories/experience-repository.js";
 import { SqliteGatewaySessionRepository } from "./repositories/gateway-session-repository.js";
 import { SqliteInboxRepository } from "./repositories/inbox/inbox-repository.js";
+import { SqliteCommitmentRepository } from "./repositories/commitments/commitment-repository.js";
+import { SqliteNextActionRepository } from "./repositories/commitments/next-action-repository.js";
 import { SqliteMemoryRepository } from "./repositories/memory-repository.js";
 import { SqliteMemorySnapshotRepository } from "./repositories/memory-snapshot-repository.js";
 import { SqliteRunMetadataRepository } from "./repositories/run-metadata-repository.js";
@@ -48,6 +50,8 @@ export class StorageManager {
   public readonly memorySnapshots: SqliteMemorySnapshotRepository;
   public readonly gatewaySessions: SqliteGatewaySessionRepository;
   public readonly inbox: SqliteInboxRepository;
+  public readonly commitments: SqliteCommitmentRepository;
+  public readonly nextActions: SqliteNextActionRepository;
 
   public constructor(config: StorageConfig) {
     if (config.databasePath !== ":memory:") {
@@ -76,6 +80,8 @@ export class StorageManager {
     this.memorySnapshots = new SqliteMemorySnapshotRepository(this.database);
     this.gatewaySessions = new SqliteGatewaySessionRepository(this.database);
     this.inbox = new SqliteInboxRepository(this.database);
+    this.commitments = new SqliteCommitmentRepository(this.database);
+    this.nextActions = new SqliteNextActionRepository(this.database);
   }
 
   public close(): void {

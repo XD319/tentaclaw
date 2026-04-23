@@ -50,6 +50,16 @@ import type {
   InboxItemUpdatePatch,
   InboxListQuery
 } from "./inbox.js";
+import type {
+  CommitmentDraft,
+  CommitmentListQuery,
+  CommitmentRecord,
+  CommitmentUpdatePatch,
+  NextActionDraft,
+  NextActionListQuery,
+  NextActionRecord,
+  NextActionUpdatePatch
+} from "./commitment.js";
 
 export interface TaskUpdatePatch {
   status?: TaskStatus;
@@ -124,6 +134,20 @@ export interface InboxRepository {
   findByDedup(query: InboxDedupQuery): InboxItem | null;
   list(query?: InboxListQuery): InboxItem[];
   update(inboxId: string, patch: InboxItemUpdatePatch): InboxItem;
+}
+
+export interface CommitmentRepository {
+  create(record: CommitmentDraft): CommitmentRecord;
+  findById(commitmentId: string): CommitmentRecord | null;
+  list(query?: CommitmentListQuery): CommitmentRecord[];
+  update(commitmentId: string, patch: CommitmentUpdatePatch): CommitmentRecord;
+}
+
+export interface NextActionRepository {
+  create(record: NextActionDraft): NextActionRecord;
+  findById(nextActionId: string): NextActionRecord | null;
+  list(query?: NextActionListQuery): NextActionRecord[];
+  update(nextActionId: string, patch: NextActionUpdatePatch): NextActionRecord;
 }
 
 export interface TraceRepository {

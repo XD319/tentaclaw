@@ -33,6 +33,8 @@ import {
   formatApprovalList,
   formatAuditLog,
   formatBetaReadinessReport,
+  formatCommitmentDetail,
+  formatCommitmentList,
   formatCurrentProvider,
   formatDoctorReport,
   formatEvalReport,
@@ -44,6 +46,7 @@ import {
   formatInboxList,
   formatMemoryList,
   formatMemoryScope,
+  formatNextActionList,
   formatProviderCatalog,
   formatProviderHealth,
   formatProviderStats,
@@ -68,7 +71,13 @@ import {
   summarizeAudit,
   summarizeTrace
 } from "./formatters.js";
-import type { ExperienceQuery, ExperienceSourceType, ExperienceStatus, ExperienceType } from "../types/index.js";
+import type {
+  CommitmentRecord,
+  ExperienceQuery,
+  ExperienceSourceType,
+  ExperienceStatus,
+  ExperienceType
+} from "../types/index.js";
 import type { InboundMessageAdapter } from "../types/index.js";
 import type { SkillAttachmentKind } from "../types/skill.js";
 
@@ -133,16 +142,28 @@ export async function main(argv = process.argv): Promise<void> {
 
   program
     .command("continue")
-    .argument("<task>", "Task prompt to continue in a thread")
+    .argument("[task]", "Task prompt to continue in a thread")
     .option("--last", "Continue the latest thread for current user")
     .option("--thread <threadId>", "Continue a specific thread id")
     .option("--cwd <path>", "Working directory", process.cwd())
-    .action(async (task: string, commandOptions: { cwd: string; last?: boolean; thread?: string }) => {
+    .action(async (task: string | undefined, commandOptions: { cwd: string; last?: boolean; thread?: string }) => {
       const handle = createApplication(commandOptions.cwd);
       try {
+        const threadInput =
+          commandOptions.thread !== undefined && task === undefined
+            ? handle.service.listNextActions({ threadId: commandOptions.thread, statuses: ["active", "pending"] })[0]
+                ?.title
+            : task;
         const result =
           commandOptions.thread !== undefined
-            ? await handle.service.continueThread(commandOptions.thread, task, { cwd: commandOptions.cwd })
+            ? await (async () => {
+                if (threadInput === undefined) {
+                  throw new Error("No task input or next action found.");
+                }
+                return handle.service.continueThread(commandOptions.thread, threadInput, {
+                  cwd: commandOptions.cwd
+                });
+              })()
             : commandOptions.last === true
               ? await handle.service.continueLatest(task, { cwd: commandOptions.cwd })
               : await handle.service.continueLatest(task, { cwd: commandOptions.cwd });
@@ -184,7 +205,17 @@ export async function main(argv = process.argv): Promise<void> {
         process.exitCode = 1;
         return;
       }
-      console.log(formatThreadDetail(result.thread, result.runs, result.lineage, result.inboxItems));
+      console.log(
+        formatThreadDetail(
+          result.thread,
+          result.runs,
+          result.lineage,
+          result.inboxItems,
+          result.commitments,
+          result.nextActions,
+          result.state
+        )
+      );
     } finally {
       handle.close();
     }
@@ -448,11 +479,18 @@ export async function main(argv = process.argv): Promise<void> {
     .option("--status <status>", "Filter status: pending | seen | done | dismissed", "pending")
     .option(
       "--category <category>",
-      "Filter category: task_completed | task_failed | approval_requested | memory_suggestion | skill_promotion"
+      "Filter category: task_completed | task_failed | task_blocked | decision_requested | approval_requested | memory_suggestion | skill_promotion"
     )
     .option("--limit <count>", "Limit entries", "50")
     .action((commandOptions: {
-      category?: "task_completed" | "task_failed" | "approval_requested" | "memory_suggestion" | "skill_promotion";
+      category?:
+        | "task_completed"
+        | "task_failed"
+        | "task_blocked"
+        | "decision_requested"
+        | "approval_requested"
+        | "memory_suggestion"
+        | "skill_promotion";
       limit?: string;
       status?: "pending" | "seen" | "done" | "dismissed";
       user?: string;
@@ -481,11 +519,18 @@ export async function main(argv = process.argv): Promise<void> {
     .option("--status <status>", "Filter status: pending | seen | done | dismissed", "pending")
     .option(
       "--category <category>",
-      "Filter category: task_completed | task_failed | approval_requested | memory_suggestion | skill_promotion"
+      "Filter category: task_completed | task_failed | task_blocked | decision_requested | approval_requested | memory_suggestion | skill_promotion"
     )
     .option("--limit <count>", "Limit entries", "50")
     .action((commandOptions: {
-      category?: "task_completed" | "task_failed" | "approval_requested" | "memory_suggestion" | "skill_promotion";
+      category?:
+        | "task_completed"
+        | "task_failed"
+        | "task_blocked"
+        | "decision_requested"
+        | "approval_requested"
+        | "memory_suggestion"
+        | "skill_promotion";
       limit?: string;
       status?: "pending" | "seen" | "done" | "dismissed";
       user?: string;
@@ -539,6 +584,176 @@ export async function main(argv = process.argv): Promise<void> {
       handle.close();
     }
   });
+
+  const commitmentsCommand = program.command("commitments").description("Manage thread commitments");
+  commitmentsCommand
+    .command("list")
+    .option("--thread <thread_id>", "Thread id")
+    .option("--status <status>", "Filter status")
+    .action((commandOptions: { thread?: string; status?: string }) => {
+      const handle = createApplication(process.cwd());
+      try {
+        const list = handle.service.listCommitments({
+          ...(commandOptions.thread !== undefined ? { threadId: commandOptions.thread } : {}),
+          ...(commandOptions.status !== undefined ? { status: commandOptions.status as CommitmentRecord["status"] } : {})
+        });
+        console.log(formatCommitmentList(list));
+      } finally {
+        handle.close();
+      }
+    });
+  commitmentsCommand.command("show").argument("<commitment_id>").action((commitmentId: string) => {
+    const handle = createApplication(process.cwd());
+    try {
+      const item = handle.service.showCommitment(commitmentId);
+      if (item === null) {
+        console.error(`Commitment ${commitmentId} not found.`);
+        process.exitCode = 1;
+        return;
+      }
+      console.log(formatCommitmentDetail(item));
+    } finally {
+      handle.close();
+    }
+  });
+  commitmentsCommand
+    .command("create")
+    .requiredOption("--thread <thread_id>", "Thread id")
+    .requiredOption("--title <title>", "Commitment title")
+    .option("--summary <summary>", "Commitment summary", "")
+    .action((commandOptions: { thread: string; title: string; summary?: string }) => {
+      const handle = createApplication(process.cwd());
+      try {
+        const ownerUserId = process.env.USERNAME ?? process.env.USER ?? "local-user";
+        const created = handle.service.createCommitment({
+          ownerUserId,
+          source: "manual",
+          summary: commandOptions.summary ?? "",
+          threadId: commandOptions.thread,
+          title: commandOptions.title
+        });
+        console.log(formatCommitmentDetail(created));
+      } finally {
+        handle.close();
+      }
+    });
+  commitmentsCommand
+    .command("block")
+    .argument("<commitment_id>")
+    .requiredOption("--reason <reason>")
+    .action((commitmentId: string, commandOptions: { reason: string }) => {
+      const handle = createApplication(process.cwd());
+      try {
+        console.log(formatCommitmentDetail(handle.service.blockCommitment(commitmentId, commandOptions.reason)));
+      } finally {
+        handle.close();
+      }
+    });
+  commitmentsCommand.command("unblock").argument("<commitment_id>").action((commitmentId: string) => {
+    const handle = createApplication(process.cwd());
+    try {
+      console.log(formatCommitmentDetail(handle.service.unblockCommitment(commitmentId)));
+    } finally {
+      handle.close();
+    }
+  });
+  commitmentsCommand.command("complete").argument("<commitment_id>").action((commitmentId: string) => {
+    const handle = createApplication(process.cwd());
+    try {
+      console.log(formatCommitmentDetail(handle.service.completeCommitment(commitmentId)));
+    } finally {
+      handle.close();
+    }
+  });
+  commitmentsCommand.command("cancel").argument("<commitment_id>").action((commitmentId: string) => {
+    const handle = createApplication(process.cwd());
+    try {
+      console.log(formatCommitmentDetail(handle.service.cancelCommitment(commitmentId)));
+    } finally {
+      handle.close();
+    }
+  });
+
+  const nextCommand = program.command("next").description("Manage next actions");
+  nextCommand
+    .command("list")
+    .option("--thread <thread_id>", "Thread id")
+    .action((commandOptions: { thread?: string }) => {
+      const handle = createApplication(process.cwd());
+      try {
+        const list = handle.service.listNextActions(
+          commandOptions.thread !== undefined ? { threadId: commandOptions.thread } : {}
+        );
+        console.log(formatNextActionList(list));
+      } finally {
+        handle.close();
+      }
+    });
+  nextCommand
+    .command("add")
+    .requiredOption("--thread <thread_id>", "Thread id")
+    .requiredOption("--title <title>", "Action title")
+    .option("--commitment <commitment_id>", "Related commitment id")
+    .action((commandOptions: { thread: string; title: string; commitment?: string }) => {
+      const handle = createApplication(process.cwd());
+      try {
+        const created = handle.service.appendNextAction({
+          commitmentId: commandOptions.commitment ?? null,
+          source: "manual",
+          status: "pending",
+          threadId: commandOptions.thread,
+          title: commandOptions.title
+        });
+        console.log(formatNextActionList([created]));
+      } finally {
+        handle.close();
+      }
+    });
+  nextCommand.command("done").argument("<next_action_id>").action((nextActionId: string) => {
+    const handle = createApplication(process.cwd());
+    try {
+      console.log(formatNextActionList([handle.service.markNextActionDone(nextActionId)]));
+    } finally {
+      handle.close();
+    }
+  });
+  nextCommand
+    .command("block")
+    .argument("<next_action_id>")
+    .requiredOption("--reason <reason>")
+    .action((nextActionId: string, commandOptions: { reason: string }) => {
+      const handle = createApplication(process.cwd());
+      try {
+        console.log(formatNextActionList([handle.service.blockNextAction(nextActionId, commandOptions.reason)]));
+      } finally {
+        handle.close();
+      }
+    });
+  nextCommand.command("unblock").argument("<next_action_id>").action((nextActionId: string) => {
+    const handle = createApplication(process.cwd());
+    try {
+      console.log(formatNextActionList([handle.service.unblockNextAction(nextActionId)]));
+    } finally {
+      handle.close();
+    }
+  });
+  nextCommand
+    .command("resume")
+    .option("--cwd <path>", "Working directory", process.cwd())
+    .action(async (commandOptions: { cwd: string }) => {
+      const handle = createApplication(commandOptions.cwd);
+      try {
+        const result = await handle.service.continueLatest(undefined, { cwd: commandOptions.cwd });
+        console.log(`Task ID: ${result.task.taskId}`);
+        console.log(`Thread ID: ${result.task.threadId ?? "-"}`);
+        console.log(`Status: ${result.task.status}`);
+        if (result.output !== null) {
+          console.log(result.output);
+        }
+      } finally {
+        handle.close();
+      }
+    });
 
   const approveCommand = program.command("approve").description("Inspect and resolve approvals");
 

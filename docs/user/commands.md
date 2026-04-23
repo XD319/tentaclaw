@@ -3,7 +3,7 @@
 Core:
 
 - `talon run`
-- `talon continue --last|--thread <id> <task>`
+- `talon continue --last|--thread <id> [task]`
 - `talon tui`
 - `talon dashboard`
 - `talon init`
@@ -16,6 +16,8 @@ Operational:
 - `talon thread list|show|archive|snapshots <thread_id>|snapshot <snapshot_id>`
 - `talon schedule create|list|show|pause|resume|run-now|runs|run`
 - `talon inbox|list|show|done|dismiss`
+- `talon commitments list|show|create|block|unblock|complete|cancel`
+- `talon next list|add|done|block|unblock|resume`
 - `talon trace [task_id] [--summary]`
 - `talon audit <task_id> [--summary]`
 - `talon approve pending|allow|deny`

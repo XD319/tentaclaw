@@ -3,7 +3,9 @@ import type { JsonObject } from "./common.js";
 export const INBOX_CATEGORIES = [
   "task_completed",
   "task_failed",
+  "task_blocked",
   "approval_requested",
+  "decision_requested",
   "memory_suggestion",
   "skill_promotion"
 ] as const;

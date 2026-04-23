@@ -133,6 +133,48 @@ export class InboxCollector {
           userId: this.resolveScheduleOwner(event.payload.scheduleId, event.taskId)
         });
         return;
+      case "commitment_blocked":
+        this.dependencies.inboxService.append({
+          category: "task_blocked",
+          dedupKey: `task_blocked:${event.payload.commitmentId}`,
+          severity: "warning",
+          sourceTraceId: event.eventId,
+          summary: event.payload.blockedReason,
+          taskId: event.payload.taskId,
+          threadId: event.payload.threadId,
+          title: "Task blocked",
+          userId: this.resolveUserId(event.taskId)
+        });
+        return;
+      case "next_action_blocked":
+        this.dependencies.inboxService.append({
+          category: "task_blocked",
+          dedupKey: `task_blocked:next_action:${event.payload.nextActionId}`,
+          severity: "warning",
+          sourceTraceId: event.eventId,
+          summary: event.payload.blockedReason,
+          taskId: event.payload.taskId,
+          threadId: event.payload.threadId,
+          title: "Next action blocked",
+          userId: this.resolveUserId(event.taskId)
+        });
+        return;
+      case "commitment_updated":
+        if (event.payload.status !== "waiting_decision" || event.payload.pendingDecision === null) {
+          return;
+        }
+        this.dependencies.inboxService.append({
+          category: "decision_requested",
+          dedupKey: `decision_requested:${event.payload.commitmentId}`,
+          severity: "action_required",
+          sourceTraceId: event.eventId,
+          summary: event.payload.pendingDecision,
+          taskId: event.payload.taskId,
+          threadId: event.payload.threadId,
+          title: "Decision requested",
+          userId: this.resolveUserId(event.taskId)
+        });
+        return;
       default:
         return;
     }
