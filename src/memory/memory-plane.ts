@@ -365,7 +365,7 @@ export class MemoryPlane {
     };
   }
 
-  private recall(request: MemoryRecallRequest): MemoryRecallResult {
+  public recall(request: MemoryRecallRequest): MemoryRecallResult {
     const candidates = [
       ...this.dependencies.memoryRepository.list({
         includeExpired: false,

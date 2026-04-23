@@ -10,4 +10,5 @@ export * from "./delivery/index.js";
 export * from "./inbox/index.js";
 export * from "./commitments/index.js";
 export * from "./threads/index.js";
+export * from "./retrieval/index.js";
 export * from "./workspace-setup.js";

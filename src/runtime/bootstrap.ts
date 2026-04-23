@@ -41,6 +41,7 @@ import { ShellExecutor } from "../tools/shell/shell-executor.js";
 import { AgentApplicationService } from "./application-service.js";
 import { ContextCompactor, SessionSnapshotService } from "./context/index.js";
 import { ExecutionKernel } from "./execution-kernel.js";
+import { RecallBudgetPolicy, RecallPlanner } from "./retrieval/index.js";
 import { DeliveryService } from "./delivery/index.js";
 import { InboxCollector, InboxService } from "./inbox/index.js";
 import {
@@ -67,6 +68,11 @@ export interface AppConfig {
     tokenThreshold: number;
     toolCallThreshold: number;
     summarizer: "deterministic" | "provider_subagent";
+  };
+  recall: {
+    enabled: boolean;
+    budgetRatio: number;
+    maxCandidatesPerScope: number;
   };
   provider: ResolvedProviderConfig;
   runtimeVersion: string;
@@ -103,6 +109,7 @@ export function resolveAppConfig(cwd = process.cwd(), options: ResolveAppConfigO
     defaultProfileId: "executor",
     defaultTimeoutMs: runtimeConfig.defaultTimeoutMs,
     compact: runtimeConfig.compact,
+    recall: runtimeConfig.recall,
     provider,
     runtimeVersion: "0.1.0",
     runtimeConfigPath: runtimeConfig.configPath,
@@ -253,6 +260,18 @@ export function createApplication(
     traceService
   });
   experienceCollector.start();
+  const recallBudgetPolicy = new RecallBudgetPolicy({
+    budgetRatio: config.recall.budgetRatio
+  });
+  const recallPlanner = new RecallPlanner({
+    budgetPolicy: recallBudgetPolicy,
+    enabled: config.recall.enabled,
+    experiencePlane,
+    maxCandidatesPerScope: config.recall.maxCandidatesPerScope,
+    memoryPlane,
+    skillContextService,
+    traceService
+  });
   const contextCompactor = new ContextCompactor();
   const sessionSnapshotService = new SessionSnapshotService({
     snapshotRepository: storage.threadSnapshots,
@@ -302,11 +321,12 @@ export function createApplication(
     agentProfileRegistry,
     executionCheckpointRepository: storage.checkpoints,
     contextCompactor,
+    getThreadCommitmentState: (threadId) => threadCommitmentProjector.project(threadId),
     memoryPlane,
+    recallPlanner,
     provider,
     runMetadataRepository: storage.runMetadata,
     runtimeVersion: config.runtimeVersion,
-    skillContextService,
     sessionSnapshotService,
     taskRepository: storage.tasks,
     threadLineageRepository: storage.threadLineage,

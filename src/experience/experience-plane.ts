@@ -273,6 +273,46 @@ export class ExperiencePlane {
     return candidates;
   }
 
+  public recallExperiences(
+    query: string,
+    input: {
+      filters?: ExperienceQuery;
+      limit: number;
+      taskId: string;
+    }
+  ): ExperienceRecallCandidate[] {
+    const filters = input.filters ?? {};
+    const candidates = this.recallEngine.rankExperiences(this.dependencies.experienceRepository.list(filters), {
+      filters,
+      limit: input.limit,
+      query
+    });
+
+    this.dependencies.traceService.record({
+      actor: "experience.plane",
+      eventType: "experience_recall_ranked",
+      payload: {
+        entries: candidates.map((candidate) => ({
+          downrankReasons: candidate.downrankReasons,
+          experienceId: candidate.experience.experienceId,
+          explanation: candidate.explanation,
+          finalScore: candidate.finalScore,
+          status: candidate.experience.status,
+          title: candidate.experience.title,
+          type: candidate.experience.type,
+          valueScore: candidate.experience.valueScore
+        })),
+        query,
+        selectedExperienceIds: candidates.map((candidate) => candidate.experience.experienceId)
+      },
+      stage: "memory",
+      summary: `Experience recall ranked ${candidates.length} candidates`,
+      taskId: input.taskId
+    });
+
+    return candidates;
+  }
+
   private requireExperience(experienceId: string): ExperienceRecord {
     const experience = this.dependencies.experienceRepository.findById(experienceId);
     if (experience === null) {

@@ -1,0 +1,84 @@
+{
+  "eventId": "evt-recall-explain-sample",
+  "taskId": "task-recall-long-thread-001",
+  "sequence": 140,
+  "timestamp": "2026-04-23T16:40:00.000Z",
+  "eventType": "recall_explain",
+  "stage": "memory",
+  "actor": "runtime.recall",
+  "summary": "Recall selected 4/8 items",
+  "payload": {
+    "enrichedQuery": "stabilize flaky migration replay thread goal current objective next actions shell test_run",
+    "tokenBudget": 3200,
+    "tokenUsed": 2912,
+    "candidateCount": 8,
+    "selectedCount": 4,
+    "skippedCount": 4,
+    "items": [
+      {
+        "id": "mem-working-1",
+        "scope": "working",
+        "score": 0.94,
+        "tokenEstimate": 640,
+        "reason": "scope=working; keyword=0.88; confidence=0.96",
+        "selected": true
+      },
+      {
+        "id": "mem-project-4",
+        "scope": "project",
+        "score": 0.91,
+        "tokenEstimate": 700,
+        "reason": "scope=project; keyword=0.81; confidence=0.92",
+        "selected": true
+      },
+      {
+        "id": "mem-profile-2",
+        "scope": "profile",
+        "score": 0.87,
+        "tokenEstimate": 612,
+        "reason": "scope=profile; keyword=0.72; confidence=0.90",
+        "selected": true
+      },
+      {
+        "id": "skill:migration-debug",
+        "scope": "skill_ref",
+        "score": 0.73,
+        "tokenEstimate": 960,
+        "reason": "skill_score=0.7300",
+        "selected": true
+      },
+      {
+        "id": "exp-rollback-pattern",
+        "scope": "experience_ref",
+        "score": 0.68,
+        "tokenEstimate": 540,
+        "reason": "type=incident; source=manual_review; skipped_by_budget",
+        "selected": false
+      },
+      {
+        "id": "mem-project-5",
+        "scope": "project",
+        "score": 0.54,
+        "tokenEstimate": 520,
+        "reason": "scope=project; keyword=0.31; skipped_by_budget",
+        "selected": false
+      },
+      {
+        "id": "skill:sqlite-basics",
+        "scope": "skill_ref",
+        "score": 0.41,
+        "tokenEstimate": 360,
+        "reason": "skill_score=0.4100; skipped_by_budget",
+        "selected": false
+      },
+      {
+        "id": "exp-low-value",
+        "scope": "experience_ref",
+        "score": 0.22,
+        "tokenEstimate": 280,
+        "reason": "low_value; skipped_by_budget",
+        "selected": false
+      }
+    ]
+  }
+}

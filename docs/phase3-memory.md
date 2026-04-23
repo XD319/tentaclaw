@@ -21,11 +21,11 @@ Task outcomes, review feedback, and failure lessons now live first in `Experienc
 - `experience_ref`
   - Scope key: workspace `cwd`
   - Purpose: read-only projection of `ExperiencePlane` records
-  - Default use: list/show only, not injected to model context
+  - Default use: selectable as compressed references during relevant recall
 - `skill_ref`
   - Scope key: workspace `cwd`
   - Purpose: read-only projection of enabled skill metadata
-  - Default use: list/show only, full body still requires `skill_view`
+  - Default use: selectable as lightweight metadata hints; full body still requires `skill_view`
 
 ## Memory Record Shape
 
@@ -67,17 +67,28 @@ Minimal review flow:
 
 ## Selective Recall
 
-Recall does not inject all stored memory. The memory plane:
+Recall does not inject all stored memory. `RecallPlanner` now coordinates retrieval across layers:
 
-1. gathers candidates from `working`, `project`, and `profile`
-2. scores them with:
+1. builds an enriched query from:
+   - thread goal
+   - current objective
+   - next actions
+   - tool plan
+   - current task input
+2. gathers candidates from `working`, `project`, `profile`, `experience_ref`, and `skill_ref`
+3. scores candidates with:
    - keyword overlap
    - confidence
    - freshness / staleness
-3. explains each score with source metadata
-4. applies the context policy filter before any fragment enters model context
+4. estimates token usage per candidate (`ceil(text.length / 4)`)
+5. applies `RecallBudgetPolicy` and `MemorySelector` to keep only top-weighted candidates under token budget
+6. records per-item explain fields: `reason`, `score`, `token_estimate`, `scope`
 
-Trace records a `memory_recalled` event so `talon trace <task_id>` can show what was selected or blocked.
+Trace now records a `recall_explain` event so `talon trace <task_id>` can show:
+
+- why an item was selected
+- why an item was skipped (usually budget)
+- budget vs actual token usage per round
 
 ## Session Compact
 
@@ -149,5 +160,6 @@ Boundary rules:
 ## Trace And Audit Samples
 
 - `fixtures/memory-layered/memory_recalled.sample.json`
+- `fixtures/memory-layered/recall_explain.sample.json`
 - `fixtures/memory-layered/memory_written.sample.json`
 - `fixtures/memory-layered/audit_review_resolved.sample.json`

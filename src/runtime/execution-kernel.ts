@@ -9,6 +9,7 @@ import {
 import { buildRepoMap } from "./repo-map.js";
 import { tokenBudgetToJson } from "./serialization.js";
 import type { ContextCompactor, SessionSnapshotService } from "./context/index.js";
+import type { RecallPlanner } from "./retrieval/index.js";
 import type { RuntimeConfig, WorkflowRuntimeConfig } from "./runtime-config.js";
 import { ProviderError } from "../providers/index.js";
 import type { AgentProfileRegistry } from "../profiles/agent-profile-registry.js";
@@ -26,24 +27,25 @@ import type {
   RuntimeRunResult,
   TaskRecord,
   TaskRepository,
+  ThreadCommitmentState,
   ThreadLineageRepository,
   ThreadRunRepository,
   TokenBudget
 } from "../types/index.js";
 import type { MemoryPlane } from "../memory/memory-plane.js";
 import { buildCapabilityDeclaration } from "../memory/capability-declaration-builder.js";
-import type { SkillContextService } from "../skills/index.js";
 import type { ToolOrchestrator } from "../tools/index.js";
 import type { TraceService } from "../tracing/trace-service.js";
 
 export interface ExecutionKernelDependencies {
   agentProfileRegistry: AgentProfileRegistry;
   executionCheckpointRepository: ExecutionCheckpointRepository;
+  getThreadCommitmentState?: (threadId: string) => ThreadCommitmentState | null;
   memoryPlane: MemoryPlane;
+  recallPlanner: RecallPlanner;
   provider: Provider;
   runMetadataRepository: RunMetadataRepository;
   runtimeVersion: string;
-  skillContextService: SkillContextService;
   taskRepository: TaskRepository;
   threadRunRepository: ThreadRunRepository;
   threadLineageRepository: ThreadLineageRepository;
@@ -67,7 +69,7 @@ interface ExecutionLoopState {
   onAssistantTextDelta?: (delta: string) => void;
   onTaskEvent?: (event: RuntimeTaskEvent) => void;
   pendingToolCalls: ProviderToolCall[];
-  skillContext: ContextFragment[];
+  selectedSkillContext: ContextFragment[];
   repoMapSummary?: string;
   task: TaskRecord;
   tokenBudget: TokenBudget;
@@ -154,9 +156,15 @@ export class ExecutionKernel {
 
       const profile = this.dependencies.agentProfileRegistry.get(options.agentProfileId);
       this.dependencies.memoryPlane.rememberTaskGoal(task);
-      const memoryContext = this.dependencies.memoryPlane.buildContext(task);
-      const skillContext = this.dependencies.skillContextService.buildContext(task);
       const availableTools = this.dependencies.toolOrchestrator.listTools(profile.allowedToolNames);
+      const threadId = task.threadId ?? null;
+      const recallPlan = this.dependencies.recallPlanner.plan({
+        task,
+        threadCommitmentState:
+          threadId === null ? null : this.dependencies.getThreadCommitmentState?.(threadId) ?? null,
+        tokenBudget: options.tokenBudget,
+        toolPlan: availableTools.map((tool) => tool.name)
+      });
       const repoMap = this.dependencies.workflow.repoMap.enabled
         ? buildRepoMap(this.dependencies.workspaceRoot)
         : null;
@@ -191,8 +199,8 @@ export class ExecutionKernel {
         cwd: options.cwd,
         managedAbortController,
         maxIterations: options.maxIterations,
-        memoryContext: [...memoryContext.fragments, ...resumeMemoryContext, ...skillContext],
-        memoryRecall: memoryContext.recall,
+        memoryContext: [...recallPlan.fragments, ...resumeMemoryContext],
+        memoryRecall: null,
         messages,
         ...(options.onAssistantTextDelta !== undefined
           ? { onAssistantTextDelta: options.onAssistantTextDelta }
@@ -200,7 +208,7 @@ export class ExecutionKernel {
         ...(options.onTaskEvent !== undefined ? { onTaskEvent: options.onTaskEvent } : {}),
         pendingToolCalls: [],
         ...(repoMap?.summary !== undefined ? { repoMapSummary: repoMap.summary } : {}),
-        skillContext,
+        selectedSkillContext: recallPlan.fragments.filter((fragment) => fragment.scope === "skill_ref"),
         task,
         tokenBudget: options.tokenBudget
       });
@@ -257,7 +265,7 @@ export class ExecutionKernel {
         memoryRecall: null,
         messages: checkpoint.messages,
         pendingToolCalls: checkpoint.pendingToolCalls,
-        skillContext: [],
+        selectedSkillContext: [],
         task: resumedTask,
         tokenBudget: resumedTask.tokenBudget
       });
@@ -799,7 +807,7 @@ export class ExecutionKernel {
           content: buildCapabilityDeclaration({
             agentProfileId: task.agentProfileId,
             availableTools,
-            skillContext: state.skillContext
+            skillContext: state.selectedSkillContext
           }),
           metadata: {
             privacyLevel: "internal",
@@ -809,9 +817,21 @@ export class ExecutionKernel {
           role: "system"
         });
         messages.push(...compacted.replacementMessages);
-        const refreshedContext = this.dependencies.memoryPlane.buildContext(task);
-        state.memoryContext = [...refreshedContext.fragments, ...state.skillContext];
-        state.memoryRecall = refreshedContext.recall;
+        const refreshThreadId = task.threadId ?? null;
+        const refreshedContext = this.dependencies.recallPlanner.plan({
+          task,
+          threadCommitmentState:
+            refreshThreadId === null
+              ? null
+              : this.dependencies.getThreadCommitmentState?.(refreshThreadId) ?? null,
+          tokenBudget: state.tokenBudget,
+          toolPlan: availableTools.map((tool) => tool.name)
+        });
+        state.memoryContext = refreshedContext.fragments;
+        state.memoryRecall = null;
+        state.selectedSkillContext = refreshedContext.fragments.filter(
+          (fragment) => fragment.scope === "skill_ref"
+        );
       }
     }
 

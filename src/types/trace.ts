@@ -50,6 +50,7 @@ export const TRACE_EVENT_TYPES = [
   "context_assembled",
   "repo_map_created",
   "memory_recalled",
+  "recall_explain",
   "memory_written",
   "session_compacted",
   "thread_snapshot_created",
@@ -362,6 +363,23 @@ export interface MemoryRecalledPayload extends JsonObject {
   }>;
 }
 
+export interface RecallExplainPayload extends JsonObject {
+  enrichedQuery: string;
+  tokenBudget: number;
+  tokenUsed: number;
+  candidateCount: number;
+  selectedCount: number;
+  skippedCount: number;
+  items: Array<{
+    id: string;
+    scope: MemoryScope;
+    score: number;
+    tokenEstimate: number;
+    reason: string;
+    selected: boolean;
+  } & JsonObject>;
+}
+
 export interface MemoryWrittenPayload extends JsonObject {
   memoryId: string;
   scope: MemoryScope;
@@ -629,6 +647,7 @@ export type TraceEvent =
   | TraceEventBase<"context_assembled", ContextAssembledPayload>
   | TraceEventBase<"repo_map_created", RepoMapCreatedPayload>
   | TraceEventBase<"memory_recalled", MemoryRecalledPayload>
+  | TraceEventBase<"recall_explain", RecallExplainPayload>
   | TraceEventBase<"memory_written", MemoryWrittenPayload>
   | TraceEventBase<"session_compacted", SessionCompactedPayload>
   | TraceEventBase<"thread_snapshot_created", ThreadSnapshotCreatedPayload>

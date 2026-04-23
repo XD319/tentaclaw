@@ -23,6 +23,13 @@ const runtimeConfigFileSchema = z.object({
       toolCallThreshold: z.number().int().positive().optional()
     })
     .optional(),
+  recall: z
+    .object({
+      budgetRatio: z.number().positive().max(1).optional(),
+      enabled: z.boolean().optional(),
+      maxCandidatesPerScope: z.number().int().positive().optional()
+    })
+    .optional(),
   tokenBudget: tokenBudgetConfigSchema.optional(),
   workflow: z
     .object({
@@ -65,6 +72,11 @@ export interface RuntimeConfig {
     toolCallThreshold: number;
     summarizer: "deterministic" | "provider_subagent";
   };
+  recall: {
+    enabled: boolean;
+    budgetRatio: number;
+    maxCandidatesPerScope: number;
+  };
   tokenBudget: TokenBudget;
   workflow: WorkflowRuntimeConfig;
 }
@@ -78,6 +90,11 @@ const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, "configPath" | "configSource">
     summarizer: "deterministic",
     tokenThreshold: 48_000,
     toolCallThreshold: 20
+  },
+  recall: {
+    budgetRatio: 0.25,
+    enabled: true,
+    maxCandidatesPerScope: 10
   },
   tokenBudget: {
     inputLimit: 64_000,
@@ -177,6 +194,20 @@ export function resolveRuntimeConfig(cwd = process.cwd()): RuntimeConfig {
         envConfig.compact?.toolCallThreshold ??
         fileConfig?.compact?.toolCallThreshold ??
         DEFAULT_RUNTIME_CONFIG.compact.toolCallThreshold
+    },
+    recall: {
+      budgetRatio:
+        envConfig.recall?.budgetRatio ??
+        fileConfig?.recall?.budgetRatio ??
+        DEFAULT_RUNTIME_CONFIG.recall.budgetRatio,
+      enabled:
+        envConfig.recall?.enabled ??
+        fileConfig?.recall?.enabled ??
+        DEFAULT_RUNTIME_CONFIG.recall.enabled,
+      maxCandidatesPerScope:
+        envConfig.recall?.maxCandidatesPerScope ??
+        fileConfig?.recall?.maxCandidatesPerScope ??
+        DEFAULT_RUNTIME_CONFIG.recall.maxCandidatesPerScope
     },
     tokenBudget,
     workflow
