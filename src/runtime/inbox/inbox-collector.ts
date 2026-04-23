@@ -3,9 +3,9 @@ import type {
   ScheduleRecord,
   ScheduleRunRecord,
   TaskRecord,
-  TraceEvent,
-  TraceService
+  TraceEvent
 } from "../../types/index.js";
+import type { TraceService } from "../../tracing/trace-service.js";
 
 export interface InboxCollectorDependencies {
   findSchedule: (scheduleId: string) => ScheduleRecord | null;
@@ -24,7 +24,7 @@ export class InboxCollector {
     if (this.unsubscribe !== null) {
       return;
     }
-    this.unsubscribe = this.dependencies.traceService.subscribe((event) => {
+    this.unsubscribe = this.dependencies.traceService.subscribe((event: TraceEvent) => {
       this.handleTrace(event);
     });
   }

@@ -158,6 +158,9 @@ export async function main(argv = process.argv): Promise<void> {
           commandOptions.thread !== undefined
             ? await (async () => {
                 const threadId = commandOptions.thread;
+                if (threadId === undefined) {
+                  throw new Error("Thread id is required.");
+                }
                 if (threadInput === undefined) {
                   throw new Error("No task input or next action found.");
                 }

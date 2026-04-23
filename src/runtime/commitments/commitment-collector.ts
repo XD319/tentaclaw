@@ -1,4 +1,5 @@
-import type { TraceEvent, TraceService, TaskRecord } from "../../types/index.js";
+import type { TraceEvent, TaskRecord } from "../../types/index.js";
+import type { TraceService } from "../../tracing/trace-service.js";
 import type { SessionSnapshotService } from "../context/session-snapshot-service.js";
 import type { CommitmentService } from "./commitment-service.js";
 import type { NextActionService } from "./next-action-service.js";
@@ -20,7 +21,7 @@ export class CommitmentCollector {
     if (this.unsubscribe !== null) {
       return;
     }
-    this.unsubscribe = this.dependencies.traceService.subscribe((event) => {
+    this.unsubscribe = this.dependencies.traceService.subscribe((event: TraceEvent) => {
       this.handleTrace(event);
     });
   }

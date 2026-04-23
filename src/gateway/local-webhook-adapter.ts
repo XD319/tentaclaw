@@ -186,10 +186,9 @@ export class LocalWebhookAdapter implements InboundMessageAdapter {
     }
 
     if (request.method === "GET" && url.pathname === "/inbox") {
+      const userId = url.searchParams.get("user_id");
       const filter = {
-        ...(url.searchParams.get("user_id") !== null
-          ? { userId: url.searchParams.get("user_id") ?? undefined }
-          : {}),
+        ...(userId !== null ? { userId } : {}),
         ...(url.searchParams.get("status") !== null
           ? { status: url.searchParams.get("status") as "pending" | "seen" | "done" | "dismissed" }
           : {}),
@@ -218,10 +217,9 @@ export class LocalWebhookAdapter implements InboundMessageAdapter {
     }
 
     if (request.method === "GET" && url.pathname === "/inbox/events") {
+      const userId = url.searchParams.get("user_id");
       const filter = {
-        ...(url.searchParams.get("user_id") !== null
-          ? { userId: url.searchParams.get("user_id") ?? undefined }
-          : {}),
+        ...(userId !== null ? { userId } : {}),
         status: "pending" as const
       };
 
