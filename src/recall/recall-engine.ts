@@ -45,7 +45,7 @@ export class RecallEngine {
     if (memory.status === "candidate") {
       downrankReasons.push("candidate_unverified");
     }
-    if (memory.privacyLevel === "restricted" && memory.scope !== "session") {
+    if (memory.privacyLevel === "restricted" && memory.scope !== "working") {
       downrankReasons.push("privacy_restricted_cross_session");
     }
     if (memory.confidence < 0.75) {

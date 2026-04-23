@@ -60,11 +60,11 @@ export class MemoryPlane {
     this.ageExpiredMemories();
 
     const recall = this.recall({
-      agentScopeKey: createAgentScopeKey(task),
+      profileScopeKey: createProfileScopeKey(task),
       limit: 6,
       projectScopeKey: task.cwd,
       query: task.input,
-      sessionScopeKey: task.taskId,
+      workingScopeKey: task.taskId,
       taskId: task.taskId
     });
 
@@ -120,11 +120,11 @@ export class MemoryPlane {
       keywords: tokenize(task.input),
       privacyLevel: "internal",
       retentionPolicy: {
-        kind: "session",
+        kind: "working",
         reason: "Task goal should stay available during the active session.",
         ttlDays: null
       },
-      scope: "session",
+      scope: "working",
       scopeKey: task.taskId,
       source: {
         label: `Task goal for ${task.taskId}`,
@@ -154,11 +154,11 @@ export class MemoryPlane {
       keywords: tokenize(`${input.toolName} ${input.summary} ${input.output}`),
       privacyLevel: input.privacyLevel,
       retentionPolicy: {
-        kind: "session",
+        kind: "working",
         reason: "Tool outcomes are retained only for the active session by default.",
         ttlDays: null
       },
-      scope: "session",
+      scope: "working",
       scopeKey: input.task.taskId,
       source: {
         label: `Tool output from ${input.toolName}`,
@@ -202,11 +202,11 @@ export class MemoryPlane {
       keywords: tokenize(summary),
       privacyLevel: "internal",
       retentionPolicy: {
-        kind: "session",
+        kind: "working",
         reason: "Compacted session summaries preserve the active task thread.",
         ttlDays: null
       },
-      scope: "session",
+      scope: "working",
       scopeKey: input.sessionScopeKey,
       source: {
         label: `Session compact for ${input.taskId}`,
@@ -370,8 +370,8 @@ export class MemoryPlane {
       ...this.dependencies.memoryRepository.list({
         includeExpired: false,
         limit: request.limit * 3,
-        scope: "session",
-        scopeKey: request.sessionScopeKey
+        scope: "working",
+        scopeKey: request.workingScopeKey
       }),
       ...this.dependencies.memoryRepository.list({
         includeExpired: false,
@@ -382,8 +382,8 @@ export class MemoryPlane {
       ...this.dependencies.memoryRepository.list({
         includeExpired: false,
         limit: request.limit * 3,
-        scope: "agent",
-        scopeKey: request.agentScopeKey
+        scope: "profile",
+        scopeKey: request.profileScopeKey
       })
     ];
     const rankedCandidates = this.recallEngine.rankMemory(candidates, request.query, request.limit);
@@ -402,7 +402,7 @@ export class MemoryPlane {
   }
 
   private persistMemoryIfAllowed(record: MemoryDraft): MemoryRecord | null {
-    if (record.scope !== "session") {
+    if (record.scope !== "working") {
       const decision = this.dependencies.contextPolicy.decideLongTermWrite({
         content: record.content,
         privacyLevel: record.privacyLevel,
@@ -495,9 +495,12 @@ export class MemoryPlane {
   }
 }
 
-export function createAgentScopeKey(task: Pick<TaskRecord, "agentProfileId" | "requesterUserId">): string {
+export function createProfileScopeKey(task: Pick<TaskRecord, "agentProfileId" | "requesterUserId">): string {
   return `${task.requesterUserId}:${task.agentProfileId}`;
 }
+
+/** @deprecated use createProfileScopeKey */
+export const createAgentScopeKey = createProfileScopeKey;
 
 function candidateToFragment(candidate: MemoryRecallCandidate): ContextFragment {
   return {

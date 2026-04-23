@@ -1,0 +1,17 @@
+{
+  "auditId": "audit-memory-review-001",
+  "taskId": "task-layered-001",
+  "toolCallId": null,
+  "approvalId": null,
+  "actor": "reviewer.local-reviewer",
+  "action": "approval_resolved",
+  "outcome": "approved",
+  "summary": "Memory review accepted for profile layer",
+  "payload": {
+    "layer": "profile",
+    "memoryId": "mem-profile-1",
+    "reviewerId": "local-reviewer",
+    "status": "verified"
+  },
+  "createdAt": "2026-04-23T15:00:03.000Z"
+}

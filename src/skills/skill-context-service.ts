@@ -71,7 +71,7 @@ function toContextFragment(metadata: SkillMetadata, score: number): ContextFragm
     memoryId: `skill:${metadata.id}`,
     privacyLevel: "internal",
     retentionPolicy: {
-      kind: "session",
+      kind: "working",
       reason: "Skill metadata is loaded only for the active task.",
       ttlDays: null
     },

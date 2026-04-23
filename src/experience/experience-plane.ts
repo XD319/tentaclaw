@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { createAgentScopeKey, type MemoryPlane } from "../memory/memory-plane.js";
+import { createProfileScopeKey, type MemoryPlane } from "../memory/memory-plane.js";
 import {
   RecallEngine,
   extractKeywordPhrases,
@@ -176,17 +176,17 @@ export class ExperiencePlane {
             keywords: current.keywords,
             privacyLevel: "internal",
             retentionPolicy: {
-              kind: parsed.target === "project_memory" ? "project" : "agent",
+              kind: parsed.target === "project_memory" ? "project" : "profile",
               reason: `Promoted from accepted experience ${current.experienceId}.`,
               ttlDays: 90
             },
-            scope: parsed.target === "project_memory" ? "project" : "agent",
+            scope: parsed.target === "project_memory" ? "project" : "profile",
             scopeKey:
               parsed.target === "project_memory"
                 ? current.scope.scopeKey
                 : request.task === undefined
                   ? current.scope.scopeKey
-                  : createAgentScopeKey(request.task),
+                  : createProfileScopeKey(request.task),
             source: {
               label: `Promoted experience: ${current.title}`,
               sourceType: "manual_review",

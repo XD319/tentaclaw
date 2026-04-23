@@ -1,0 +1,63 @@
+{
+  "eventId": "evt-memory-recalled-sample",
+  "taskId": "task-layered-001",
+  "sequence": 101,
+  "timestamp": "2026-04-23T15:00:00.000Z",
+  "eventType": "memory_recalled",
+  "stage": "memory",
+  "actor": "memory.plane",
+  "summary": "Selective recall returned 2 memory fragments",
+  "payload": {
+    "query": "fix flaky sqlite migration tests",
+    "selectedMemoryIds": ["mem-profile-1", "mem-project-2"],
+    "selectedScopes": ["profile", "project"],
+    "blockedMemoryIds": ["mem-expref-1"],
+    "entries": [
+      {
+        "memoryId": "mem-profile-1",
+        "title": "Reviewer preference",
+        "explanation": "keyword overlap high; source=manual review",
+        "confidence": 0.93,
+        "status": "verified",
+        "selected": true,
+        "blocked": false,
+        "sourceType": "manual_review",
+        "privacyLevel": "internal",
+        "retentionPolicyKind": "profile",
+        "downrankReasons": [],
+        "filterReasonCode": null,
+        "filterReason": null
+      },
+      {
+        "memoryId": "mem-project-2",
+        "title": "SQLite migration playbook",
+        "explanation": "keyword overlap medium; source=manual review",
+        "confidence": 0.86,
+        "status": "verified",
+        "selected": true,
+        "blocked": false,
+        "sourceType": "manual_review",
+        "privacyLevel": "internal",
+        "retentionPolicyKind": "project",
+        "downrankReasons": [],
+        "filterReasonCode": null,
+        "filterReason": null
+      },
+      {
+        "memoryId": "mem-expref-1",
+        "title": "Experience reference",
+        "explanation": "reference layer entry",
+        "confidence": 0.72,
+        "status": "candidate",
+        "selected": false,
+        "blocked": true,
+        "sourceType": "system",
+        "privacyLevel": "internal",
+        "retentionPolicyKind": "working",
+        "downrankReasons": ["reference layer is list-only"],
+        "filterReasonCode": "filtered_by_scope",
+        "filterReason": "experience_ref is not injected into provider context"
+      }
+    ]
+  }
+}

@@ -567,7 +567,7 @@ export function formatMemoryList(memories: MemoryRecord[]): string {
   return memories
     .map(
       (memory) =>
-        `${memory.memoryId} | ${memory.scope}:${memory.scopeKey} | ${memory.status} | confidence=${memory.confidence.toFixed(2)} | privacy=${memory.privacyLevel} | ${memory.title}`
+        `${memory.memoryId} | ${displayMemoryScope(memory.scope)}:${memory.scopeKey} | ${memory.status} | confidence=${memory.confidence.toFixed(2)} | privacy=${memory.privacyLevel} | ${memory.title}`
     )
     .join("\n");
 }
@@ -702,13 +702,13 @@ export function formatMemoryScope(
           )
         ].join("\n");
 
-  return [`Scope: ${scope}`, `Scope Key: ${scopeKey}`, memorySection, snapshotSection].join("\n");
+  return [`Scope: ${displayMemoryScope(scope)}`, `Scope Key: ${scopeKey}`, memorySection, snapshotSection].join("\n");
 }
 
 export function formatSnapshot(snapshot: MemorySnapshotRecord): string {
   return [
     `Snapshot ID: ${snapshot.snapshotId}`,
-    `Scope: ${snapshot.scope}`,
+    `Scope: ${displayMemoryScope(snapshot.scope)}`,
     `Scope Key: ${snapshot.scopeKey}`,
     `Label: ${snapshot.label}`,
     `Created By: ${snapshot.createdBy}`,
@@ -737,6 +737,16 @@ function formatTernary(value: boolean | null): string {
   }
 
   return value ? "yes" : "no";
+}
+
+function displayMemoryScope(scope: string): string {
+  if (scope === "agent") {
+    return "profile";
+  }
+  if (scope === "session") {
+    return "working";
+  }
+  return scope;
 }
 
 export function formatEvalReport(report: EvalReport): string {

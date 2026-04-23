@@ -65,7 +65,7 @@ describe("ExperiencePlane", () => {
           experienceId: captured.experienceId,
           note: "Too early.",
           reviewerId: "reviewer-1",
-          target: "agent_memory",
+          target: "profile_memory",
           task: createTask()
         })
       ).toThrow(/must be accepted/);

@@ -3,7 +3,9 @@ import { z } from "zod";
 import type { JsonObject } from "./common.js";
 import type { PrivacyLevel } from "./governance.js";
 
-export const MEMORY_SCOPES = ["session", "project", "agent"] as const;
+export const MEMORY_SCOPES = ["profile", "project", "working", "experience_ref", "skill_ref"] as const;
+
+export const PERSISTED_MEMORY_SCOPES = ["profile", "project"] as const;
 
 export type MemoryScope = (typeof MEMORY_SCOPES)[number];
 
@@ -22,7 +24,7 @@ export const MEMORY_SOURCE_TYPES = [
 
 export type MemorySourceType = (typeof MEMORY_SOURCE_TYPES)[number];
 
-export const RETENTION_POLICY_KINDS = ["ephemeral", "session", "project", "agent"] as const;
+export const RETENTION_POLICY_KINDS = ["ephemeral", "working", "project", "profile"] as const;
 
 export type RetentionPolicyKind = (typeof RETENTION_POLICY_KINDS)[number];
 
@@ -106,9 +108,9 @@ export interface MemoryQuery {
 export interface MemoryRecallRequest {
   taskId: string;
   query: string;
-  sessionScopeKey: string;
+  workingScopeKey: string;
   projectScopeKey: string;
-  agentScopeKey: string;
+  profileScopeKey: string;
   limit: number;
 }
 

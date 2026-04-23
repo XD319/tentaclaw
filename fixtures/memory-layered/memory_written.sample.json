@@ -1,0 +1,17 @@
+{
+  "eventId": "evt-memory-written-sample",
+  "taskId": "task-layered-001",
+  "sequence": 102,
+  "timestamp": "2026-04-23T15:00:02.000Z",
+  "eventType": "memory_written",
+  "stage": "memory",
+  "actor": "memory.plane",
+  "summary": "Memory mem-profile-1 persisted in profile scope",
+  "payload": {
+    "memoryId": "mem-profile-1",
+    "scope": "profile",
+    "sourceType": "manual_review",
+    "privacyLevel": "internal",
+    "status": "verified"
+  }
+}

@@ -55,7 +55,7 @@ The collector is deliberately separate from the kernel so experience extraction 
 - `talon experience list`
 - `talon experience show <experience_id>`
 - `talon experience review <experience_id> <accepted|rejected|stale>`
-- `talon experience promote <experience_id> <project_memory|agent_memory|skill_candidate>`
+- `talon experience promote <experience_id> <project_memory|profile_memory|skill_candidate>`
 - `talon experience search <query>`
 
 List and search support filters for type, source, status, value score, task id, reviewer, scope, and scope key.
@@ -63,3 +63,8 @@ List and search support filters for type, source, status, value score, task id, 
 ## Dashboard
 
 The dashboard includes an `experience` panel with captured records for the selected task. It shows type, source, status, value score, promotion target, provenance, and matching score when a search trace exists.
+
+## Relation To Layered Memory
+
+- `experience_ref` is a read-only layer exposed by `talon memory list/show`.
+- Experience entries remain out of prompt recall until they are explicitly promoted.

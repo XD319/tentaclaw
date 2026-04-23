@@ -30,7 +30,7 @@ export interface ContextPolicyFilterResult {
 
 export interface LongTermMemoryWriteRequest {
   content: string;
-  scope: Exclude<MemoryScope, "session">;
+  scope: Exclude<MemoryScope, "working">;
   privacyLevel: PrivacyLevel;
   sourceLabel: string;
 }
@@ -38,7 +38,7 @@ export interface LongTermMemoryWriteRequest {
 export interface LongTermMemoryWriteDecision {
   allowed: boolean;
   reason: string;
-  targetScope: Exclude<MemoryScope, "session">;
+  targetScope: Exclude<MemoryScope, "working">;
 }
 
 export interface MemoryDebugView {

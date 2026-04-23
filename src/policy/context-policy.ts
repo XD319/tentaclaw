@@ -17,16 +17,16 @@ export class ContextPolicy {
         };
       }
 
-      if (fragment.scope !== "session" && fragment.retentionPolicy.kind === "session") {
+      if (fragment.scope !== "working" && fragment.retentionPolicy.kind === "working") {
         return {
           allowed: false,
           fragment,
           reasonCode: "filtered_by_scope" as const,
-          reason: "Session-retained memory cannot be injected outside the active session scope."
+          reason: "Working-retained memory cannot be injected outside the active working scope."
         };
       }
 
-      if (fragment.retentionPolicy.kind === "ephemeral" && fragment.scope !== "session") {
+      if (fragment.retentionPolicy.kind === "ephemeral" && fragment.scope !== "working") {
         return {
           allowed: false,
           fragment,
@@ -35,7 +35,7 @@ export class ContextPolicy {
         };
       }
 
-      if (fragment.privacyLevel === "restricted" && fragment.scope !== "session") {
+      if (fragment.privacyLevel === "restricted" && fragment.scope !== "working") {
         return {
           allowed: false,
           fragment,

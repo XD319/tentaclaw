@@ -4,20 +4,28 @@ Phase 3 adds a governed memory plane to the CLI-first runtime. The goal is not u
 
 Task outcomes, review feedback, and failure lessons now live first in `ExperiencePlane`; see `docs/experience-plane.md`. They enter `MemoryPlane` only after an accepted experience is explicitly promoted.
 
-## Three Memory Scopes
+## Five Memory Layers
 
-- `session`
+- `working`
   - Scope key: current `taskId`
-  - Purpose: active task goals, compacted conversation state, recent tool outcomes
-  - Default use: allowed in model context after context filtering
+  - Purpose: active runtime memory from execution checkpoint context
+  - Default use: runtime-only layer; shown in `memory show working`
 - `project`
   - Scope key: current workspace `cwd`
   - Purpose: reusable workspace knowledge and task outcomes
   - Default use: selectively recalled by keyword overlap
-- `agent`
+- `profile`
   - Scope key: `${requesterUserId}:${agentProfileId}`
   - Purpose: reusable operator/profile hints across tasks
   - Default use: selectively recalled by keyword overlap
+- `experience_ref`
+  - Scope key: workspace `cwd`
+  - Purpose: read-only projection of `ExperiencePlane` records
+  - Default use: list/show only, not injected to model context
+- `skill_ref`
+  - Scope key: workspace `cwd`
+  - Purpose: read-only projection of enabled skill metadata
+  - Default use: list/show only, full body still requires `skill_view`
 
 ## Memory Record Shape
 
@@ -61,7 +69,7 @@ Minimal review flow:
 
 Recall does not inject all stored memory. The memory plane:
 
-1. gathers candidates from `session`, `project`, and `agent`
+1. gathers candidates from `working`, `project`, and `profile`
 2. scores them with:
    - keyword overlap
    - confidence
@@ -115,16 +123,16 @@ Each snapshot stores:
 
 - `ephemeral`
   - do not retain beyond immediate processing
-- `session`
+- `working`
   - valid only for the active task/session
 - `project`
   - reusable in the current workspace
-- `agent`
+- `profile`
   - reusable across tasks for the same user/profile
 
 Boundary rules:
 
-- restricted content does not auto-write into `project` or `agent` memory
+- restricted content does not auto-write into `project` or `profile` memory
 - task outcomes and failure lessons do not auto-write into long-term memory
 - recalled fragments must pass the context policy filter
 - rejected memory never enters context
@@ -137,3 +145,9 @@ Boundary rules:
 - `talon memory show <scope>`
 - `talon memory snapshot create <scope>`
 - `talon memory review <memory_id> <verified|rejected|stale>`
+
+## Trace And Audit Samples
+
+- `fixtures/memory-layered/memory_recalled.sample.json`
+- `fixtures/memory-layered/memory_written.sample.json`
+- `fixtures/memory-layered/audit_review_resolved.sample.json`

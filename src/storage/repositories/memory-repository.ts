@@ -114,7 +114,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
 
     if (query.scope !== undefined) {
       clauses.push("scope = ?");
-      values.push(query.scope);
+      values.push(denormalizeScope(query.scope));
     }
 
     if (query.scopeKey !== undefined) {
@@ -204,6 +204,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
   }
 
   private mapRow(row: MemoryRow): MemoryRecord {
+    const retentionPolicy = parseJsonValue<RetentionPolicy>(row.retention_policy_json);
     return {
       confidence: row.confidence,
       conflictsWith: parseJsonValue<string[]>(row.conflicts_with_json),
@@ -215,8 +216,8 @@ export class SqliteMemoryRepository implements MemoryRepository {
       memoryId: row.memory_id,
       metadata: parseJsonValue<JsonObject>(row.metadata_json),
       privacyLevel: row.privacy_level,
-      retentionPolicy: parseJsonValue<RetentionPolicy>(row.retention_policy_json),
-      scope: row.scope,
+      retentionPolicy: normalizeRetentionPolicy(retentionPolicy),
+      scope: normalizeLegacyScope(row.scope),
       scopeKey: row.scope_key,
       source: parseJsonValue<MemoryRecord["source"]>(row.source_json),
       sourceType: row.source_type,
@@ -227,4 +228,47 @@ export class SqliteMemoryRepository implements MemoryRepository {
       updatedAt: row.updated_at
     };
   }
+}
+
+function normalizeLegacyScope(scope: string): MemoryRecord["scope"] {
+  if (scope === "agent") {
+    return "profile";
+  }
+  if (scope === "session") {
+    return "working";
+  }
+  return scope as MemoryRecord["scope"];
+}
+
+function denormalizeScope(scope: string): string {
+  if (scope === "profile") {
+    return "profile";
+  }
+  if (scope === "working") {
+    return "session";
+  }
+  if (scope === "agent") {
+    return "agent";
+  }
+  if (scope === "session") {
+    return "session";
+  }
+  return scope;
+}
+
+function normalizeRetentionPolicy(policy: RetentionPolicy): RetentionPolicy {
+  const kind = policy.kind as string;
+  if (kind === "agent") {
+    return {
+      ...policy,
+      kind: "profile"
+    };
+  }
+  if (kind === "session") {
+    return {
+      ...policy,
+      kind: "working"
+    };
+  }
+  return policy;
 }

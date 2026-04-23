@@ -15,7 +15,7 @@ skills, gateway adapters, and evaluation surfaces.
   local SQLite workspace.
 - Gates risky tool use with policy and explicit approval flows.
 - Supports replay, smoke tests, eval reports, and maintainer release checks.
-- Provides memory, experience capture, and skill recall for repeatable work.
+- Provides layered memory (`profile`/`project`/`working` + `experience_ref`/`skill_ref`) for repeatable work.
 - Exposes optional gateway adapters for local webhooks and Feishu/Lark.
 - Includes Ink-based TUI and dashboard views for operators who want an
   interactive shell-native surface.

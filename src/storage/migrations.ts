@@ -37,6 +37,11 @@ export function runMigrations(database: DatabaseSync): void {
       description: "add commitments and next actions tables",
       up: migrateV7,
       version: 7
+    },
+    {
+      description: "rename legacy memory scopes to layered names",
+      up: migrateV8,
+      version: 8
     }
   ];
 
@@ -511,6 +516,22 @@ function migrateV7(database: DatabaseSync): void {
       ON next_actions(thread_id, status, rank);
     CREATE INDEX IF NOT EXISTS idx_next_actions_commitment_rank
       ON next_actions(commitment_id, rank);
+  `);
+}
+
+function migrateV8(database: DatabaseSync): void {
+  database.exec(`
+    UPDATE memories
+    SET scope = 'profile'
+    WHERE scope = 'agent';
+
+    UPDATE memories
+    SET retention_policy_json = json_set(retention_policy_json, '$.kind', 'profile')
+    WHERE json_extract(retention_policy_json, '$.kind') = 'agent';
+
+    UPDATE memories
+    SET retention_policy_json = json_set(retention_policy_json, '$.kind', 'working')
+    WHERE json_extract(retention_policy_json, '$.kind') = 'session';
   `);
 }
 

@@ -20,6 +20,8 @@ import type {
   CommitmentDraft,
   CommitmentListQuery,
   CommitmentRecord,
+  ContextFragment,
+  ExecutionCheckpointRecord,
   ExperienceQuery,
   ExperienceRecord,
   InboxDeliveryEvent,
@@ -176,6 +178,7 @@ export interface RuntimeReadModel {
   findThread(threadId: string): ThreadRecord | null;
   listToolCalls(taskId: string): ToolCallRecord[];
   listTrace(taskId: string): TraceEvent[];
+  findExecutionCheckpoint(taskId: string): ExecutionCheckpointRecord | null;
   updateToolCall(toolCallId: string, patch: Partial<ToolCallRecord>): ToolCallRecord;
 }
 
@@ -489,6 +492,16 @@ export class AgentApplicationService {
     memories: MemoryRecord[];
     snapshots: MemorySnapshotRecord[];
   } {
+    if (scope === "working") {
+      const checkpoint = this.dependencies.findExecutionCheckpoint(scopeKey);
+      return {
+        memories:
+          checkpoint?.memoryContext.map((fragment) =>
+            contextFragmentToMemoryRecord(fragment, scopeKey, checkpoint.updatedAt)
+          ) ?? [],
+        snapshots: []
+      };
+    }
     return this.dependencies.memoryPlane.showScope(scope, scopeKey);
   }
 
@@ -1257,4 +1270,42 @@ function extractTimelineIteration(event: TraceEvent): number | null {
 
 function readNumber(value: unknown): number | undefined {
   return typeof value === "number" ? value : undefined;
+}
+
+function contextFragmentToMemoryRecord(
+  fragment: ContextFragment,
+  scopeKey: string,
+  timestamp: string
+): MemoryRecord {
+  return {
+    confidence: fragment.confidence,
+    conflictsWith: [],
+    content: fragment.text,
+    createdAt: timestamp,
+    expiresAt: null,
+    keywords: [],
+    lastVerifiedAt: null,
+    memoryId: fragment.memoryId,
+    metadata: {
+      explanation: fragment.explanation,
+      runtimeOnly: true
+    },
+    privacyLevel: fragment.privacyLevel,
+    retentionPolicy: fragment.retentionPolicy,
+    scope: "working",
+    scopeKey,
+    source: {
+      label: "runtime checkpoint fragment",
+      sourceType: fragment.sourceType,
+      taskId: scopeKey,
+      toolCallId: null,
+      traceEventId: null
+    },
+    sourceType: fragment.sourceType,
+    status: fragment.status,
+    summary: fragment.text,
+    supersedes: null,
+    title: fragment.title,
+    updatedAt: timestamp
+  };
 }

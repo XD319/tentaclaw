@@ -61,7 +61,7 @@ export class ExecutionContextAssembler {
         content: systemMessage,
         metadata: {
           privacyLevel: "internal",
-          retentionKind: "session",
+          retentionKind: "working",
           sourceType: "system_prompt"
         },
         role: "system"
@@ -72,7 +72,7 @@ export class ExecutionContextAssembler {
         content: repoMapSummary,
         metadata: {
           privacyLevel: "internal",
-          retentionKind: "session",
+          retentionKind: "working",
           sourceType: "system_prompt"
         },
         role: "system"
@@ -83,7 +83,7 @@ export class ExecutionContextAssembler {
         content: task.input,
         metadata: {
           privacyLevel: "internal",
-          retentionKind: "session",
+          retentionKind: "working",
           sourceType: "user_input"
         },
         role: "user"
@@ -113,7 +113,7 @@ function buildContextDebugView(input: ContextAssemblerInput): ContextAssemblyDeb
       preview: sanitizePreview(originalTaskInput.content, "internal"),
       privacyLevel: "internal",
       retentionPolicy: {
-        kind: "session",
+        kind: "working",
         reason: "Task input remains part of the active session context.",
         ttlDays: null
       },
@@ -238,7 +238,7 @@ function readPrivacyLevel(message: ConversationMessage): "public" | "internal" |
 
 function readRetentionKind(
   message: ConversationMessage
-): "agent" | "ephemeral" | "project" | "session" {
+): "profile" | "ephemeral" | "project" | "working" {
   const value = message.metadata?.retentionKind;
-  return value === "agent" || value === "ephemeral" || value === "project" ? value : "session";
+  return value === "profile" || value === "ephemeral" || value === "project" ? value : "working";
 }

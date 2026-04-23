@@ -157,10 +157,11 @@ export async function main(argv = process.argv): Promise<void> {
         const result =
           commandOptions.thread !== undefined
             ? await (async () => {
+                const threadId = commandOptions.thread;
                 if (threadInput === undefined) {
                   throw new Error("No task input or next action found.");
                 }
-                return handle.service.continueThread(commandOptions.thread, threadInput, {
+                return handle.service.continueThread(threadId, threadInput, {
                   cwd: commandOptions.cwd
                 });
               })()
@@ -1224,18 +1225,28 @@ export async function main(argv = process.argv): Promise<void> {
 
   const memoryCommand = program.command("memory").description("Inspect governed memories");
 
-  memoryCommand.command("list").action(() => {
-    const handle = createApplication(process.cwd());
-    try {
-      console.log(formatMemoryList(handle.service.listMemories()));
-    } finally {
-      handle.close();
-    }
-  });
+  memoryCommand
+    .command("list")
+    .option("--scope <scope>", "Filter scope: profile | project | working | experience_ref | skill_ref")
+    .action((commandOptions: { scope?: "profile" | "project" | "working" | "experience_ref" | "skill_ref" | "session" | "agent" }) => {
+      const handle = createApplication(process.cwd());
+      try {
+        const memories = handle.service.listMemories();
+        const scope =
+          commandOptions.scope === undefined ? undefined : normalizeMemoryScope(commandOptions.scope);
+        console.log(
+          formatMemoryList(
+            scope === undefined ? memories : memories.filter((memory) => memory.scope === scope)
+          )
+        );
+      } finally {
+        handle.close();
+      }
+    });
 
   memoryCommand
     .command("show")
-    .argument("<scope>", "Memory scope: session | project | agent")
+    .argument("<scope>", "Memory scope: profile | project | working | experience_ref | skill_ref")
     .option("--scope-key <key>", "Explicit scope key")
     .option("--task-id <taskId>", "Task id for session scope")
     .option("--cwd <path>", "Workspace path for project scope", process.cwd())
@@ -1243,7 +1254,7 @@ export async function main(argv = process.argv): Promise<void> {
     .option("--user <user>", "User id for agent scope")
     .action(
       (
-        scope: "session" | "project" | "agent",
+        scope: "profile" | "project" | "working" | "experience_ref" | "skill_ref" | "session" | "agent",
         commandOptions: {
           scopeKey?: string;
           taskId?: string;
@@ -1254,15 +1265,30 @@ export async function main(argv = process.argv): Promise<void> {
       ) => {
         const handle = createApplication(commandOptions.cwd);
         try {
-          const scopeKey = resolveScopeKey(scope, {
+          const resolvedScope = normalizeMemoryScope(scope);
+          const scopeKey = resolveScopeKey(resolvedScope, {
             cwd: commandOptions.cwd,
             profile: commandOptions.profile,
             scopeKey: commandOptions.scopeKey,
             taskId: commandOptions.taskId,
             user: commandOptions.user
           });
-          const result = handle.service.showMemoryScope(scope, scopeKey);
-          console.log(formatMemoryScope(scope, scopeKey, result.memories, result.snapshots));
+          if (resolvedScope === "experience_ref") {
+            console.log(
+              formatExperienceList(
+                handle.service.listExperiences({
+                  scopeKey
+                })
+              )
+            );
+            return;
+          }
+          if (resolvedScope === "skill_ref") {
+            console.log(formatSkillList(handle.service.listSkills()));
+            return;
+          }
+          const result = handle.service.showMemoryScope(resolvedScope, scopeKey);
+          console.log(formatMemoryScope(resolvedScope, scopeKey, result.memories, result.snapshots));
         } finally {
           handle.close();
         }
@@ -1273,7 +1299,7 @@ export async function main(argv = process.argv): Promise<void> {
 
   snapshotCommand
     .command("create")
-    .argument("<scope>", "Memory scope: session | project | agent")
+    .argument("<scope>", "Memory scope: profile | project")
     .option("--label <label>", "Snapshot label", "manual-snapshot")
     .option("--scope-key <key>", "Explicit scope key")
     .option("--task-id <taskId>", "Task id for session scope")
@@ -1283,7 +1309,7 @@ export async function main(argv = process.argv): Promise<void> {
     .option("--reviewer <reviewer>", "Snapshot creator id")
     .action(
       (
-        scope: "session" | "project" | "agent",
+        scope: "profile" | "project" | "session" | "agent",
         commandOptions: {
           cwd: string;
           label: string;
@@ -1296,7 +1322,11 @@ export async function main(argv = process.argv): Promise<void> {
       ) => {
         const handle = createApplication(commandOptions.cwd);
         try {
-          const scopeKey = resolveScopeKey(scope, {
+          const resolvedScope = normalizeMemoryScope(scope);
+          if (resolvedScope !== "profile" && resolvedScope !== "project") {
+            throw new Error("Snapshot create only supports profile and project scopes.");
+          }
+          const scopeKey = resolveScopeKey(resolvedScope, {
             cwd: commandOptions.cwd,
             profile: commandOptions.profile,
             scopeKey: commandOptions.scopeKey,
@@ -1306,7 +1336,7 @@ export async function main(argv = process.argv): Promise<void> {
           const reviewer =
             commandOptions.reviewer ?? process.env.USERNAME ?? process.env.USER ?? "local-reviewer";
           const snapshot = handle.service.createMemorySnapshot(
-            scope,
+            resolvedScope,
             scopeKey,
             commandOptions.label,
             reviewer
@@ -1416,13 +1446,13 @@ export async function main(argv = process.argv): Promise<void> {
   experienceCommand
     .command("promote")
     .argument("<experience_id>", "Experience identifier")
-    .argument("<target>", "project_memory | agent_memory | skill_candidate")
+    .argument("<target>", "project_memory | profile_memory | skill_candidate")
     .option("--reviewer <reviewer>", "Reviewer id")
     .option("--note <note>", "Promotion note", "manual experience promotion")
     .action(
       (
         experienceId: string,
-        target: "project_memory" | "agent_memory" | "skill_candidate",
+        target: "project_memory" | "profile_memory" | "agent_memory" | "skill_candidate",
         commandOptions: { note: string; reviewer?: string }
       ) => {
         const handle = createApplication(process.cwd());
@@ -1773,7 +1803,7 @@ function parseAttachmentKinds(value: string | undefined): SkillAttachmentKind[] 
 }
 
 function resolveScopeKey(
-  scope: "session" | "project" | "agent",
+  scope: "profile" | "project" | "working" | "experience_ref" | "skill_ref",
   options: {
     cwd: string;
     profile: string;
@@ -1786,18 +1816,30 @@ function resolveScopeKey(
     return options.scopeKey;
   }
 
-  if (scope === "session") {
+  if (scope === "working") {
     if (options.taskId === undefined) {
-      throw new Error("Session scope requires --task-id or --scope-key.");
+      throw new Error("Working scope requires --task-id or --scope-key.");
     }
 
     return options.taskId;
   }
 
-  if (scope === "project") {
+  if (scope === "project" || scope === "experience_ref" || scope === "skill_ref") {
     return options.cwd;
   }
 
   const userId = options.user ?? process.env.USERNAME ?? process.env.USER ?? "local-user";
   return `${userId}:${options.profile}`;
+}
+
+function normalizeMemoryScope(
+  scope: "profile" | "project" | "working" | "experience_ref" | "skill_ref" | "session" | "agent"
+): "profile" | "project" | "working" | "experience_ref" | "skill_ref" {
+  if (scope === "session") {
+    return "working";
+  }
+  if (scope === "agent") {
+    return "profile";
+  }
+  return scope;
 }

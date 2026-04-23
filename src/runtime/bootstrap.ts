@@ -396,6 +396,7 @@ export function createApplication(
     listThreadLineage: (threadId) => storage.threadLineage.listByThreadId(threadId),
     listToolCalls: (taskId) => storage.toolCalls.listByTaskId(taskId),
     listTrace: (taskId) => storage.traces.listByTaskId(taskId),
+    findExecutionCheckpoint: (taskId) => storage.checkpoints.findByTaskId(taskId),
     updateToolCall: (toolCallId, patch) => storage.toolCalls.update(toolCallId, patch),
     allowedFetchHosts: config.allowedFetchHosts,
     provider,

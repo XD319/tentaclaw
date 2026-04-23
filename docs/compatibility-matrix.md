@@ -29,9 +29,13 @@
 
 ## Memory / Storage
 
-- Runtime schema baseline: `PRAGMA user_version = 2`.
+- Runtime schema baseline: `PRAGMA user_version = 8`.
 - Schema upgrades from legacy unversioned DB: supported via migration pipeline.
 - Config files without `version`: auto-migrated to `version: 1`.
+- Scope rename compatibility:
+  - legacy `agent` scope is migrated to `profile`
+  - legacy `session` scope is presented as `working` in read surfaces
+  - CLI `memory show session|agent` remains as compatibility aliases
 
 ## Skills
 

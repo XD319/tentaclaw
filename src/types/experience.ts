@@ -39,6 +39,7 @@ export type ExperienceStatus = (typeof EXPERIENCE_STATUSES)[number];
 
 export const EXPERIENCE_PROMOTION_TARGETS = [
   "project_memory",
+  "profile_memory",
   "agent_memory",
   "skill_candidate"
 ] as const;
@@ -147,7 +148,7 @@ export interface ExperienceQuery {
 
 const experienceScopeSchema = z.object({
   paths: z.array(z.string()).default([]),
-  scope: z.union([z.enum(["workspace", "global"]), z.enum(["session", "project", "agent"])]),
+  scope: z.union([z.enum(["workspace", "global"]), z.enum(["working", "project", "profile"])]),
   scopeKey: z.string().min(1)
 });
 
