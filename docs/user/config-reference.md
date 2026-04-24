@@ -38,6 +38,9 @@ SQLite runtime schema now includes thread continuity tables:
 Provider routing and budget policy details:
 - `docs/provider-routing-budget.md`
 
+Tool availability gating details:
+- `docs/tool-availability-gating.md`
+
 Trace stream also includes commitment lifecycle events:
 - `commitment_created|updated|blocked|unblocked|completed|cancelled`
 - `next_action_created|updated|blocked|done`

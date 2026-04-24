@@ -4,4 +4,6 @@ export * from "./shell-tool.js";
 export * from "./skill-view-tool.js";
 export * from "./test-run-tool.js";
 export * from "./tool-orchestrator.js";
+export * from "./availability/index.js";
+export * from "./policy/index.js";
 export * from "./web-fetch-tool.js";

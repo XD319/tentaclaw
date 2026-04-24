@@ -3,6 +3,7 @@ import { z } from "zod";
 import { AppError } from "../runtime/app-error.js";
 import type { PreparedShellInput, SandboxService } from "../sandbox/sandbox-service.js";
 import type {
+  ToolAvailabilityResult,
   ToolDefinition,
   ToolExecutionContext,
   ToolExecutionResult,
@@ -25,6 +26,10 @@ export class TestRunTool implements ToolDefinition<typeof testRunSchema, Prepare
   public readonly capability = "shell.execute" as const;
   public readonly riskLevel = "high" as const;
   public readonly privacyLevel = "restricted" as const;
+  public readonly costLevel = "moderate" as const;
+  public readonly sideEffectLevel = "workspace_mutation" as const;
+  public readonly approvalDefault = "when_needed" as const;
+  public readonly toolKind = "external_tool" as const;
   public readonly inputSchema = testRunSchema;
   private readonly failedAttemptsByTaskId = new Map<string, number>();
 
@@ -34,6 +39,12 @@ export class TestRunTool implements ToolDefinition<typeof testRunSchema, Prepare
     private readonly allowedCommands: string[],
     private readonly maxRepairAttempts: number
   ) {}
+
+  public checkAvailability(): ToolAvailabilityResult {
+    return this.allowedCommands.length > 0
+      ? { available: true, reason: "test commands configured" }
+      : { available: false, reason: "no test commands configured" };
+  }
 
   public get inputSchemaDescriptor(): ToolDefinition<typeof testRunSchema, PreparedTestRunInput>["inputSchemaDescriptor"] {
     return {

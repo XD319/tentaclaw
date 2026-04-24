@@ -25,6 +25,10 @@ export class McpToolAdapter implements ToolDefinition<typeof mcpToolInputSchema,
   public readonly capability = "mcp.invoke" as const;
   public readonly riskLevel: McpServerConfig["riskLevel"];
   public readonly privacyLevel: McpServerConfig["privacyLevel"];
+  public readonly costLevel = "moderate" as const;
+  public readonly sideEffectLevel = "external_mutation" as const;
+  public readonly approvalDefault = "always" as const;
+  public readonly toolKind = "control_command" as const;
   public readonly inputSchema = mcpToolInputSchema;
   public readonly inputSchemaDescriptor: {
     properties: JsonObject;

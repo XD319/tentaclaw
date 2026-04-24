@@ -12,6 +12,7 @@ import { tokenBudgetToJson } from "./serialization.js";
 import type { ContextCompactor, SessionSnapshotService } from "./context/index.js";
 import type { RecallPlanner } from "./retrieval/index.js";
 import type { RuntimeConfig, WorkflowRuntimeConfig } from "./runtime-config.js";
+import type { ToolExposurePlanner } from "./tool-exposure-planner.js";
 import { ProviderError } from "../providers/index.js";
 import type { ProviderRouter } from "../providers/routing/provider-router.js";
 import type { AgentProfileRegistry } from "../profiles/agent-profile-registry.js";
@@ -63,10 +64,12 @@ export interface ExecutionKernelDependencies {
   budgetService?: BudgetService;
   providerRouter?: ProviderRouter;
   routingMode?: "cheap_first" | "balanced" | "quality_first";
+  toolExposurePlanner?: ToolExposurePlanner;
   workspaceRoot: string;
 }
 
 interface ExecutionLoopState {
+  costWarnedToolNames: string[];
   cwd: string;
   managedAbortController: ReturnType<typeof createManagedAbortController>;
   maxIterations: number;
@@ -164,8 +167,31 @@ export class ExecutionKernel {
 
       const profile = this.dependencies.agentProfileRegistry.get(options.agentProfileId);
       this.dependencies.memoryPlane.rememberTaskGoal(task);
-      const availableTools = this.dependencies.toolOrchestrator.listTools(profile.allowedToolNames);
       const threadId = task.threadId ?? null;
+      const initialToolExposure = this.dependencies.toolExposurePlanner
+        ? await this.dependencies.toolExposurePlanner.plan({
+            agentProfileId: options.agentProfileId,
+            allowedToolNames: profile.allowedToolNames,
+            context: {
+              agentProfileId: options.agentProfileId,
+              cwd: options.cwd,
+              iteration: 1,
+              signal: managedAbortController.abortController.signal,
+              taskId,
+              userId: options.userId,
+              workspaceRoot: this.dependencies.workspaceRoot
+            },
+            iteration: 1,
+            taskId,
+            taskInput: options.taskInput,
+            threadCommitmentState:
+              threadId === null ? null : this.dependencies.getThreadCommitmentState?.(threadId) ?? null,
+            threadId
+          })
+        : null;
+      const availableTools =
+        initialToolExposure?.tools ??
+        this.dependencies.toolOrchestrator.listTools(profile.allowedToolNames);
       const recallPlan = this.dependencies.recallPlanner.plan({
         task,
         threadCommitmentState:
@@ -205,6 +231,7 @@ export class ExecutionKernel {
 
       return await this.executeLoop({
         cwd: options.cwd,
+        costWarnedToolNames: [],
         managedAbortController,
         maxIterations: options.maxIterations,
         memoryContext: [...recallPlan.fragments, ...resumeMemoryContext],
@@ -267,6 +294,7 @@ export class ExecutionKernel {
     try {
       return await this.executeLoop({
         cwd: resumedTask.cwd,
+        costWarnedToolNames: [],
         managedAbortController,
         maxIterations: resumedTask.maxIterations,
         memoryContext: checkpoint.memoryContext,
@@ -325,7 +353,7 @@ export class ExecutionKernel {
 
   private async executeLoop(state: ExecutionLoopState): Promise<RuntimeRunResult> {
     const profile = this.dependencies.agentProfileRegistry.get(state.task.agentProfileId);
-    const availableTools = this.dependencies.toolOrchestrator.listTools(profile.allowedToolNames);
+    let availableTools = this.dependencies.toolOrchestrator.listTools(profile.allowedToolNames);
     let task = state.task;
     const messages = [...state.messages];
     let pendingToolCalls = [...state.pendingToolCalls];
@@ -345,6 +373,33 @@ export class ExecutionKernel {
       });
 
       if (pendingToolCalls.length === 0) {
+        if (this.dependencies.toolExposurePlanner !== undefined) {
+          const exposure = await this.dependencies.toolExposurePlanner.plan({
+            agentProfileId: state.task.agentProfileId,
+            allowedToolNames: profile.allowedToolNames,
+            context: {
+              agentProfileId: state.task.agentProfileId,
+              cwd: state.cwd,
+              iteration,
+              signal: state.managedAbortController.abortController.signal,
+              taskId: task.taskId,
+              userId: task.requesterUserId,
+              workspaceRoot: this.dependencies.workspaceRoot
+            },
+            iteration,
+            taskId: task.taskId,
+            taskInput: task.input,
+            threadCommitmentState:
+              task.threadId === null || task.threadId === undefined
+                ? null
+                : this.dependencies.getThreadCommitmentState?.(task.threadId) ?? null,
+            threadId: task.threadId ?? null
+          });
+          availableTools = exposure.tools;
+          state.costWarnedToolNames = exposure.decisions
+            .filter((decision) => decision.costWarning === true)
+            .map((decision) => decision.toolName);
+        }
         const assembled = this.contextAssembler.assemble({
           availableTools,
           iteration,
@@ -868,6 +923,7 @@ export class ExecutionKernel {
           content: buildCapabilityDeclaration({
             agentProfileId: task.agentProfileId,
             availableTools,
+            costWarnedToolNames: state.costWarnedToolNames,
             skillContext: state.selectedSkillContext
           }),
           metadata: {

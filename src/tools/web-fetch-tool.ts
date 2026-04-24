@@ -4,6 +4,7 @@ import { parse } from "node-html-parser";
 import type { SandboxService } from "../sandbox/sandbox-service.js";
 import type {
   SandboxWebPlan,
+  ToolAvailabilityResult,
   ToolDefinition,
   ToolExecutionContext,
   ToolExecutionResult,
@@ -33,6 +34,10 @@ export class WebFetchTool implements ToolDefinition<typeof webFetchSchema, Prepa
   public readonly capability = "network.fetch" as const;
   public readonly riskLevel = "high" as const;
   public readonly privacyLevel = "restricted" as const;
+  public readonly costLevel = "cheap" as const;
+  public readonly sideEffectLevel = "external_mutation" as const;
+  public readonly approvalDefault = "when_needed" as const;
+  public readonly toolKind = "external_tool" as const;
   public readonly inputSchema = webFetchSchema;
   public readonly inputSchemaDescriptor = {
     properties: {
@@ -56,6 +61,13 @@ export class WebFetchTool implements ToolDefinition<typeof webFetchSchema, Prepa
       fetch: (input, init) => fetch(input, init)
     }
   ) {}
+
+  public checkAvailability(): ToolAvailabilityResult {
+    return {
+      available: true,
+      reason: "web fetch availability controlled by sandbox host allowlist"
+    };
+  }
 
   public prepare(
     input: unknown,

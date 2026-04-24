@@ -71,6 +71,10 @@ export class ToolOrchestrator {
       }));
   }
 
+  public listToolsWithMetadata(): ToolDefinition[] {
+    return [...this.tools.values()];
+  }
+
   public describeTool(toolName: string): ProviderToolDescriptor | null {
     const tool = this.tools.get(toolName);
     if (tool === undefined) {

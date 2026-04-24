@@ -1,0 +1,33 @@
+{
+  "eventId": "tool-exposure-001",
+  "taskId": "task-123",
+  "sequence": 15,
+  "timestamp": "2026-04-24T00:00:00.000Z",
+  "eventType": "tool_exposure_decided",
+  "stage": "planning",
+  "actor": "runtime.tool_exposure",
+  "summary": "Tool exposure selected 3 tools",
+  "payload": {
+    "iteration": 1,
+    "taskId": "task-123",
+    "exposedTools": ["file_read", "skill_view", "web_fetch"],
+    "hiddenTools": ["shell", "test_run", "file_write"],
+    "reasons": [
+      "file_read:eligible",
+      "file_write:high risk hidden at initial iteration without mutation intent",
+      "shell:high risk hidden at initial iteration without mutation intent"
+    ],
+    "decisions": [
+      {
+        "toolName": "file_read",
+        "exposed": true,
+        "reason": "eligible"
+      },
+      {
+        "toolName": "file_write",
+        "exposed": false,
+        "reason": "high risk hidden at initial iteration without mutation intent"
+      }
+    ]
+  }
+}

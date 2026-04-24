@@ -59,6 +59,7 @@ import { JobRunner } from "./jobs/index.js";
 import { SchedulerService } from "./scheduler/index.js";
 import { ResumePacketBuilder, ThreadService, ThreadStateProjector } from "./threads/index.js";
 import { resolveRuntimeConfig, type WorkflowRuntimeConfig } from "./runtime-config.js";
+import { ToolExposurePlanner } from "./tool-exposure-planner.js";
 import { initializeWorkspaceFiles, migrateWorkspaceConfigFiles } from "./workspace-setup.js";
 
 export interface AppConfig {
@@ -385,6 +386,11 @@ export function createApplication(
     traceService
   });
   commitmentCollector.start();
+  const toolExposurePlanner = new ToolExposurePlanner({
+    budgetService,
+    toolOrchestrator,
+    traceService
+  });
 
   const executionKernel = new ExecutionKernel({
     compact: config.compact,
@@ -405,6 +411,7 @@ export function createApplication(
     taskRepository: storage.tasks,
     threadLineageRepository: storage.threadLineage,
     threadRunRepository: storage.threadRuns,
+    toolExposurePlanner,
     toolOrchestrator,
     traceService,
     workflow: config.workflow,

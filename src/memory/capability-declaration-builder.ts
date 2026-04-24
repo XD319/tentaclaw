@@ -3,11 +3,13 @@ import type { ContextFragment, ProviderToolDescriptor } from "../types/index.js"
 export function buildCapabilityDeclaration(input: {
   agentProfileId: string;
   availableTools: ProviderToolDescriptor[];
+  costWarnedToolNames?: string[];
   skillContext: ContextFragment[];
 }): string {
+  const warnedTools = new Set(input.costWarnedToolNames ?? []);
   const toolLines = input.availableTools.map(
     (tool) =>
-      `${tool.name} :: capability=${tool.capability} risk=${tool.riskLevel} privacy=${tool.privacyLevel} schema=${JSON.stringify(tool.inputSchema)}`
+      `${tool.name}${warnedTools.has(tool.name) ? " [cost_warning]" : ""} :: capability=${tool.capability} risk=${tool.riskLevel} privacy=${tool.privacyLevel} schema=${JSON.stringify(tool.inputSchema)}`
   );
   const skillLines = input.skillContext
     .filter((fragment) => fragment.memoryId.startsWith("skill:"))

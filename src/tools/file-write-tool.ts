@@ -94,6 +94,10 @@ export class FileWriteTool implements ToolDefinition<typeof fileWriteSchema, Pre
   public readonly capability = "filesystem.write" as const;
   public readonly riskLevel = "medium" as const;
   public readonly privacyLevel = "internal" as const;
+  public readonly costLevel = "free" as const;
+  public readonly sideEffectLevel = "workspace_mutation" as const;
+  public readonly approvalDefault = "when_needed" as const;
+  public readonly toolKind = "runtime_primitive" as const;
   public readonly inputSchema = fileWriteSchema;
   public readonly inputSchemaDescriptor = {
     properties: {

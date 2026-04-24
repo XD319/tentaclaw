@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import type { PreparedShellInput, SandboxService } from "../sandbox/sandbox-service.js";
 import type {
+  ToolAvailabilityResult,
   ToolDefinition,
   ToolExecutionContext,
   ToolExecutionResult,
@@ -29,6 +30,10 @@ export class ShellTool implements ToolDefinition<typeof shellToolSchema, Prepare
   public readonly capability = "shell.execute" as const;
   public readonly riskLevel = "high" as const;
   public readonly privacyLevel = "restricted" as const;
+  public readonly costLevel = "moderate" as const;
+  public readonly sideEffectLevel = "external_mutation" as const;
+  public readonly approvalDefault = "always" as const;
+  public readonly toolKind = "external_tool" as const;
   public readonly inputSchema = shellToolSchema;
   public readonly inputSchemaDescriptor = {
     properties: {
@@ -56,6 +61,15 @@ export class ShellTool implements ToolDefinition<typeof shellToolSchema, Prepare
     private readonly executor: ShellCommandExecutor,
     private readonly sandboxService: SandboxService
   ) {}
+
+  public checkAvailability(): ToolAvailabilityResult {
+    const hasShell = process.platform === "win32"
+      ? Boolean(process.env.ComSpec)
+      : Boolean(process.env.SHELL);
+    return hasShell
+      ? { available: true, reason: "shell environment detected" }
+      : { available: false, reason: "shell environment variable is missing" };
+  }
 
   public prepare(
     input: unknown,

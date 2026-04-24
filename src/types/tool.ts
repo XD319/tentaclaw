@@ -5,6 +5,13 @@ import type { RuntimeErrorCode } from "./error.js";
 import type { ToolCapability, ToolRiskLevel, PrivacyLevel, PathScope } from "./governance.js";
 import type { SandboxExecutionPlan } from "./sandbox.js";
 import type { AgentProfileId } from "./profile.js";
+import type {
+  ToolApprovalDefault,
+  ToolAvailabilityResult,
+  ToolCostLevel,
+  ToolKind,
+  ToolSideEffectLevel
+} from "./tool-exposure.js";
 
 export const TOOL_CALL_STATUSES = [
   "requested",
@@ -124,8 +131,15 @@ export interface ToolDefinition<
   capability: ToolCapability;
   riskLevel: ToolRiskLevel;
   privacyLevel: PrivacyLevel;
+  costLevel: ToolCostLevel;
+  sideEffectLevel: ToolSideEffectLevel;
+  approvalDefault: ToolApprovalDefault;
+  toolKind: ToolKind;
   inputSchema: TSchema;
   inputSchemaDescriptor: ToolSchemaDescriptor;
+  checkAvailability?(
+    context: ToolExecutionContext
+  ): Promise<ToolAvailabilityResult> | ToolAvailabilityResult;
   prepare(
     input: unknown,
     context: ToolExecutionContext

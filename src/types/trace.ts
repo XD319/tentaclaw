@@ -13,6 +13,7 @@ import type { ApprovalStatus } from "./approval.js";
 import type { ProviderErrorCategory } from "./runtime.js";
 import type { ContextAssemblyDebugView } from "./context.js";
 import type { RouteKind, RoutingMode } from "./budget.js";
+import type { ToolExposureDecision } from "./tool-exposure.js";
 
 export const TRACE_EVENT_TYPES = [
   "gateway_request_received",
@@ -37,6 +38,7 @@ export const TRACE_EVENT_TYPES = [
   "tool_call_started",
   "tool_call_finished",
   "tool_call_failed",
+  "tool_exposure_decided",
   "loop_iteration_completed",
   "turn_end",
   "retry",
@@ -267,6 +269,15 @@ export interface ToolCallFailedPayload extends JsonObject {
   toolName: string;
   errorCode: RuntimeErrorCode;
   errorMessage: string;
+}
+
+export interface ToolExposureDecidedPayload extends JsonObject {
+  iteration: number;
+  taskId: string;
+  exposedTools: string[];
+  hiddenTools: string[];
+  reasons: string[];
+  decisions: ToolExposureDecision[];
 }
 
 export interface LoopIterationCompletedPayload extends JsonObject {
@@ -698,6 +709,7 @@ export type TraceEvent =
   | TraceEventBase<"tool_call_started", ToolCallStartedPayload>
   | TraceEventBase<"tool_call_finished", ToolCallFinishedPayload>
   | TraceEventBase<"tool_call_failed", ToolCallFailedPayload>
+  | TraceEventBase<"tool_exposure_decided", ToolExposureDecidedPayload>
   | TraceEventBase<"loop_iteration_completed", LoopIterationCompletedPayload>
   | TraceEventBase<"turn_end", TurnEndPayload>
   | TraceEventBase<"retry", RetryPayload>
