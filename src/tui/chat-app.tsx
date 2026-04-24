@@ -3,16 +3,16 @@ import React from "react";
 import { Box, Text, useApp } from "ink";
 
 import type { AgentApplicationService, AppConfig } from "../runtime/index.js";
-import { displayChatMessages, type ChatMessage } from "./view-models/chat-messages.js";
 import { Banner } from "./components/banner.js";
 import { InputBox } from "./components/input-box.js";
 import { MessageStream, StaticMessageStream } from "./components/message-stream.js";
-import { Spinner } from "./components/spinner.js";
-import { StatusBar } from "./components/status-bar.js";
+import { buildTokenMetrics, StatusBar } from "./components/status-bar.js";
 import { useChatController } from "./hooks/use-chat-controller.js";
 import { useTextInput } from "./hooks/use-text-input.js";
 import { listSessionIds, saveSession } from "./session-store.js";
 import { completeSlashCommand } from "./slash-commands.js";
+import { theme } from "./theme.js";
+import { displayChatMessages, type ChatMessage } from "./view-models/chat-messages.js";
 
 export interface ChatTuiAppProps {
   config: AppConfig;
@@ -51,11 +51,11 @@ export function ChatTuiApp({
     [controller.messages]
   );
   const staticMessages = React.useMemo(
-    () => displayMessages.filter(isStaticTranscriptMessage),
+    () => displayMessages.filter((message) => !isLiveTranscriptMessage(message)),
     [displayMessages]
   );
   const liveMessages = React.useMemo(
-    () => displayMessages.filter((message) => !isStaticTranscriptMessage(message)),
+    () => displayMessages.filter(isLiveTranscriptMessage),
     [displayMessages]
   );
 
@@ -78,7 +78,7 @@ export function ChatTuiApp({
         clearTimeout(saveTimerRef.current);
       }
     };
-  }, [config.workspaceRoot, controller.messages, controller.busy, sessionId]);
+  }, [config.workspaceRoot, controller.busy, controller.messages, sessionId]);
 
   const navigateHistoryPrevious = React.useCallback((): string | null => {
     const history = historyRef.current;
@@ -142,11 +142,7 @@ export function ChatTuiApp({
 
       if (text === "/stop") {
         const requested = controller.requestInterrupt();
-        if (requested) {
-          controller.addSystemMessage("Stop requested for current task.");
-        } else {
-          controller.addSystemMessage("No running task to stop.");
-        }
+        controller.addSystemMessage(requested ? "Stop requested for current task." : "No running task to stop.");
         return true;
       }
 
@@ -165,9 +161,8 @@ export function ChatTuiApp({
 
       if (text === "/cost") {
         const u = controller.tokenHud;
-        const estimate = u.estimatedCostUsd.toFixed(4);
         controller.addSystemMessage(
-          `Session token estimate (provider telemetry): in=${u.inputTokens} out=${u.outputTokens} | ~$${estimate}`
+          `Session token estimate (provider telemetry): in=${u.inputTokens} out=${u.outputTokens} | ~$${u.estimatedCostUsd.toFixed(4)}`
         );
         return true;
       }
@@ -216,6 +211,7 @@ export function ChatTuiApp({
           `active_task: ${controller.activeTaskId ?? "(none)"}`,
           `tasks: ${controller.summary.tasks} running: ${controller.summary.runningTasks} approvals: ${controller.summary.pendingApprovals}`,
           `status_line: ${controller.statusLine}`,
+          `ui_status: ${controller.uiStatus.primaryLabel}`,
           `elapsed: ${controller.runDurationLabel}`,
           "ui_scroll: terminal",
           `message_rows: ${controller.messages.length}`,
@@ -305,13 +301,11 @@ export function ChatTuiApp({
     },
     onInterruptRequest: () => {
       const requested = controller.requestInterrupt();
-      if (requested) {
-        controller.addSystemMessage(
-          "Interrupt requested. Press Ctrl+C again within 2s to force exit if shutdown is needed."
-        );
-      } else {
-        controller.addSystemMessage("No running task to interrupt.");
-      }
+      controller.addSystemMessage(
+        requested
+          ? "Interrupt requested. Press Ctrl+C again within 2s to force exit if shutdown is needed."
+          : "No running task to interrupt."
+      );
     },
     onApprovalAction: (action) => {
       void controller.resolvePendingApproval(action);
@@ -362,61 +356,53 @@ export function ChatTuiApp({
     <Box flexDirection="column">
       <StaticMessageStream messages={staticMessages} />
       <Banner
-        cwd={cwd}
-        modelLabel={config.provider.model ?? config.provider.name}
-        sessionId={sessionId}
-        sessionTitle={sessionTitle}
+        details={[config.provider.model ?? config.provider.name, shortenPath(cwd, 20)]}
+        productName="AUTOTALON"
+        title={sessionTitle === "chat" ? "Interactive Chat" : sessionTitle}
       />
-      {liveMessages.length > 0 ? (
-        <Box flexDirection="column" marginTop={1}>
+      <Box flexDirection="column">
+        {liveMessages.length > 0 ? (
           <MessageStream messages={liveMessages} />
-        </Box>
-      ) : null}
-      <Box marginTop={1}>
-        <Spinner active={controller.busy} />
+        ) : staticMessages.length === 0 ? (
+          <Text color={theme.muted}>No messages yet.</Text>
+        ) : null}
       </Box>
-      <StatusBar
-        contextPercent={controller.tokenHud.contextPercent}
-        estimatedCostUsd={controller.tokenHud.estimatedCostUsd}
-        inputTokens={controller.tokenHud.inputTokens}
-        outputTokens={controller.tokenHud.outputTokens}
-        statusLine={`v0.1.0 | provider=${config.provider.name} | tasks=${controller.summary.tasks} | db=${config.databasePath} | ${controller.statusLine}`}
-      />
-      {slashHints.length > 0 ? (
-        <Box flexDirection="column" marginTop={1}>
-          <Text color="gray" dimColor>
-            Slash hints ({slashHints.length})
-          </Text>
-          {slashHints.slice(0, 8).map((line) => (
-            <Text key={line} color="gray">
-              {line}
-            </Text>
-          ))}
-        </Box>
-      ) : null}
-      <Box marginTop={1}>
+      <Box>
         <InputBox
           busy={controller.busy}
           hasPendingApproval={controller.hasPendingApproval}
           lines={textInput.lines}
+          slashHints={slashHints}
           value={textInput.value}
+        />
+      </Box>
+      <Box>
+        <StatusBar
+          details={[`elapsed ${controller.runDurationLabel}`]}
+          hints={[controller.hasPendingApproval ? "a allow | d deny" : "Enter send"]}
+          metrics={buildTokenMetrics(
+            controller.tokenHud.inputTokens,
+            controller.tokenHud.outputTokens,
+            controller.tokenHud.contextPercent,
+            controller.tokenHud.estimatedCostUsd
+          )}
+          primary={{
+            label: controller.uiStatus.primaryLabel,
+            tone: controller.uiStatus.primaryTone
+          }}
         />
       </Box>
     </Box>
   );
 }
 
-function isStaticTranscriptMessage(message: ChatMessage): boolean {
-  if (message.kind === "agent") {
-    return message.streaming !== true;
-  }
-  if (message.kind === "approval") {
-    return message.status === "resolved";
-  }
+function shortenPath(value: string, maxLength: number): string {
+  return value.length <= maxLength ? value : `...${value.slice(-(maxLength - 3))}`;
+}
+
+function isLiveTranscriptMessage(message: ChatMessage): boolean {
   return (
-    message.kind === "approval_result" ||
-    message.kind === "error" ||
-    message.kind === "system" ||
-    message.kind === "user"
+    (message.kind === "agent" && message.streaming === true) ||
+    (message.kind === "approval" && message.status === "pending")
   );
 }

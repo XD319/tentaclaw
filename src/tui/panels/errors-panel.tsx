@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 
+import { theme } from "../theme.js";
 import type { ErrorViewModel } from "../view-models/runtime-dashboard.js";
 
 export interface ErrorsPanelProps {
@@ -10,14 +11,19 @@ export interface ErrorsPanelProps {
 export function ErrorsPanel({ errors }: ErrorsPanelProps): React.ReactElement {
   return (
     <Box flexDirection="column">
-      <Text color="cyan">Errors And Retries</Text>
+      <Text color={theme.panelTitle}>Errors And Retries</Text>
       {errors.length === 0 ? (
-        <Text color="gray">No failures, retries, interrupts, or policy rejects.</Text>
+        <Text color={theme.muted}>No failures, retries, interrupts, or policy rejects.</Text>
       ) : (
         errors.map((entry, index) => (
-          <Text key={`${entry.code}-${index}`} color="red">
-            [{entry.source}] {entry.code} {entry.message}
-          </Text>
+          <Box key={`${entry.code}-${index}`} borderStyle="classic" borderColor={theme.danger} flexDirection="column" marginBottom={1} paddingX={1}>
+            <Text color={theme.danger}>
+              [{entry.source}] {entry.code}
+            </Text>
+            <Text color={theme.fg} wrap="wrap">
+              {entry.message}
+            </Text>
+          </Box>
         ))
       )}
     </Box>

@@ -92,7 +92,7 @@ function renderMarkdownLine(line: string, index: number): React.ReactElement {
   if (heading !== null) {
     return (
       <Text key={`heading:${index}`} bold color={theme.heading} wrap="wrap">
-        {heading[1]} {plainInlineMarkdown(heading[2] ?? "")}
+        {heading[1]} {renderInlineMarkdown(heading[2] ?? "")}
       </Text>
     );
   }
@@ -101,7 +101,7 @@ function renderMarkdownLine(line: string, index: number): React.ReactElement {
   if (quote !== null) {
     return (
       <Text key={`quote:${index}`} color={theme.quote} wrap="wrap">
-        | {plainInlineMarkdown(quote[1] ?? "")}
+        | {renderInlineMarkdown(quote[1] ?? "")}
       </Text>
     );
   }
@@ -110,7 +110,7 @@ function renderMarkdownLine(line: string, index: number): React.ReactElement {
   if (unordered !== null) {
     return (
       <Text key={`ul:${index}`} color={theme.emphasis} wrap="wrap">
-        {indent(unordered[1] ?? "")}- {plainInlineMarkdown(unordered[2] ?? "")}
+        {indent(unordered[1] ?? "")}- {renderInlineMarkdown(unordered[2] ?? "")}
       </Text>
     );
   }
@@ -120,14 +120,14 @@ function renderMarkdownLine(line: string, index: number): React.ReactElement {
     return (
       <Text key={`ol:${index}`} color={theme.emphasis} wrap="wrap">
         {indent(ordered[1] ?? "")}
-        {ordered[2]} {plainInlineMarkdown(ordered[3] ?? "")}
+        {ordered[2]} {renderInlineMarkdown(ordered[3] ?? "")}
       </Text>
     );
   }
 
   return (
     <Text key={`p:${index}`} color={theme.emphasis} wrap="wrap">
-      {plainInlineMarkdown(line)}
+      {renderInlineMarkdown(line)}
     </Text>
   );
 }
@@ -136,10 +136,44 @@ function indent(value: string): string {
   return " ".repeat(Math.floor(value.length / 2) * 2);
 }
 
-function plainInlineMarkdown(value: string): string {
-  return value
-    .replace(/\*\*([^*]+)\*\*/gu, "$1")
-    .replace(/__([^_]+)__/gu, "$1")
-    .replace(/`([^`]+)`/gu, "$1")
-    .replace(/\[([^\]]+)\]\([^)]+\)/gu, "$1");
+function renderInlineMarkdown(value: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  const tokenPattern = /(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|\[[^\]]+\]\([^)]+\))/gu;
+  let cursor = 0;
+  let tokenIndex = 0;
+
+  for (const match of value.matchAll(tokenPattern)) {
+    const start = match.index ?? 0;
+    if (start > cursor) {
+      parts.push(value.slice(cursor, start));
+    }
+    const token = match[0];
+    if (/^\*\*[^*]+\*\*$/u.test(token) || /^__[^_]+__$/u.test(token)) {
+      const content = token.slice(2, -2);
+      parts.push(
+        <Text key={`b:${tokenIndex++}`} bold>
+          {content}
+        </Text>
+      );
+    } else if (/^`[^`]+`$/u.test(token)) {
+      const content = token.slice(1, -1);
+      parts.push(
+        <Text key={`c:${tokenIndex++}`} color={theme.inlineCode}>
+          {content}
+        </Text>
+      );
+    } else {
+      const linkMatch = /^\[([^\]]+)\]\(([^)]+)\)$/u.exec(token);
+      parts.push(
+        <Text key={`l:${tokenIndex++}`} color={theme.link}>
+          {linkMatch?.[1] ?? token}
+        </Text>
+      );
+    }
+    cursor = start + token.length;
+  }
+  if (cursor < value.length) {
+    parts.push(value.slice(cursor));
+  }
+  return parts;
 }

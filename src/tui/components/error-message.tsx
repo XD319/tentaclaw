@@ -2,6 +2,7 @@ import React from "react";
 import { Text } from "ink";
 
 import { sanitizeTerminalText } from "../text-sanitize.js";
+import { theme } from "../theme.js";
 
 export interface ErrorMessageProps {
   code: string;
@@ -13,7 +14,7 @@ export function ErrorMessage({ code, message, source }: ErrorMessageProps): Reac
   const compact = sanitizeTerminalText(message).replace(/\s+/gu, " ").trim();
   const preview = compact.length > 180 ? `${compact.slice(0, 180)}...` : compact;
   return (
-    <Text color="red">
+    <Text color={theme.danger}>
       [{source}] {code}: {preview}
     </Text>
   );

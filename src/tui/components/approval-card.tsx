@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Text } from "ink";
 
 import type { ApprovalRecord, ToolCallRecord } from "../../types/index.js";
+import { theme } from "../theme.js";
 
 export interface ApprovalCardProps {
   approval: ApprovalRecord;
@@ -10,21 +11,17 @@ export interface ApprovalCardProps {
 
 export function ApprovalCard({ approval, toolCall }: ApprovalCardProps): React.ReactElement {
   const target = summarizeToolTarget(toolCall);
+  const targetText = target !== null ? ` | target ${target}` : "";
 
   return (
-    <Box
-      flexDirection="column"
-      borderStyle="classic"
-      borderColor="yellow"
-      paddingX={1}
-    >
-      <Text color="yellow">Approval Required</Text>
-      <Text>
-        {approval.toolName} [{toolCall?.riskLevel ?? "unknown"}] task={approval.taskId.slice(0, 8)}
+    <Box flexDirection="column" borderStyle="classic" borderColor={theme.warn} paddingX={1}>
+      <Text color={theme.warn}>Approval required</Text>
+      <Text color={theme.fg}>
+        {approval.toolName} [{toolCall?.riskLevel ?? "unknown"}] task {approval.taskId.slice(0, 8)}
+        {targetText}
       </Text>
-      {target !== null ? <Text color="gray">target: {target}</Text> : null}
-      <Text color="gray">reason: {approval.reason}</Text>
-      <Text color="gray">Press a to allow or d to deny.</Text>
+      <Text color={theme.muted}>reason {approval.reason}</Text>
+      <Text color={theme.muted}>a allow | d deny</Text>
     </Box>
   );
 }

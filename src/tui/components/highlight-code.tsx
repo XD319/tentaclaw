@@ -25,31 +25,30 @@ const HLJS_CLASS: Record<string, string> = {
   "hljs-variable": "white"
 };
 
-function renderHtmlNode(node: DomNode, key: number): React.ReactNode {
+type HighlightChunk = {
+  color: HighlightColor | null;
+  text: string;
+};
+
+type HighlightColor = "blue" | "cyan" | "gray" | "green" | "magenta" | "yellow";
+
+function renderHtmlNode(node: DomNode, inheritedColor: HighlightColor | null = null): HighlightChunk[] {
   if (node instanceof TextNode) {
-    return node.rawText;
+    return [{ color: inheritedColor, text: decodeHtmlEntities(node.text) }];
   }
   if (!(node instanceof HTMLElement)) {
-    return null;
+    return [];
   }
+
+  let nodeColor = inheritedColor;
   if (node.tagName === "SPAN") {
     const rawClass = node.getAttribute("class") ?? "";
     const cls = rawClass.split(/\s+/u).find((c) => c.startsWith("hljs-"));
     const colorKey = cls !== undefined ? HLJS_CLASS[cls] : undefined;
-    const inkColor =
-      colorKey === undefined || colorKey === "white"
-        ? null
-        : (colorKey as "cyan" | "yellow" | "magenta" | "green" | "blue" | "gray");
-    const children = node.childNodes.map((child, index) => renderHtmlNode(child, index));
-    return inkColor === null ? (
-      <Text key={key}>{children}</Text>
-    ) : (
-      <Text key={key} color={inkColor}>
-        {children}
-      </Text>
-    );
+    nodeColor = isHighlightColor(colorKey) ? colorKey : inheritedColor;
   }
-  return node.childNodes.map((child, index) => renderHtmlNode(child, index));
+
+  return node.childNodes.flatMap((child) => renderHtmlNode(child, nodeColor));
 }
 
 function HighlightCodeBase({
@@ -59,32 +58,85 @@ function HighlightCodeBase({
   code: string;
   language: string | undefined;
 }): React.ReactElement {
-  const body = React.useMemo(() => {
-    let html: string;
+  const bodyLines = React.useMemo(() => {
+    let chunks: HighlightChunk[];
     try {
       const lang =
         language !== undefined && hljs.getLanguage(language) !== undefined ? language : "plaintext";
-      html = hljs.highlight(code, { language: lang, ignoreIllegals: true }).value;
+      const html = hljs.highlight(code, { language: lang, ignoreIllegals: true }).value;
+      chunks = parseHighlightChunks(html);
     } catch {
-      html = hljs.highlightAuto(code).value;
+      chunks = parseHighlightChunks(hljs.highlightAuto(code).value);
     }
-    const wrapped = parse(`<div>${html}</div>`);
-    const root = wrapped.querySelector("div");
-    return root?.childNodes.map((child, index) => renderHtmlNode(child, index)) ?? [
-      <Text key="f">{code}</Text>
-    ];
+    return splitHighlightLines(chunks.length > 0 ? chunks : [{ color: null, text: code }]);
   }, [code, language]);
 
   return (
-    <Box borderColor={theme.border} borderStyle="round" flexDirection="column" paddingX={1}>
+    <Box borderColor={theme.border} borderStyle="classic" flexDirection="column" paddingX={1}>
       {language !== undefined && language.length > 0 ? (
         <Text color="gray" dimColor>
           {language}
         </Text>
       ) : null}
-      <Text wrap="wrap">{body}</Text>
+      {bodyLines.map((line, index) => (
+        <Text key={`code:${index}`} wrap="truncate-end">
+          {line.length > 0
+            ? line.map((chunk, chunkIndex) =>
+                chunk.color === null ? (
+                  <Text key={`chunk:${chunkIndex}`}>{chunk.text}</Text>
+                ) : (
+                  <Text key={`chunk:${chunkIndex}`} color={chunk.color}>
+                    {chunk.text}
+                  </Text>
+                )
+              )
+            : " "}
+        </Text>
+      ))}
     </Box>
   );
 }
 
 export const HighlightCode = React.memo(HighlightCodeBase);
+
+function parseHighlightChunks(html: string): HighlightChunk[] {
+  const wrapped = parse(`<div>${html}</div>`);
+  const root = wrapped.querySelector("div");
+  return root?.childNodes.flatMap((child) => renderHtmlNode(child)) ?? [];
+}
+
+function splitHighlightLines(chunks: HighlightChunk[]): HighlightChunk[][] {
+  const lines: HighlightChunk[][] = [[]];
+  for (const chunk of chunks) {
+    const parts = chunk.text.split(/\r?\n/u);
+    parts.forEach((part, index) => {
+      if (index > 0) {
+        lines.push([]);
+      }
+      if (part.length > 0) {
+        lines[lines.length - 1]?.push({ color: chunk.color, text: part });
+      }
+    });
+  }
+  return lines;
+}
+
+function isHighlightColor(value: string | undefined): value is HighlightColor {
+  return (
+    value === "blue" ||
+    value === "cyan" ||
+    value === "gray" ||
+    value === "green" ||
+    value === "magenta" ||
+    value === "yellow"
+  );
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&quot;/gu, "\"")
+    .replace(/&#39;/gu, "'")
+    .replace(/&amp;/gu, "&")
+    .replace(/&lt;/gu, "<")
+    .replace(/&gt;/gu, ">");
+}

@@ -51,7 +51,7 @@ describe("chat tui view-models", () => {
 
     const message = toTraceActivityMessage(event);
     expect(message.kind).toBe("activity");
-    expect(message.text).toContain("tool_call_started file_write");
+    expect(message.text).toContain("Running file_write");
   });
 
   it("marks approval message as resolved", () => {
@@ -79,6 +79,20 @@ describe("chat tui view-models", () => {
     }));
 
     expect(displayChatMessages([agent, activity])).toEqual([agent]);
+  });
+
+  it("keeps high-value activity messages visible in chat mode", () => {
+    const activity = toTraceActivityMessage(createTraceEvent("tool_call_finished", {
+      iteration: 1,
+      toolCallId: "call-00112233",
+      toolName: "file_write",
+      summary: "wrote file",
+      outputPreview: "ok"
+    }));
+
+    const visible = displayChatMessages([activity]);
+    expect(visible).toHaveLength(1);
+    expect(visible[0]?.kind).toBe("activity");
   });
 });
 

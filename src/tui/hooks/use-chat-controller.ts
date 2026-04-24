@@ -14,6 +14,7 @@ import {
   toTraceActivityMessage,
   type ChatMessage
 } from "../view-models/chat-messages.js";
+import type { UiStatus } from "../ui-status.js";
 
 export interface UseChatControllerOptions {
   config: AppConfig;
@@ -57,6 +58,7 @@ export interface ChatController {
     tasks: number;
   };
   tokenHud: TokenHud;
+  uiStatus: UiStatus;
 }
 
 const welcomeMessage: ChatMessage = {
@@ -87,6 +89,13 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     estimatedCostUsd: 0,
     inputTokens: 0,
     outputTokens: 0
+  });
+  const [uiStatus, setUiStatus] = React.useState<UiStatus>({
+    approvalLabel: null,
+    primaryLabel: "idle",
+    primaryTone: "muted",
+    runState: "idle",
+    taskLabel: null
   });
 
   const startedAtRef = React.useRef(Date.now());
@@ -212,6 +221,13 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
   const clearConversation = React.useCallback(() => {
     setMessages([welcomeMessage]);
     setStatusLine("conversation cleared");
+    setUiStatus({
+      approvalLabel: null,
+      primaryLabel: "conversation cleared",
+      primaryTone: "muted",
+      runState: "idle",
+      taskLabel: null
+    });
     setActiveTaskId(null);
     setPendingApproval(null);
     activeTaskIdRef.current = null;
@@ -225,16 +241,32 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
       const tasks = input.service.listTasks();
       const approvals = input.service.listPendingApprovals();
       const runningTasks = tasks.filter((task) => task.status === "running").length;
-      setSummary({
+      const nextSummary = {
         pendingApprovals: approvals.length,
         runningTasks,
         tasks: tasks.length
-      });
+      };
+      setSummary((current) => (summaryEquals(current, nextSummary) ? current : nextSummary));
       const activeApproval =
         approvals.find((item) => item.taskId === activeTaskIdRef.current) ?? approvals[0] ?? null;
-      setPendingApproval(activeApproval);
+      setPendingApproval((current) => (approvalRefEquals(current, activeApproval) ? current : activeApproval));
       if (activeApproval !== null) {
         setStatusLine(`waiting approval: ${activeApproval.toolName}`);
+        updateUiStatus(setUiStatus, {
+          approvalLabel: activeApproval.toolName,
+          primaryLabel: `approval required: ${activeApproval.toolName}`,
+          primaryTone: "warn",
+          runState: "waiting_approval",
+          taskLabel: activeApproval.taskId.slice(0, 8)
+        });
+      } else if (tasks.length === 0 && !busy) {
+        updateUiStatus(setUiStatus, {
+          approvalLabel: null,
+          primaryLabel: "idle",
+          primaryTone: "muted",
+          runState: "idle",
+          taskLabel: null
+        });
       }
       setMessages((current) =>
         syncPendingApprovalMessages(current, approvals, input.service, seenApprovalMessageIdsRef.current)
@@ -262,21 +294,22 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
           input.config.provider.model ?? undefined,
           usage
         );
-        setTokenHud({
+        const nextTokenHud = {
           contextPercent: pct,
           estimatedCostUsd: cost,
           inputTokens: usage.inputTokens,
           outputTokens: usage.outputTokens
-        });
+        };
+        setTokenHud((current) => (tokenHudEquals(current, nextTokenHud) ? current : nextTokenHud));
       }
     } catch (error) {
       setStatusLine(error instanceof Error ? `refresh failed: ${error.message}` : "refresh failed");
     }
-  }, [input.config.provider.model, input.config.tokenBudget.inputLimit, input.config.tokenBudget.outputLimit, input.service]);
+  }, [busy, input.config.provider.model, input.config.tokenBudget.inputLimit, input.config.tokenBudget.outputLimit, input.service]);
 
   React.useEffect(() => {
     refresh();
-    const interval = setInterval(refresh, busy ? 2_000 : 1_000);
+    const interval = setInterval(refresh, busy ? 2_000 : 5_000);
     return () => {
       clearInterval(interval);
       stopTraceSubscription();
@@ -389,6 +422,13 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
       beginBusy();
       setStatusLine("running");
       const taskId = randomUUID();
+      setUiStatus({
+        approvalLabel: null,
+        primaryLabel: "running task",
+        primaryTone: "accent",
+        runState: "running",
+        taskLabel: taskId.slice(0, 8)
+      });
       const streamId = `agent:stream:${taskId}`;
       activeTaskIdRef.current = taskId;
       setActiveTaskId(taskId);
@@ -453,6 +493,13 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
               }
             ]);
             setStatusLine(`failed: ${runError.code}`);
+            setUiStatus({
+              approvalLabel: null,
+              primaryLabel: `failed: ${runError.code}`,
+              primaryTone: "danger",
+              runState: "failed",
+              taskLabel: result.task.taskId.slice(0, 8)
+            });
             return;
           }
 
@@ -474,6 +521,13 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
             ]);
           }
           setStatusLine(result.task.status);
+          setUiStatus({
+            approvalLabel: null,
+            primaryLabel: result.task.status === "succeeded" ? "completed successfully" : result.task.status,
+            primaryTone: result.task.status === "succeeded" ? "success" : "neutral",
+            runState: result.task.status === "succeeded" ? "succeeded" : "idle",
+            taskLabel: result.task.taskId.slice(0, 8)
+          });
         } catch (error) {
           const activeStreamId = streamingAgentIdRef.current;
           streamingAgentIdRef.current = null;
@@ -485,6 +539,13 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
           if (aborted) {
             addSystemMessage("Interrupted current task.");
             setStatusLine("interrupted");
+            setUiStatus({
+              approvalLabel: null,
+              primaryLabel: "interrupted",
+              primaryTone: "warn",
+              runState: "interrupted",
+              taskLabel: activeTaskIdRef.current?.slice(0, 8) ?? null
+            });
             return;
           }
 
@@ -500,6 +561,13 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
             }
           ]);
           setStatusLine("failed to run task");
+          setUiStatus({
+            approvalLabel: null,
+            primaryLabel: "failed to run task",
+            primaryTone: "danger",
+            runState: "failed",
+            taskLabel: activeTaskIdRef.current?.slice(0, 8) ?? null
+          });
         } finally {
           submitInFlightRef.current = false;
           activeAbortControllerRef.current = null;
@@ -601,6 +669,13 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
             }
           ]);
           setStatusLine(`failed after approval: ${resultError.code}`);
+          setUiStatus({
+            approvalLabel: approval.toolName,
+            primaryLabel: `failed after ${action === "allow" ? "approval" : "denial"}`,
+            primaryTone: "danger",
+            runState: "failed",
+            taskLabel: result.task.taskId.slice(0, 8)
+          });
           return;
         }
         if (result.output !== null) {
@@ -616,9 +691,23 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
         }
         if (result.task.status === "waiting_approval") {
           setStatusLine("waiting_approval");
+          setUiStatus({
+            approvalLabel: approval.toolName,
+            primaryLabel: `approval required: ${approval.toolName}`,
+            primaryTone: "warn",
+            runState: "waiting_approval",
+            taskLabel: result.task.taskId.slice(0, 8)
+          });
           return;
         }
         setStatusLine(`${action === "allow" ? "approved" : "denied"} ${approval.toolName}`);
+        setUiStatus({
+          approvalLabel: approval.toolName,
+          primaryLabel: `${action === "allow" ? "approved" : "denied"} ${approval.toolName}`,
+          primaryTone: action === "allow" ? "success" : "warn",
+          runState: result.task.status === "succeeded" ? "succeeded" : "idle",
+          taskLabel: result.task.taskId.slice(0, 8)
+        });
       } catch (error) {
         setMessages((current) => [
           ...current,
@@ -632,6 +721,13 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
           }
         ]);
         setStatusLine("approval failed");
+        setUiStatus({
+          approvalLabel: approval.toolName,
+          primaryLabel: "approval failed",
+          primaryTone: "danger",
+          runState: "failed",
+          taskLabel: approval.taskId.slice(0, 8)
+        });
       } finally {
         approvalInFlightRef.current = false;
         endBusy();
@@ -677,7 +773,8 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     statusLine,
     submitPrompt,
     summary,
-    tokenHud
+    tokenHud,
+    uiStatus
   };
 }
 
@@ -777,6 +874,52 @@ function collectApprovalMessageIds(messages: ChatMessage[]): Set<string> {
     messages
       .filter((message): message is Extract<ChatMessage, { kind: "approval" }> => message.kind === "approval")
       .map((message) => message.id)
+  );
+}
+
+function summaryEquals(left: ChatController["summary"], right: ChatController["summary"]): boolean {
+  return (
+    left.pendingApprovals === right.pendingApprovals &&
+    left.runningTasks === right.runningTasks &&
+    left.tasks === right.tasks
+  );
+}
+
+function approvalRefEquals(left: ApprovalRecord | null, right: ApprovalRecord | null): boolean {
+  if (left === null || right === null) {
+    return left === right;
+  }
+  return (
+    left.approvalId === right.approvalId &&
+    left.status === right.status &&
+    left.taskId === right.taskId &&
+    left.toolCallId === right.toolCallId
+  );
+}
+
+function tokenHudEquals(left: TokenHud, right: TokenHud): boolean {
+  return (
+    left.contextPercent === right.contextPercent &&
+    left.estimatedCostUsd === right.estimatedCostUsd &&
+    left.inputTokens === right.inputTokens &&
+    left.outputTokens === right.outputTokens
+  );
+}
+
+function updateUiStatus(
+  setUiStatus: React.Dispatch<React.SetStateAction<UiStatus>>,
+  next: UiStatus
+): void {
+  setUiStatus((current) => (uiStatusEquals(current, next) ? current : next));
+}
+
+function uiStatusEquals(left: UiStatus, right: UiStatus): boolean {
+  return (
+    left.approvalLabel === right.approvalLabel &&
+    left.primaryLabel === right.primaryLabel &&
+    left.primaryTone === right.primaryTone &&
+    left.runState === right.runState &&
+    left.taskLabel === right.taskLabel
   );
 }
 

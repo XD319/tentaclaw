@@ -1,6 +1,8 @@
 import React from "react";
 import { Box, Text, useApp, useInput } from "ink";
 
+import { Banner } from "./components/banner.js";
+import { StatusBar } from "./components/status-bar.js";
 import { useDashboardController, nextPanel, previousPanel } from "./hooks/use-dashboard-controller.js";
 import {
   ApprovalPanel,
@@ -12,6 +14,7 @@ import {
   TaskPanel,
   TracePanel
 } from "./panels/index.js";
+import { theme } from "./theme.js";
 import {
   PANEL_ORDER,
   type RuntimeDashboardQueryService,
@@ -36,6 +39,8 @@ export function AgentTuiApp({
     refreshIntervalMs,
     reviewerId
   });
+  const stdoutWidth = process.stdout.columns ?? 120;
+  const leftPaneWidth = clamp(Math.floor(stdoutWidth * 0.34), 30, 46);
 
   useInput((input, key) => {
     if (key.ctrl && input === "c") {
@@ -131,29 +136,55 @@ export function AgentTuiApp({
 
   return (
     <Box flexDirection="column">
-      <Box justifyContent="space-between">
-        <Text color="green">auto-talon dashboard</Text>
-        <Text color="gray">
-          tasks={controller.snapshot.summary.taskCount} running={controller.snapshot.summary.runningTaskCount} approvals=
-          {controller.snapshot.summary.pendingApprovalCount} failed=
-          {controller.snapshot.summary.failedTaskCount}
-        </Text>
-      </Box>
+      <Banner
+        details={[
+          `tasks ${controller.snapshot.summary.taskCount}`,
+          `running ${controller.snapshot.summary.runningTaskCount}`,
+          `approvals ${controller.snapshot.summary.pendingApprovalCount}`,
+          `failed ${controller.snapshot.summary.failedTaskCount}`
+        ]}
+        meta={[`reviewer ${reviewerId}`, `refresh ${refreshIntervalMs}ms`]}
+        productName="AUTOTALON"
+        subtitle="Operational dashboard for governed runtime activity"
+        title="Runtime Dashboard"
+      />
       <Box marginTop={1}>
-        <Box width={42} flexDirection="column" marginRight={2}>
-          <Text color="cyan">Tasks</Text>
+        <Box
+          borderStyle="classic"
+          borderColor={theme.border}
+          width={leftPaneWidth}
+          flexDirection="column"
+          marginRight={1}
+          paddingX={1}
+        >
+          <Text color={theme.panelTitle}>Tasks</Text>
           {controller.snapshot.tasks.length === 0 ? (
-            <Text color="gray">No tasks persisted.</Text>
+            <Text color={theme.muted}>No tasks persisted.</Text>
           ) : (
             controller.snapshot.tasks.map((task, index) => (
-              <Text key={task.taskId} {...taskRowTextProps(index, controller.selectedTaskIndex, task.status)}>
-                {index === controller.selectedTaskIndex ? ">" : " "} {task.status.padEnd(16, " ")} {task.currentStage.padEnd(12, " ")}
-                {task.hasPendingApproval ? " [approval]" : ""} {task.title}
-              </Text>
+              <Box
+                key={task.taskId}
+                borderStyle="classic"
+                borderColor={index === controller.selectedTaskIndex ? theme.selection : theme.border}
+                flexDirection="column"
+                marginBottom={1}
+                paddingX={1}
+              >
+                <Text {...taskRowTextProps(index, controller.selectedTaskIndex, task.status)}>
+                  {task.shortTaskId}  {task.statusLabel}
+                  {task.hasPendingApproval ? "  [approval]" : ""}
+                </Text>
+                <Text color={theme.muted}>
+                  {task.stageLabel}  |  updated {task.updatedLabel}
+                </Text>
+                <Text color={theme.fg} wrap="wrap">
+                  {task.title}
+                </Text>
+              </Box>
             ))
           )}
         </Box>
-        <Box flexDirection="column" flexGrow={1}>
+        <Box borderStyle="classic" borderColor={theme.border} flexDirection="column" flexGrow={1} paddingX={1}>
           <PanelTabs selectedPanel={controller.selectedPanel} />
           <Box marginTop={1} flexDirection="column">
             {controller.selectedPanel === "tasks" ? (
@@ -180,11 +211,27 @@ export function AgentTuiApp({
           </Box>
         </Box>
       </Box>
-      <Box marginTop={1} flexDirection="column">
-        <Text color="gray">{controller.statusLine}</Text>
-        <Text color="gray">
-          Help: 1-{PANEL_ORDER.length} panels | tab shift panels | arrows browse | [ ] switch task | a/d decide approval | r refresh | q quit
-        </Text>
+      <Box marginTop={1}>
+        <StatusBar
+          details={[
+            `panel ${controller.selectedPanel}`,
+            `task ${controller.uiStatus.taskLabel ?? "none"}`,
+            `selected ${selectedTask === null ? "none" : selectedTask.finalSummary}`
+          ]}
+          hints={[
+            `1-${PANEL_ORDER.length} panels | Tab switch | [ ] task`,
+            "Arrows browse | a/d approval | r refresh | q quit"
+          ]}
+          metrics={[
+            { label: `running ${controller.snapshot.summary.runningTaskCount}`, tone: "accent" },
+            { label: `approvals ${controller.snapshot.summary.pendingApprovalCount}`, tone: "warn" },
+            { label: `failed ${controller.snapshot.summary.failedTaskCount}`, tone: "danger" }
+          ]}
+          primary={{
+            label: controller.uiStatus.primaryLabel,
+            tone: controller.uiStatus.primaryTone
+          }}
+        />
       </Box>
     </Box>
   );
@@ -192,10 +239,10 @@ export function AgentTuiApp({
 
 function PanelTabs({ selectedPanel }: { selectedPanel: TuiPanelId }): React.ReactElement {
   return (
-    <Text>
+    <Text wrap="wrap">
       {PANEL_ORDER.map((panel, index) => (
-        <Text key={panel} color={panel === selectedPanel ? "green" : "gray"}>
-          {`${index + 1}.${panel} `}
+        <Text key={panel} color={panel === selectedPanel ? theme.selection : theme.muted}>
+          {`${index + 1}.${panel}${panel === selectedPanel ? " [selected]" : ""} `}
         </Text>
       ))}
     </Text>
@@ -206,14 +253,18 @@ function taskRowTextProps(
   index: number,
   selectedTaskIndex: number,
   status: string
-): { color?: "green" | "red" } {
+): { color?: string } {
   if (index === selectedTaskIndex) {
-    return { color: "green" };
+    return { color: theme.selection };
   }
 
   if (status === "failed") {
-    return { color: "red" };
+    return { color: theme.danger };
   }
 
-  return {};
+  return { color: theme.fg };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }

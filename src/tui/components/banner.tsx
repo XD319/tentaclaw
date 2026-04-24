@@ -1,24 +1,33 @@
 import React from "react";
 import { Box, Text } from "ink";
 
+import { theme } from "../theme.js";
+
 export interface BannerProps {
-  cwd: string;
-  modelLabel: string;
-  sessionId: string;
-  sessionTitle: string;
+  details?: string[];
+  kicker?: string;
+  meta?: string[];
+  productName: string;
+  subtitle?: string;
+  title: string;
 }
 
-function BannerBase({ cwd, modelLabel, sessionId, sessionTitle }: BannerProps): React.ReactElement {
-  const compactCwd = cwd.length > 36 ? `...${cwd.slice(-33)}` : cwd;
-  const title = sessionTitle.length > 28 ? `${sessionTitle.slice(0, 25)}...` : sessionTitle;
-  const sid = sessionId.length > 10 ? `${sessionId.slice(0, 8)}...` : sessionId;
+function BannerBase({ details = [], kicker, meta = [], productName, subtitle, title }: BannerProps): React.ReactElement {
+  const segments = [
+    title,
+    ...(subtitle !== undefined && subtitle.length > 0 ? [subtitle] : []),
+    ...meta,
+    ...details,
+    ...(kicker !== undefined && kicker.length > 0 ? [kicker] : [])
+  ];
+
   return (
-    <Box justifyContent="space-between">
-      <Text color="green">
-        auto-talon v0.1.0 | {title} | {sid}
-      </Text>
-      <Text color="gray">
-        model={modelLabel} cwd={compactCwd}
+    <Box>
+      <Text wrap="truncate-end">
+        <Text bold color={theme.bannerAccent}>
+          {productName}
+        </Text>
+        {segments.length > 0 ? <Text color={theme.muted}>{"  |  " + segments.join("  |  ")}</Text> : null}
       </Text>
     </Box>
   );

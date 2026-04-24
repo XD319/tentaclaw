@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 
+import { theme } from "../theme.js";
 import type { TraceEntryViewModel } from "../view-models/runtime-dashboard.js";
 
 export interface TracePanelProps {
@@ -12,19 +13,20 @@ export function TracePanel({ trace }: TracePanelProps): React.ReactElement {
 
   return (
     <Box flexDirection="column">
-      <Text color="cyan">Step Tree</Text>
+      <Text color={theme.panelTitle}>Step Tree</Text>
       {trace.length === 0 ? (
-        <Text color="gray">No trace recorded yet.</Text>
+        <Text color={theme.muted}>No trace recorded yet.</Text>
       ) : (
         groups.map((group) => (
-          <Box key={group.label} flexDirection="column" marginBottom={1}>
-            <Text color="gray">{group.label}</Text>
+          <Box key={group.label} borderStyle="classic" borderColor={theme.border} flexDirection="column" marginBottom={1} paddingX={1}>
+            <Text color={theme.muted}>{group.label}</Text>
             {group.entries.map((entry) => (
               <Text
                 key={`${entry.sequence}-${entry.eventType}-${entry.timestamp}`}
                 {...traceTextProps(entry.emphasis)}
+                wrap="wrap"
               >
-                {'  '}#{entry.sequence} [{entry.stage}] {entry.eventType} {entry.chainLabel ?? ""} {entry.summary}
+                #{entry.sequence} [{entry.stage}] {entry.eventType} {entry.chainLabel ?? ""} {entry.summary}
               </Text>
             ))}
           </Box>
@@ -48,18 +50,18 @@ function groupByIteration(trace: TraceEntryViewModel[]): Array<{
 
 function traceTextProps(
   emphasis: TraceEntryViewModel["emphasis"]
-): { color?: "gray" | "red" | "yellow" } {
+): { color?: string } {
   if (emphasis === "error") {
-    return { color: "red" };
+    return { color: theme.danger };
   }
 
   if (emphasis === "warning") {
-    return { color: "yellow" };
+    return { color: theme.warn };
   }
 
   if (emphasis === "muted") {
-    return { color: "gray" };
+    return { color: theme.muted };
   }
 
-  return {};
+  return { color: theme.fg };
 }

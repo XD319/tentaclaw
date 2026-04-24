@@ -38,17 +38,23 @@ export interface TaskListItemViewModel {
   failureBadge: string | null;
   finalSummary: string;
   hasPendingApproval: boolean;
+  shortTaskId: string;
+  stageLabel: string;
   status: TaskRecord["status"];
+  statusLabel: string;
   taskId: string;
   title: string;
   updatedAt: string;
+  updatedLabel: string;
 }
 
 export interface ApprovalListItemViewModel {
   approvalId: string;
   expiresAt: string;
+  expiresLabel: string;
   reason: string;
   riskLevel: ToolCallRecord["riskLevel"] | "unknown";
+  shortTaskId: string;
   status: ApprovalRecord["status"];
   taskId: string;
   taskLabel: string;
@@ -251,10 +257,14 @@ function toTaskListItem(
           : null,
     finalSummary: summarizeTask(task),
     hasPendingApproval,
+    shortTaskId: task.taskId.slice(0, 8),
+    stageLabel: task.status === "waiting_approval" ? "governance" : lastStage,
     status: task.status,
+    statusLabel: task.status.replace(/_/gu, " "),
     taskId: task.taskId,
     title: summarizeText(task.input, 56),
-    updatedAt: task.updatedAt
+    updatedAt: task.updatedAt,
+    updatedLabel: formatShortTimestamp(task.updatedAt)
   };
 }
 
@@ -270,8 +280,10 @@ function toApprovalItem(
   return {
     approvalId: approval.approvalId,
     expiresAt: approval.expiresAt,
+    expiresLabel: formatShortTimestamp(approval.expiresAt),
     reason: approval.reason,
     riskLevel: toolCall?.riskLevel ?? "unknown",
+    shortTaskId: approval.taskId.slice(0, 8),
     status: approval.status,
     taskId: approval.taskId,
     taskLabel: task === null ? approval.taskId : summarizeText(task.input, 40),
@@ -604,6 +616,14 @@ function isFinalFailure(event: TraceEvent): boolean {
 function summarizeText(value: string, maxLength: number): string {
   const compact = value.replace(/\s+/gu, " ").trim();
   return compact.length <= maxLength ? compact : `${compact.slice(0, maxLength)}...`;
+}
+
+function formatShortTimestamp(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toISOString().slice(11, 16);
 }
 
 function isJsonObject(value: JsonValue | undefined): value is JsonObject {

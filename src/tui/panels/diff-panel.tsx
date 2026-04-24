@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 
+import { theme } from "../theme.js";
 import type { DiffViewModel } from "../view-models/runtime-dashboard.js";
 
 export interface DiffPanelProps {
@@ -10,28 +11,30 @@ export interface DiffPanelProps {
 export function DiffPanel({ diff }: DiffPanelProps): React.ReactElement {
   return (
     <Box flexDirection="column">
-      <Text color="cyan">File Diff</Text>
+      <Text color={theme.panelTitle}>File Diff</Text>
       {diff.length === 0 ? (
-        <Text color="gray">No file write artifacts for this task.</Text>
+        <Text color={theme.muted}>No file write artifacts for this task.</Text>
       ) : (
         diff.map((entry) => (
-          <Box key={entry.artifactId} marginBottom={1} flexDirection="column">
-            <Text color={entry.riskHighlight ? "red" : "green"}>
+          <Box key={entry.artifactId} borderStyle="classic" borderColor={theme.border} marginBottom={1} flexDirection="column" paddingX={1}>
+            <Text color={entry.riskHighlight ? theme.danger : theme.success}>
               {entry.path} | {entry.summary}
             </Text>
             {entry.riskReasons.length > 0 ? (
-              <Text color="yellow">risk: {entry.riskReasons.join("; ")}</Text>
+              <Text color={theme.warn} wrap="wrap">
+                risk: {entry.riskReasons.join("; ")}
+              </Text>
             ) : null}
             {entry.unifiedDiff.length > 0 ? (
-              entry.unifiedDiff.split(/\r?\n/u).slice(0, 80).map((line, index) => (
+              entry.unifiedDiff.split(/\r?\n/u).slice(0, 40).map((line, index) => (
                 <Text key={`${entry.artifactId}-diff-${index}`} {...diffLineProps(line)}>
                   {line}
                 </Text>
               ))
             ) : (
               <>
-                <Text color="gray">before: {entry.beforePreview.replace(/\n/gu, " ")}</Text>
-                <Text color="gray">after: {entry.afterPreview.replace(/\n/gu, " ")}</Text>
+                <Text color={theme.muted}>before: {entry.beforePreview.replace(/\n/gu, " ")}</Text>
+                <Text color={theme.muted}>after: {entry.afterPreview.replace(/\n/gu, " ")}</Text>
               </>
             )}
           </Box>
@@ -41,15 +44,15 @@ export function DiffPanel({ diff }: DiffPanelProps): React.ReactElement {
   );
 }
 
-function diffLineProps(line: string): { color?: "gray" | "green" | "red" } {
+function diffLineProps(line: string): { color?: string } {
   if (line.startsWith("+++ ") || line.startsWith("--- ") || line.startsWith("@@")) {
-    return { color: "gray" };
+    return { color: theme.muted };
   }
   if (line.startsWith("+")) {
-    return { color: "green" };
+    return { color: theme.success };
   }
   if (line.startsWith("-")) {
-    return { color: "red" };
+    return { color: theme.danger };
   }
   return {};
 }
