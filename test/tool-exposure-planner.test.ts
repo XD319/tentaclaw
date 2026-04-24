@@ -73,4 +73,50 @@ describe("tool exposure planner", () => {
     });
     expect(plan.tools.map((tool) => tool.name)).toEqual(["file_read"]);
   });
+
+  it("keeps public web fetch exposed on first iteration for read-only prompts", async () => {
+    const webFetch = makeTool("web_fetch", "medium");
+    webFetch.capability = "network.fetch_public_readonly";
+    webFetch.sideEffectLevel = "external_read_only";
+    const tools = [makeTool("file_read", "low"), webFetch];
+    const planner = new ToolExposurePlanner({
+      budgetService: { isDowngradeActive: () => false } as never,
+      toolOrchestrator: {
+        listTools: (allowed: string[] | undefined) =>
+          tools
+            .filter((tool) => allowed === undefined || allowed.includes(tool.name))
+            .map((tool) => ({
+              capability: tool.capability,
+              description: tool.description,
+              inputSchema: tool.inputSchemaDescriptor,
+              name: tool.name,
+              privacyLevel: tool.privacyLevel,
+              riskLevel: tool.riskLevel
+            })),
+        listToolsWithMetadata: () => tools
+      } as never,
+      traceService: { record: vi.fn() } as never
+    });
+
+    const plan = await planner.plan({
+      agentProfileId: "executor",
+      allowedToolNames: ["file_read", "web_fetch"],
+      context: {
+        agentProfileId: "executor",
+        cwd: process.cwd(),
+        iteration: 1,
+        signal: new AbortController().signal,
+        taskId: "task-2",
+        userId: "u1",
+        workspaceRoot: process.cwd()
+      },
+      iteration: 1,
+      taskId: "task-2",
+      taskInput: "check today's weather in New York",
+      threadCommitmentState: null,
+      threadId: null
+    });
+
+    expect(plan.tools.map((tool) => tool.name)).toEqual(["file_read", "web_fetch"]);
+  });
 });

@@ -50,11 +50,20 @@ export class ExecutionContextAssembler {
     profile: AgentProfile,
     repoMapSummary?: string
   ): ConversationMessage[] {
+    const toolNames = availableTools.map((tool) => tool.name).join(", ");
+    const publicWebFetchAvailable = availableTools.some(
+      (tool) => tool.capability === "network.fetch_public_readonly"
+    );
     const systemMessage = [
       profile.systemPrompt,
       "Use tools only when needed.",
-      `Available tools: ${availableTools.map((tool) => tool.name).join(", ")}.`
-    ].join(" ");
+      publicWebFetchAvailable
+        ? "When web_fetch is available, you may use it to read public web pages for current documentation or realtime public information. It is a sandboxed, read-only network tool and must not be used for private, internal, or authenticated resources."
+        : null,
+      `Available tools: ${toolNames}.`
+    ]
+      .filter((part): part is string => part !== null)
+      .join(" ");
 
     const messages: ConversationMessage[] = [
       {

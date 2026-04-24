@@ -534,7 +534,7 @@ export class ToolOrchestrator {
         ? "file_write"
         : tool.capability === "shell.execute"
           ? "shell_execution"
-          : tool.capability === "network.fetch"
+          : tool.capability === "network.fetch_public_readonly"
             ? "web_fetch"
             : null;
 

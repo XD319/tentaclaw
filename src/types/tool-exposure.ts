@@ -5,6 +5,7 @@ export type ToolCostLevel = "free" | "cheap" | "moderate" | "expensive";
 export type ToolSideEffectLevel =
   | "none"
   | "read_only"
+  | "external_read_only"
   | "workspace_mutation"
   | "external_mutation";
 export type ToolApprovalDefault = "never" | "when_needed" | "always";

@@ -5,7 +5,7 @@ export type ToolRiskLevel = (typeof TOOL_RISK_LEVELS)[number];
 export const TOOL_CAPABILITIES = [
   "filesystem.read",
   "filesystem.write",
-  "network.fetch",
+  "network.fetch_public_readonly",
   "shell.execute",
   "mcp.invoke"
 ] as const;

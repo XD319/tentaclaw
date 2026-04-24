@@ -1,4 +1,5 @@
 import { homedir } from "node:os";
+import { isIP } from "node:net";
 import { basename, dirname, isAbsolute, parse, relative, resolve } from "node:path";
 
 import { AppError } from "../runtime/app-error.js";
@@ -262,6 +263,21 @@ export class SandboxService {
       );
     }
 
+    const hostname = parsedUrl.hostname.toLowerCase();
+    const restrictedReason = classifyRestrictedFetchTarget(hostname);
+    if (restrictedReason !== null) {
+      throw this.createSandboxError(
+        "sandbox_denied",
+        `Host ${hostname} is blocked for web fetch: ${restrictedReason}.`,
+        {
+          host: parsedUrl.host.toLowerCase(),
+          hostname,
+          kind: "network",
+          url
+        }
+      );
+    }
+
     const host = parsedUrl.host.toLowerCase();
     if (!this.isAllowedFetchHost(host)) {
       throw this.createSandboxError(
@@ -486,4 +502,80 @@ function extractExecutable(command: string): string {
   const match = trimmed.match(/^"([^"]+)"|^'([^']+)'|^([^\s]+)/);
   const raw = match?.[1] ?? match?.[2] ?? match?.[3];
   return raw ?? "";
+}
+
+function classifyRestrictedFetchTarget(hostname: string): string | null {
+  if (
+    hostname === "localhost" ||
+    hostname === "localhost.localdomain" ||
+    hostname === "host.docker.internal" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".local")
+  ) {
+    return "local hostname";
+  }
+
+  if (!hostname.includes(".") && isIP(hostname) === 0) {
+    return "single-label internal hostname";
+  }
+
+  const ipVersion = isIP(hostname);
+  if (ipVersion === 4 && isPrivateIpv4(hostname)) {
+    return "private or local IPv4 range";
+  }
+  if (ipVersion === 6 && isPrivateIpv6(hostname)) {
+    return "private or local IPv6 range";
+  }
+
+  return null;
+}
+
+function isPrivateIpv4(hostname: string): boolean {
+  const octets = hostname.split(".").map((value) => Number.parseInt(value, 10));
+  if (octets.length !== 4 || octets.some((value) => !Number.isInteger(value) || value < 0 || value > 255)) {
+    return true;
+  }
+
+  const [first, second] = octets;
+  if (first === undefined || second === undefined) {
+    return true;
+  }
+
+  return (
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168) ||
+    (first === 198 && (second === 18 || second === 19))
+  );
+}
+
+function isPrivateIpv6(hostname: string): boolean {
+  const lowered = hostname.toLowerCase();
+
+  if (lowered === "::" || lowered === "::1") {
+    return true;
+  }
+
+  if (lowered.startsWith("fc") || lowered.startsWith("fd")) {
+    return true;
+  }
+
+  if (lowered.startsWith("fe8") || lowered.startsWith("fe9") || lowered.startsWith("fea") || lowered.startsWith("feb")) {
+    return true;
+  }
+
+  if (lowered.startsWith("fec") || lowered.startsWith("fed") || lowered.startsWith("fee") || lowered.startsWith("fef")) {
+    return true;
+  }
+
+  const mappedIpv4Prefix = "::ffff:";
+  if (lowered.startsWith(mappedIpv4Prefix)) {
+    return isPrivateIpv4(lowered.slice(mappedIpv4Prefix.length));
+  }
+
+  return false;
 }

@@ -33,6 +33,7 @@ describe("runtime config", () => {
       workspaceRoot
     });
     expect(sandbox.prepareWebFetch("https://not-example.test/doc").host).toBe("not-example.test");
+    expect(() => sandbox.prepareWebFetch("http://127.0.0.1:11434/v1")).toThrow(/blocked for web fetch/i);
   });
 
   it("loads runtime.config.json and lets env override high-impact fields", async () => {

@@ -41,6 +41,10 @@ Provider routing and budget policy details:
 Tool availability gating details:
 - `docs/tool-availability-gating.md`
 
+Network fetch controls:
+- `runtime.config.json > allowedFetchHosts` sets the public host allowlist for `web_fetch`.
+- `*` allows public hosts broadly, but localhost, private IP ranges, link-local metadata endpoints, and single-label internal hostnames are still blocked.
+
 Trace stream also includes commitment lifecycle events:
 - `commitment_created|updated|blocked|unblocked|completed|cancelled`
 - `next_action_created|updated|blocked|done`

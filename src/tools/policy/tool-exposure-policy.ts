@@ -26,11 +26,7 @@ export function evaluateToolExposure(input: EvaluateToolExposureInput): ToolExpo
       return hidden(tool.name, `unavailable: ${availability.reason}`);
     }
 
-    if (
-      tool.riskLevel === "high" &&
-      input.iteration <= 1 &&
-      !hasMutationIntent(input.taskInput)
-    ) {
+    if (tool.riskLevel === "high" && input.iteration <= 1 && !hasMutationIntent(input.taskInput)) {
       return hidden(tool.name, "high risk hidden at initial iteration without mutation intent");
     }
 

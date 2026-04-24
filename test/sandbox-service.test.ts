@@ -55,6 +55,22 @@ describe("SandboxService", () => {
     expect(plan.host).toBe("docs.example.com");
   });
 
+  it("denies localhost and private network targets even when wildcard fetch is allowed", () => {
+    const sandboxService = new SandboxService({
+      allowedFetchHosts: ["*"],
+      workspaceRoot: process.cwd()
+    });
+
+    expect(() => sandboxService.prepareWebFetch("http://localhost:3000/health")).toThrow(/blocked for web fetch/i);
+    expect(() => sandboxService.prepareWebFetch("http://127.0.0.1:8080")).toThrow(/blocked for web fetch/i);
+    expect(() => sandboxService.prepareWebFetch("http://10.0.0.5/status")).toThrow(/blocked for web fetch/i);
+    expect(() => sandboxService.prepareWebFetch("http://169.254.169.254/latest/meta-data")).toThrow(
+      /blocked for web fetch/i
+    );
+    expect(() => sandboxService.prepareWebFetch("http://printer/status")).toThrow(/blocked for web fetch/i);
+    expect(() => sandboxService.prepareWebFetch("http://[::1]/")).toThrow(/blocked for web fetch/i);
+  });
+
   it("denies case-variant write paths outside workspace on case-sensitive platforms", () => {
     if (process.platform === "win32") {
       return;

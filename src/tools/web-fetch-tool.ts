@@ -30,12 +30,12 @@ const webFetchSchema = z.object({
 export class WebFetchTool implements ToolDefinition<typeof webFetchSchema, PreparedWebFetchInput> {
   public readonly name = "web_fetch";
   public readonly description =
-    "Fetch a text-oriented HTTP resource through a sandboxed allowlist.";
-  public readonly capability = "network.fetch" as const;
-  public readonly riskLevel = "high" as const;
+    "Fetch a public text-oriented HTTP resource through a sandboxed allowlist.";
+  public readonly capability = "network.fetch_public_readonly" as const;
+  public readonly riskLevel = "medium" as const;
   public readonly privacyLevel = "restricted" as const;
   public readonly costLevel = "cheap" as const;
-  public readonly sideEffectLevel = "external_mutation" as const;
+  public readonly sideEffectLevel = "external_read_only" as const;
   public readonly approvalDefault = "when_needed" as const;
   public readonly toolKind = "external_tool" as const;
   public readonly inputSchema = webFetchSchema;

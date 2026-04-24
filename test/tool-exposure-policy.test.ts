@@ -76,4 +76,27 @@ describe("tool exposure policy", () => {
     });
     expect(decisions[0]?.exposed).toBe(false);
   });
+
+  it("keeps medium-risk public web fetch available on first iteration", () => {
+    const tools = [
+      createTool({
+        capability: "network.fetch_public_readonly",
+        name: "web_fetch",
+        riskLevel: "medium",
+        sideEffectLevel: "external_read_only"
+      })
+    ];
+    const decisions = evaluateToolExposure({
+      allowedToolNames: ["web_fetch"],
+      availability: new Map([["web_fetch", { available: true, reason: "ok" }]]),
+      budgetDowngradeActive: false,
+      iteration: 1,
+      taskInput: "help me check today's weather in New York",
+      threadCommitmentState: null,
+      tools
+    });
+
+    expect(decisions[0]?.exposed).toBe(true);
+    expect(decisions[0]?.reason).toBe("eligible");
+  });
 });

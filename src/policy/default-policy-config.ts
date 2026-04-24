@@ -71,11 +71,11 @@ export const DEFAULT_LOCAL_POLICY_CONFIG: LocalPolicyConfig = {
       priority: 75
     },
     {
-      description: "Network fetches are approval-gated.",
-      effect: "allow_with_approval",
-      id: "web-fetch-needs-approval",
+      description: "Public read-only web fetches are allowed by default.",
+      effect: "allow",
+      id: "public-web-fetch-allow",
       match: {
-        capabilities: ["network.fetch"]
+        capabilities: ["network.fetch_public_readonly"]
       },
       priority: 80
     },
