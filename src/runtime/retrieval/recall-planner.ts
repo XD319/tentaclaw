@@ -27,6 +27,7 @@ export interface RecallPlannerDependencies {
       profileScopeKey: string;
       limit: number;
     }) => MemoryRecallResult;
+    recordRecall: (taskId: string, recall: MemoryRecallResult) => void;
   };
   skillContextService: SkillContextService;
   traceService: TraceService;
@@ -66,6 +67,7 @@ export class RecallPlanner {
       taskId: input.task.taskId,
       workingScopeKey: input.task.taskId
     });
+    this.dependencies.memoryPlane.recordRecall(input.task.taskId, memoryRecall);
     const memoryDecisionById = new Map(
       memoryRecall.decisions.map((decision) => [decision.fragment.memoryId, decision] as const)
     );
@@ -137,6 +139,7 @@ export class RecallPlanner {
       taskId: input.task.taskId,
       workingScopeKey: input.task.taskId
     });
+    this.dependencies.memoryPlane.recordRecall(input.task.taskId, memoryRecall);
     const skillFragments = this.dependencies.skillContextService.buildContext(input.task);
     const fragments = [...memoryRecall.selectedFragments, ...skillFragments];
     const explain: RecallExplainPayload = {

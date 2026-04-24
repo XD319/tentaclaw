@@ -862,8 +862,8 @@ export class AgentApplicationService {
         groupBy === "task"
           ? event.taskId
           : groupBy === "thread"
-            ? String(payload.threadId ?? "none")
-            : String(payload.mode ?? "balanced");
+            ? readGroupingKey(payload.threadId, "none")
+            : readGroupingKey(payload.mode, "balanced");
       const row = grouped[key] ?? { costUsd: 0, count: 0, inputTokens: 0, outputTokens: 0 };
       row.count += 1;
       row.inputTokens += Number(payload.inputTokens ?? 0);
@@ -1109,6 +1109,10 @@ export class AgentApplicationService {
       );
     }
   }
+}
+
+function readGroupingKey(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.length > 0 ? value : fallback;
 }
 
 interface RollbackArtifactContent extends JsonObject {

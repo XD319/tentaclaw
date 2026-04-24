@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { RecallBudgetPolicy } from "../src/runtime/retrieval/recall-budget-policy.js";
 import { RecallPlanner } from "../src/runtime/retrieval/recall-planner.js";
-import type { TaskRecord, TraceService } from "../src/types/index.js";
+import type { TaskRecord, TraceEventDraft } from "../src/types/index.js";
 
 function createTask(): TaskRecord {
   return {
@@ -91,14 +91,15 @@ describe("RecallPlanner", () => {
           decisions: [],
           query: "q",
           selectedFragments: []
-        })
+        }),
+        recordRecall: () => undefined
       },
       skillContextService: {
         rankSkills: () => []
       } as never,
       traceService: {
-        record: (event) => records.push(event.eventType)
-      } as TraceService
+        record: (event: TraceEventDraft) => records.push(event.eventType)
+      } as never
     });
 
     const result = planner.plan({

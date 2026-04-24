@@ -68,6 +68,15 @@ export class MemoryPlane {
       taskId: task.taskId
     });
 
+    this.recordRecall(task.taskId, recall);
+
+    return {
+      fragments: recall.selectedFragments,
+      recall
+    };
+  }
+
+  public recordRecall(taskId: string, recall: MemoryRecallResult): void {
     this.dependencies.traceService.record({
       actor: "memory.plane",
       eventType: "memory_recalled",
@@ -103,13 +112,8 @@ export class MemoryPlane {
       },
       stage: "memory",
       summary: `Selective recall returned ${recall.selectedFragments.length} memory fragments`,
-      taskId: task.taskId
+      taskId
     });
-
-    return {
-      fragments: recall.selectedFragments,
-      recall
-    };
   }
 
   public rememberTaskGoal(task: TaskRecord): MemoryRecord {

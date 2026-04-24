@@ -11,15 +11,16 @@ import type { Provider, ProviderInput, ProviderResponse } from "../src/types/ind
 class ImmediateProvider implements Provider {
   public readonly name = "immediate-provider";
 
-  public async generate(_input: ProviderInput): Promise<ProviderResponse> {
-    return {
+  public generate(input: ProviderInput): Promise<ProviderResponse> {
+    void input;
+    return Promise.resolve({
       kind: "final",
       message: "ok",
       usage: {
         inputTokens: 1,
         outputTokens: 1
       }
-    };
+    });
   }
 }
 

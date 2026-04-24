@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { PromotionAdvisor } from "../src/experience/promotion/promotion-advisor.js";
 import { SkillDraftManager } from "../src/skills/skill-draft-manager.js";
 import { SkillVersionRegistry } from "../src/skills/versioning/skill-version-registry.js";
-import type { ExperienceRecord, TraceEvent } from "../src/types/index.js";
+import type { AuditLogDraft, ExperienceRecord, TraceEvent, TraceEventDraft } from "../src/types/index.js";
 
 describe("promotion advisor", () => {
   it("creates a draft, trace, audit, and version for qualifying group", () => {
@@ -18,7 +18,10 @@ describe("promotion advisor", () => {
       const events = createEventBus();
       const advisor = new PromotionAdvisor({
         auditService: {
-          record: (event) => {
+          record: (
+            event: Omit<AuditLogDraft, "auditId" | "createdAt"> &
+              Partial<Pick<AuditLogDraft, "auditId" | "createdAt">>
+          ) => {
             audits.push({ action: event.action, outcome: event.outcome });
             return event as never;
           }
@@ -41,7 +44,7 @@ describe("promotion advisor", () => {
         skillDraftManager: new SkillDraftManager({ workspaceRoot: workspace }),
         skillVersionRegistry: new SkillVersionRegistry(workspace),
         traceService: {
-          record: (event) => {
+          record: (event: TraceEventDraft) => {
             const trace = { ...event, eventId: "evt", sequence: 1, timestamp: "2026-04-23T00:00:00.000Z" } as TraceEvent;
             traces.push(trace);
             events.emit(trace);

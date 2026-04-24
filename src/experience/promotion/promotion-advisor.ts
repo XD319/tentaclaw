@@ -4,7 +4,7 @@ import type { ExperiencePlane } from "../experience-plane.js";
 import type { SkillDraftManager } from "../../skills/skill-draft-manager.js";
 import type { SkillVersionRegistry } from "../../skills/versioning/skill-version-registry.js";
 import type { TraceService } from "../../tracing/trace-service.js";
-import type { ExperienceRecord, PromotionAdvice, PromotionDecision, TraceEvent } from "../../types/index.js";
+import type { PromotionAdvice, PromotionDecision, TraceEvent } from "../../types/index.js";
 
 export interface PromotionAdvisorConfig {
   enabled: boolean;

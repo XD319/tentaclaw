@@ -113,7 +113,7 @@ export type GatewayTaskEvent =
       taskId: string;
     };
 
-export interface GatewayInboxFilter extends InboxListQuery {}
+export type GatewayInboxFilter = InboxListQuery;
 
 export interface GatewayTaskResultView {
   errorCode: string | null;

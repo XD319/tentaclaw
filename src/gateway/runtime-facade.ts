@@ -355,7 +355,7 @@ export class GatewayRuntimeFacade implements GatewayRuntimeApi {
   public markInboxDone(
     inboxId: string,
     reviewerRuntimeUserId: string
-  ): import("../types/index.js").InboxItem {
+  ): InboxItem {
     const item = this.dependencies.applicationService.markInboxDone(inboxId, reviewerRuntimeUserId);
     this.dependencies.traceService.record({
       actor: "gateway.runtime-facade",
