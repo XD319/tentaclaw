@@ -6,6 +6,7 @@ import type { ChatMessage } from "./view-models/chat-messages.js";
 export interface PersistedChatSession {
   id: string;
   messages: ChatMessage[];
+  threadId?: string;
   updatedAt: string;
 }
 
@@ -30,6 +31,9 @@ export async function loadSession(workspaceRoot: string, sessionId: string): Pro
     const raw = await readFile(join(getSessionsDir(workspaceRoot), `${sessionId}.json`), "utf8");
     const parsed = JSON.parse(raw) as PersistedChatSession;
     if (typeof parsed.id !== "string" || !Array.isArray(parsed.messages)) {
+      return null;
+    }
+    if (parsed.threadId !== undefined && typeof parsed.threadId !== "string") {
       return null;
     }
     return parsed;

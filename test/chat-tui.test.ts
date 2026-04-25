@@ -2,7 +2,7 @@ import { PassThrough } from "node:stream";
 
 import { render } from "ink";
 import React from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   completeApprovalMessage,
@@ -27,12 +27,14 @@ import {
   type ChatMessage
 } from "../src/tui/view-models/chat-messages.js";
 import type { AgentApplicationService, AppConfig } from "../src/runtime/index.js";
+import { createDefaultRunOptions } from "../src/runtime/index.js";
 import type { ApprovalRecord, RuntimeRunOptions, TaskRecord, ToolCallRecord, TraceEvent } from "../src/types/index.js";
 
 type ControllerServiceStub = Pick<
   AgentApplicationService,
   | "listPendingApprovals"
   | "listTasks"
+  | "continueThread"
   | "providerStats"
   | "resolveApproval"
   | "runTask"
@@ -189,6 +191,111 @@ describe("use-chat-controller helpers", () => {
       expect(
         messages.filter((message) => message.kind === "agent").map((message) => message.text)
       ).toEqual(["reply-one"]);
+    } finally {
+      app.unmount();
+      await app.waitUntilExit();
+    }
+  });
+
+  it("continues the same thread after the first submitted prompt", async () => {
+    const stdout = new PassThrough();
+    const config = createControllerConfig();
+    const runTask = vi.fn((options: RuntimeRunOptions) => Promise.resolve({
+      output: "first-reply",
+      task: {
+        ...createControllerTask(options),
+        finalOutput: "first-reply",
+        status: "succeeded",
+        threadId: "thread-123"
+      }
+    }));
+    const continueThread = vi.fn((threadId: string, text: string, overrides?: Partial<RuntimeRunOptions>) => {
+      const options = {
+        ...createDefaultRunOptions(text, process.cwd(), config),
+        ...overrides,
+        taskInput: text,
+        threadId
+      };
+      return Promise.resolve({
+        output: "second-reply",
+        task: {
+          ...createControllerTask(options),
+          finalOutput: "second-reply",
+          status: "succeeded",
+          threadId
+        }
+      });
+    });
+    const service: ControllerServiceStub = {
+      continueThread,
+      listPendingApprovals() {
+        return [];
+      },
+      listTasks() {
+        return [];
+      },
+      providerStats() {
+        return null;
+      },
+      resolveApproval() {
+        throw new Error("resolveApproval should not be called in this test.");
+      },
+      runTask,
+      showTask() {
+        return {
+          approvals: [],
+          artifacts: [],
+          inboxItems: [],
+          scheduleRuns: [],
+          task: null,
+          toolCalls: [],
+          trace: []
+        };
+      },
+      subscribeToTaskTrace() {
+        return () => {};
+      },
+      traceTask() {
+        return [];
+      }
+    };
+    let submitPrompt: ChatController["submitPrompt"] | null = null;
+
+    function Harness(): React.ReactElement | null {
+      const instance = useChatController({
+        config,
+        cwd: process.cwd(),
+        reviewerId: "reviewer",
+        service: service as AgentApplicationService
+      });
+
+      React.useEffect(() => {
+        submitPrompt = instance.submitPrompt;
+      }, [instance]);
+
+      return null;
+    }
+
+    const app = render(React.createElement(Harness), {
+      interactive: false,
+      patchConsole: false,
+      stdout: stdout as unknown as NodeJS.WriteStream
+    });
+
+    try {
+      await waitFor(() => submitPrompt !== null);
+      if (submitPrompt === null) {
+        throw new Error("submitPrompt should be initialized before submissions.");
+      }
+      expect(submitPrompt("first")).toBe(true);
+      await waitFor(() => runTask.mock.calls.length === 1);
+      expect(submitPrompt("second")).toBe(true);
+      await waitFor(() => continueThread.mock.calls.length === 1);
+
+      expect(runTask).toHaveBeenCalledTimes(1);
+      expect(continueThread).toHaveBeenCalledTimes(1);
+      expect(continueThread.mock.calls[0]?.[0]).toBe("thread-123");
+      expect(continueThread.mock.calls[0]?.[1]).toBe("second");
     } finally {
       app.unmount();
       await app.waitUntilExit();
@@ -436,34 +543,44 @@ function createControllerConfig(): AppConfig {
 
 function createStreamingControllerService(): ControllerServiceStub {
   const tasks = new Map<string, TaskRecord>();
+  const runTask = async (options: RuntimeRunOptions) => {
+    const task = createControllerTask(options);
+    tasks.set(task.taskId, task);
 
-  return {
-    async runTask(options: RuntimeRunOptions) {
-      const task = createControllerTask(options);
-      tasks.set(task.taskId, task);
-
-      if (options.taskInput === "one") {
-        await delay(5);
-        options.onAssistantTextDelta?.("partial-one");
-        await delay(20);
-        task.status = "succeeded";
-        task.finalOutput = "reply-one";
-        return {
-          output: "reply-one",
-          task
-        };
-      }
-
-      await delay(10);
-      options.onAssistantTextDelta?.("partial-two");
-      await delay(10);
+    if (options.taskInput === "one") {
+      await delay(5);
+      options.onAssistantTextDelta?.("partial-one");
+      await delay(20);
       task.status = "succeeded";
-      task.finalOutput = "reply-two";
+      task.finalOutput = "reply-one";
       return {
-        output: "reply-two",
+        output: "reply-one",
         task
       };
+    }
+
+    await delay(10);
+    options.onAssistantTextDelta?.("partial-two");
+    await delay(10);
+    task.status = "succeeded";
+    task.finalOutput = "reply-two";
+    return {
+      output: "reply-two",
+      task
+    };
+  };
+
+  return {
+    async continueThread(threadId: string, text: string, overrides?: Partial<RuntimeRunOptions>) {
+      const options = {
+        ...createDefaultRunOptions(text, process.cwd(), createControllerConfig()),
+        ...overrides,
+        taskInput: text,
+        threadId
+      };
+      return runTask(options);
     },
+    runTask,
     listPendingApprovals() {
       return [];
     },

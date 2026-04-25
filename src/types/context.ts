@@ -77,6 +77,7 @@ export interface ContextAssemblyDebugView extends JsonObject {
     usedOutput: number;
   };
   originalTaskInput: ContextDebugFragment;
+  activeContextFragments: ContextDebugFragment[];
   systemPromptFragments: ContextDebugFragment[];
   memoryRecallFragments: ContextDebugFragment[];
   toolResultFragments: ContextDebugFragment[];

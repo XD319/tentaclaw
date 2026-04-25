@@ -1,4 +1,5 @@
 import type { ContextCompactor, SessionSnapshotService } from "../context/index.js";
+import type { FocusState } from "../focus-state.js";
 import type {
   ContextFragment,
   ProviderToolDescriptor,
@@ -19,6 +20,7 @@ export interface SummarizerWorkerInput {
     reason: "message_count" | "context_budget" | "token_budget" | "tool_call_count";
   };
   task: TaskRecord;
+  focusState?: FocusState;
   memoryContext: ContextFragment[];
   availableTools: ProviderToolDescriptor[];
   runId: string | null;
@@ -45,6 +47,7 @@ export class SummarizerWorker {
     const snapshotDraft = this.dependencies.contextCompactor.buildSnapshot({
       availableTools: input.availableTools,
       compact: input.compactInput,
+      ...(input.focusState !== undefined ? { focusState: input.focusState } : {}),
       memoryContext: input.memoryContext,
       task: input.task
     });
@@ -61,4 +64,3 @@ export class SummarizerWorker {
     });
   }
 }
-

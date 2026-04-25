@@ -22,6 +22,7 @@ export class ResumePacketBuilder {
         blockedReason: projection.commitmentState.blockedReason,
         commitments: projection.commitmentState.openCommitments,
         contextMessages: projection.messages,
+        focusState: projection.focusState,
         memoryContext: projection.memoryContext,
         nextAction: projection.commitmentState.nextAction,
         pendingDecision: projection.commitmentState.pendingDecision,

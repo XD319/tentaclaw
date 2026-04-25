@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type {
   ConversationMessage,
   ContextFragment,
+  JsonObject,
   MemoryRepository,
   ThreadCommitmentState,
   ThreadRunRepository
@@ -14,6 +15,7 @@ export interface ThreadStateProjection {
   messages: ConversationMessage[];
   memoryContext: ContextFragment[];
   commitmentState: ThreadCommitmentState;
+  focusState: JsonObject | null;
 }
 
 export interface ThreadStateProjectorDependencies {
@@ -29,6 +31,7 @@ export class ThreadStateProjector {
   public projectState(threadId: string): ThreadStateProjection {
     const commitmentState = this.dependencies.commitmentProjector.project(threadId);
     const snapshot = this.dependencies.snapshotService.findLatestByThread(threadId);
+    const latestRun = this.dependencies.threadRunRepository.findLatestByThreadId(threadId);
     if (snapshot !== null) {
       const messages: ConversationMessage[] = [
         {
@@ -92,7 +95,12 @@ export class ThreadStateProjector {
           text: `[${record.scope}] ${record.title}: ${record.summary}`,
           title: record.title
         }));
-      return { commitmentState, messages, memoryContext };
+      return {
+        commitmentState,
+        focusState: readFocusState(snapshot.metadata) ?? readFocusState(latestRun?.metadata ?? null),
+        memoryContext,
+        messages
+      };
     }
     const runs = this.dependencies.threadRunRepository.listByThreadId(threadId);
     const messages: ConversationMessage[] = runs.map((run) => ({
@@ -101,8 +109,17 @@ export class ThreadStateProjector {
     }));
     return {
       commitmentState,
+      focusState: readFocusState(latestRun?.metadata ?? null),
       messages,
       memoryContext: []
     };
   }
+}
+
+function readFocusState(metadata: JsonObject | null | undefined): JsonObject | null {
+  if (metadata === null || metadata === undefined) {
+    return null;
+  }
+  const focusState = metadata["focusState"];
+  return typeof focusState === "object" && focusState !== null ? (focusState as JsonObject) : null;
 }

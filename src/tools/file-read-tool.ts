@@ -16,8 +16,14 @@ import type {
 const fileReadSchema = z
   .object({
     action: z.enum(["list_dir", "read_file", "search_text"]),
-    contextLines: z.number().int().min(0).max(5).default(1),
-    fileExtensions: z.array(z.string().min(1)).max(30).optional(),
+    contextLines: z.preprocess(
+      normalizeContextLines,
+      z.number().int().min(0).max(5).default(1)
+    ),
+    fileExtensions: z.preprocess(
+      normalizeFileExtensions,
+      z.array(z.string().min(1)).max(30).optional()
+    ),
     keyword: z.string().min(1).optional(),
     maxResults: z.number().int().positive().max(100).default(20),
     maxSizeBytes: z.number().int().positive().max(10_000_000).default(1_000_000),
@@ -79,34 +85,53 @@ export class FileReadTool implements ToolDefinition<typeof fileReadSchema, Prepa
   public readonly inputSchemaDescriptor = {
     properties: {
       action: {
+        description:
+          "Operation to perform. Use list_dir to inspect a folder, read_file to read file contents, and search_text to find a keyword inside files.",
         enum: ["list_dir", "read_file", "search_text"],
         type: "string"
       },
       contextLines: {
+        description:
+          "Only for search_text. Number of lines of context before and after each match. Maximum 5. Values above 5 are clamped to 5.",
+        maximum: 5,
+        minimum: 0,
         type: "number"
       },
       fileExtensions: {
+        description:
+          "Only for search_text. Optional file extensions to include, for example ['.ts', '.md']. Bare extensions like 'md' are normalized to '.md'.",
+        items: {
+          type: "string"
+        },
         type: "array"
       },
       keyword: {
+        description: "Required for search_text. The literal text to search for.",
         type: "string"
       },
       limit: {
+        description: "Only for read_file. Maximum number of lines to return.",
         type: "number"
       },
       maxResults: {
+        description: "Only for search_text. Maximum number of matches to return.",
         type: "number"
       },
       maxSizeBytes: {
+        description: "Only for search_text. Skip files larger than this byte size.",
         type: "number"
       },
       offset: {
+        description: "Only for read_file. Zero-based starting line offset.",
         type: "number"
       },
       path: {
+        description:
+          "Target workspace path. Required for list_dir and read_file. For search_text, defaults to the current directory when omitted.",
         type: "string"
       },
       recursive: {
+        description: "Only for search_text. Whether to search subdirectories.",
         type: "boolean"
       }
     },
@@ -158,16 +183,13 @@ export class FileReadTool implements ToolDefinition<typeof fileReadSchema, Prepa
         pathScope: plan.pathScope,
         summary: `Search text in ${plan.resolvedPath}`
       },
-      preparedInput: {
-        action: parsedInput.action,
-        contextLines: parsedInput.contextLines,
-        fileExtensions:
-          parsedInput.fileExtensions?.map((extension) =>
-            extension.startsWith(".") ? extension.toLowerCase() : `.${extension.toLowerCase()}`
-          ) ?? null,
-        keyword: parsedInput.keyword ?? "",
-        maxResults: parsedInput.maxResults,
-        maxSizeBytes: parsedInput.maxSizeBytes,
+        preparedInput: {
+          action: parsedInput.action,
+          contextLines: parsedInput.contextLines,
+          fileExtensions: parsedInput.fileExtensions ?? null,
+          keyword: parsedInput.keyword ?? "",
+          maxResults: parsedInput.maxResults,
+          maxSizeBytes: parsedInput.maxSizeBytes,
         plan,
         recursive: parsedInput.recursive
       },
@@ -245,7 +267,12 @@ export class FileReadTool implements ToolDefinition<typeof fileReadSchema, Prepa
       path: string;
     }> = [];
 
-    await this.walkAndSearch(searchRoot, input.keyword, input, matches, context.signal);
+    const stat = await fs.stat(searchRoot);
+    if (stat.isDirectory()) {
+      await this.walkAndSearch(searchRoot, input.keyword, input, matches, context.signal);
+    } else {
+      await this.searchFile(searchRoot, input.keyword, input, matches, context.signal);
+    }
 
     return {
       output: {
@@ -307,32 +334,64 @@ export class FileReadTool implements ToolDefinition<typeof fileReadSchema, Prepa
         continue;
       }
 
-      try {
-        const content = await fs.readFile(nextPath, "utf8");
-        const lines = content.split(/\r?\n/u);
-        if (containsLikelyBinaryByte(content)) {
+      await this.searchFile(nextPath, keyword, input, matches, signal);
+    }
+  }
+
+  private async searchFile(
+    filePath: string,
+    keyword: string,
+    input: Extract<PreparedFileReadInput, { action: "search_text" }>,
+    matches: Array<{
+      afterContext: string[];
+      beforeContext: string[];
+      line: string;
+      lineNumber: number;
+      path: string;
+    }>,
+    signal: AbortSignal
+  ): Promise<void> {
+    if (signal.aborted || matches.length >= input.maxResults) {
+      return;
+    }
+
+    if (input.fileExtensions !== null) {
+      const extension = extname(filePath).toLowerCase();
+      if (!input.fileExtensions.includes(extension)) {
+        return;
+      }
+    }
+
+    const stat = await fs.stat(filePath);
+    if (stat.size > input.maxSizeBytes) {
+      return;
+    }
+
+    try {
+      const content = await fs.readFile(filePath, "utf8");
+      const lines = content.split(/\r?\n/u);
+      if (containsLikelyBinaryByte(content)) {
+        return;
+      }
+      for (const [index, line] of lines.entries()) {
+        if (!line.includes(keyword)) {
           continue;
         }
-        for (const [index, line] of lines.entries()) {
-          if (!line.includes(keyword)) {
-            continue;
-          }
 
-          matches.push({
-            afterContext: lines.slice(index + 1, index + 1 + input.contextLines),
-            beforeContext: lines.slice(Math.max(0, index - input.contextLines), index),
-            line,
-            lineNumber: index + 1,
-            path: nextPath
-          });
+        matches.push({
+          afterContext: lines.slice(index + 1, index + 1 + input.contextLines),
+          beforeContext: lines.slice(Math.max(0, index - input.contextLines), index),
+          line,
+          lineNumber: index + 1,
+          path: filePath
+        });
 
-          if (matches.length >= input.maxResults) {
-            return;
-          }
+        if (matches.length >= input.maxResults) {
+          return;
         }
-      } catch {
-        continue;
       }
+    } catch {
+      return;
     }
   }
 }
@@ -351,6 +410,37 @@ const IGNORED_SEARCH_DIRECTORIES = new Set([
   "target",
   "tmp"
 ]);
+
+function normalizeContextLines(value: unknown): unknown {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return value;
+  }
+
+  if (value > 5) {
+    return 5;
+  }
+
+  return value;
+}
+
+function normalizeFileExtensions(value: unknown): unknown {
+  if (!Array.isArray(value)) {
+    return value;
+  }
+
+  return value.map<unknown>((entry: unknown) => {
+    if (typeof entry !== "string") {
+      return entry;
+    }
+
+    const trimmed = entry.trim().toLowerCase();
+    if (trimmed.length === 0) {
+      return entry;
+    }
+
+    return trimmed.startsWith(".") ? trimmed : `.${trimmed}`;
+  });
+}
 
 function containsLikelyBinaryByte(content: string): boolean {
   return content.includes("\u0000");

@@ -20,6 +20,7 @@ export interface UseChatControllerOptions {
   config: AppConfig;
   cwd: string;
   initialMessages?: ChatMessage[];
+  initialThreadId?: string;
   reviewerId: string;
   service: AgentApplicationService;
 }
@@ -39,6 +40,7 @@ export interface FileEditEntry {
 
 export interface ChatController {
   activeTaskId: string | null;
+  activeThreadId: string | null;
   addSystemMessage: (text: string) => void;
   busy: boolean;
   clearConversation: () => void;
@@ -83,6 +85,7 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
   });
   const [pendingApproval, setPendingApproval] = React.useState<ApprovalRecord | null>(null);
   const [activeTaskId, setActiveTaskId] = React.useState<string | null>(null);
+  const [activeThreadId, setActiveThreadId] = React.useState<string | null>(input.initialThreadId ?? null);
   const [fileEdits, setFileEdits] = React.useState<FileEditEntry[]>([]);
   const [tokenHud, setTokenHud] = React.useState<TokenHud>({
     contextPercent: 0,
@@ -101,6 +104,7 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
   const startedAtRef = React.useRef(Date.now());
   const activeAbortControllerRef = React.useRef<AbortController | null>(null);
   const activeTaskIdRef = React.useRef<string | null>(null);
+  const activeThreadIdRef = React.useRef<string | null>(input.initialThreadId ?? null);
   const lastSequenceByTaskRef = React.useRef<Record<string, number>>({});
   const activeTraceUnsubscribeRef = React.useRef<(() => void) | null>(null);
   const streamingAgentIdRef = React.useRef<string | null>(null);
@@ -231,8 +235,10 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     setActiveTaskId(null);
     setPendingApproval(null);
     activeTaskIdRef.current = null;
+    activeThreadIdRef.current = null;
     seenApprovalMessageIdsRef.current.clear();
     setFileEdits([]);
+    setActiveThreadId(null);
     stopTraceSubscription();
   }, [stopTraceSubscription]);
 
@@ -468,10 +474,19 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
             }
           };
 
-          const result = await input.service.runTask(runOptions);
+          const result =
+            activeThreadIdRef.current === null
+              ? await input.service.runTask(runOptions)
+              : await input.service.continueThread(activeThreadIdRef.current, text, {
+                  ...runOptions,
+                  cwd: input.cwd,
+                  taskId
+                });
           flushPendingDelta();
           activeTaskIdRef.current = result.task.taskId;
           setActiveTaskId(result.task.taskId);
+          activeThreadIdRef.current = result.task.threadId ?? null;
+          setActiveThreadId(result.task.threadId ?? null);
           appendNewTraceEvents(result.task.taskId);
 
           const activeStreamId = streamingAgentIdRef.current;
@@ -759,6 +774,7 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
 
   return {
     activeTaskId,
+    activeThreadId,
     addSystemMessage,
     busy,
     clearConversation,

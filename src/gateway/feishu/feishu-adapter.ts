@@ -246,7 +246,7 @@ export class FeishuAdapter implements InboundMessageAdapter, OutboundResponseAda
     if (bound === undefined || this.client === null) {
       return;
     }
-    await this.client.im.message.patch({
+    await this.patchMessageWithRetry({
       data: {
         content: renderTaskProgressCard(taskId, `${notice.capability}: ${notice.message}`)
       },
@@ -264,7 +264,7 @@ export class FeishuAdapter implements InboundMessageAdapter, OutboundResponseAda
     if (bound === undefined) {
       return;
     }
-    await this.client.im.message.patch({
+    await this.patchMessageWithRetry({
       data: {
         content: renderTaskProgressCard(event.taskId, event.detail)
       },
@@ -279,7 +279,7 @@ export class FeishuAdapter implements InboundMessageAdapter, OutboundResponseAda
     if (bound === undefined || this.client === null) {
       return;
     }
-    await this.client.im.message.patch({
+    await this.patchMessageWithRetry({
       data: {
         content: renderTaskResultCard(result.result.output)
       },
@@ -297,7 +297,7 @@ export class FeishuAdapter implements InboundMessageAdapter, OutboundResponseAda
     if (this.client === null) {
       return;
     }
-    const sent = await this.client.im.message.create(
+    const sent = await this.createMessageWithRetry(
       createTextMessagePayload(chatId, formatTaskResultText(result.result))
     );
     const messageId = sent.data?.message_id ?? null;
@@ -314,9 +314,27 @@ export class FeishuAdapter implements InboundMessageAdapter, OutboundResponseAda
     if (this.client === null || result.pendingApprovalId === null) {
       return;
     }
-    await this.client.im.message.create(
+    await this.createMessageWithRetry(
       createInteractiveMessagePayload(chatId, renderApprovalCard(result.taskId, result.pendingApprovalId))
     );
+  }
+
+  private async createMessageWithRetry(
+    payload: FeishuCreateMessagePayload
+  ): Promise<{ data?: { message_id?: string } }> {
+    if (this.client === null) {
+      return {};
+    }
+
+    return retryFeishuRequest(() => this.client!.im.message.create(payload));
+  }
+
+  private async patchMessageWithRetry(payload: FeishuPatchMessagePayload): Promise<unknown> {
+    if (this.client === null) {
+      return {};
+    }
+
+    return retryFeishuRequest(() => this.client!.im.message.patch(payload));
   }
 
   private logInfo(message: string, data?: unknown): void {
@@ -338,11 +356,12 @@ export class FeishuAdapter implements InboundMessageAdapter, OutboundResponseAda
   }
 
   private logError(message: string, data?: unknown): void {
+    const sanitized = sanitizeFeishuLogPayload(data);
     if (this.options.logger?.error !== undefined) {
-      this.options.logger.error(message, data);
+      this.options.logger.error(message, sanitized);
       return;
     }
-    console.error(message, data);
+    console.error(message, sanitized);
   }
 }
 
@@ -563,3 +582,127 @@ function summarizeMessagePayload(payload: unknown): Record<string, unknown> {
     senderType: readString(sender, "sender_type")
   };
 }
+
+const FEISHU_RETRY_DELAYS_MS = [200, 500];
+
+async function retryFeishuRequest<T>(operation: () => Promise<T>): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= FEISHU_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableFeishuError(error) || attempt === FEISHU_RETRY_DELAYS_MS.length) {
+        throw error;
+      }
+      await delay(FEISHU_RETRY_DELAYS_MS[attempt] ?? 0);
+    }
+  }
+
+  throw lastError;
+}
+
+function isRetryableFeishuError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const candidate = error as Error & {
+    code?: unknown;
+    response?: { status?: unknown };
+    status?: unknown;
+  };
+  const code = typeof candidate.code === "string" ? candidate.code : null;
+  const status =
+    typeof candidate.response?.status === "number"
+      ? candidate.response.status
+      : typeof candidate.status === "number"
+        ? candidate.status
+        : null;
+
+  if (code !== null && RETRYABLE_FEISHU_ERROR_CODES.has(code)) {
+    return true;
+  }
+
+  return status === 429 || (status !== null && status >= 500);
+}
+
+function sanitizeFeishuLogPayload(value: unknown): unknown {
+  if (value instanceof Error) {
+    const candidate = value as Error & {
+      code?: unknown;
+      config?: unknown;
+      request?: unknown;
+      response?: unknown;
+      status?: unknown;
+    };
+    const responseStatus =
+      typeof (candidate.response as { status?: unknown } | undefined)?.status === "number"
+        ? ((candidate.response as { status?: number }).status ?? null)
+        : typeof candidate.status === "number"
+          ? candidate.status
+          : null;
+
+    return {
+      code: typeof candidate.code === "string" ? candidate.code : null,
+      message: candidate.message,
+      name: candidate.name,
+      responseStatus,
+      url: sanitizeUrl((candidate.config as { url?: unknown } | undefined)?.url)
+    };
+  }
+
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  if (typeof value !== "object") {
+    return value;
+  }
+
+  try {
+    return JSON.parse(JSON.stringify(value, redactFeishuSecrets));
+  } catch {
+    return {
+      message: "Unable to serialize feishu error payload safely."
+    };
+  }
+}
+
+function redactFeishuSecrets(key: string, value: unknown): unknown {
+  const normalizedKey = key.toLowerCase();
+  if (
+    normalizedKey === "authorization" ||
+    normalizedKey.includes("token") ||
+    normalizedKey.includes("secret")
+  ) {
+    return "[redacted]";
+  }
+
+  if (typeof value === "string" && normalizedKey === "_header") {
+    return value.replace(/Authorization:\s*Bearer\s+[^\r\n]+/giu, "Authorization: Bearer [redacted]");
+  }
+
+  return value;
+}
+
+function sanitizeUrl(value: unknown): string | null {
+  if (typeof value !== "string" || value.length === 0) {
+    return null;
+  }
+
+  return value;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+const RETRYABLE_FEISHU_ERROR_CODES = new Set([
+  "EAI_AGAIN",
+  "ECONNABORTED",
+  "ECONNRESET",
+  "ETIMEDOUT"
+]);

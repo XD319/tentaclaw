@@ -7,10 +7,12 @@ import type {
   TaskRecord,
   ThreadSnapshotDraft
 } from "../../types/index.js";
+import { serializeFocusState, type FocusState } from "../focus-state.js";
 
 export interface BuildSnapshotInput {
   task: TaskRecord;
   compact: SessionCompactInput & { reason: "message_count" | "context_budget" | "token_budget" | "tool_call_count" };
+  focusState?: FocusState;
   memoryContext: ContextFragment[];
   availableTools: ProviderToolDescriptor[];
   trigger?: ThreadSnapshotDraft["trigger"];
@@ -68,7 +70,8 @@ export class ContextCompactor {
       summary,
       metadata: {
         compactReason: input.compact.reason,
-        compactTaskId: input.compact.taskId
+        compactTaskId: input.compact.taskId,
+        ...(input.focusState !== undefined ? { focusState: serializeFocusState(input.focusState) } : {})
       }
     };
   }

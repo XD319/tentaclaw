@@ -11,7 +11,9 @@ import type {
 } from "../types/index.js";
 
 export interface ContextAssemblerInput {
+  activeContextFragments?: ContextDebugFragment[];
   availableTools: ProviderToolDescriptor[];
+  filteredOutFragments?: ContextAssemblyDebugView["filteredOutFragments"];
   iteration: number;
   memoryContext: ContextFragment[];
   messages: ConversationMessage[];
@@ -109,7 +111,8 @@ function buildContextDebugView(input: ContextAssemblerInput): ContextAssemblyDeb
   };
 
   return {
-    filteredOutFragments: [],
+    activeContextFragments: input.activeContextFragments ?? [],
+    filteredOutFragments: input.filteredOutFragments ?? [],
     iteration: input.iteration,
     memoryRecallFragments: input.memoryContext.map((fragment) =>
       toMemoryDebugFragment(fragment)

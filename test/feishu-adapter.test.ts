@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { FeishuAdapter } from "../src/gateway/index.js";
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -393,6 +394,194 @@ describe("feishu adapter", () => {
       params: {
         receive_id_type: "chat_id"
       }
+    });
+  });
+
+  it("retries transient message create failures", async () => {
+    vi.useFakeTimers();
+    const create = vi
+      .fn()
+      .mockRejectedValueOnce(Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }))
+      .mockResolvedValue({ data: { message_id: "m1" } });
+    const patch = vi.fn(() => Promise.resolve({}));
+    const submitTask = vi.fn(() => Promise.resolve({
+      adapter: {
+        adapterId: "feishu-im",
+        capabilities: {
+          approvalInteraction: { supported: true },
+          attachmentCapability: { supported: true },
+          fileCapability: { supported: true },
+          streamingCapability: { supported: true },
+          structuredCardCapability: { supported: true },
+          textInteraction: { supported: true }
+        },
+        description: "x",
+        displayName: "x",
+        kind: "sdk" as const,
+        lifecycleState: "running" as const
+      },
+      notices: [],
+      result: { errorCode: null, errorMessage: null, output: "ok", pendingApprovalId: null, status: "succeeded", taskId: "t1" },
+      sessionBinding: {
+        adapterId: "feishu-im",
+        createdAt: new Date().toISOString(),
+        externalSessionId: "chat",
+        externalUserId: "open",
+        metadata: {},
+        runtimeUserId: "feishu-im:open",
+        sessionBindingId: "s1",
+        taskId: "t1",
+        updatedAt: new Date().toISOString()
+      }
+    }));
+
+    let handlers: Record<string, (data: unknown) => Promise<void> | void> = {};
+    const adapter = new FeishuAdapter(
+      { appId: "app", appSecret: "secret", domain: "feishu" },
+      {
+        createClients: () => Promise.resolve({
+          client: { im: { message: { create, patch } } },
+          createEventDispatcher: () => ({
+            register: (registeredHandlers) => {
+              handlers = registeredHandlers;
+              return {
+                handlers: registeredHandlers
+              };
+            }
+          }),
+          wsClient: { start: vi.fn() }
+        })
+      }
+    );
+    await adapter.start({
+      runtimeApi: {
+        getTaskSnapshot: () => null,
+        registerOutboundAdapter: () => undefined,
+        resolveApproval: vi.fn(() => Promise.resolve(null)),
+        submitTask,
+        subscribeToCompletion: () => () => undefined,
+        subscribeToTaskEvents: () => () => undefined
+      }
+    });
+
+    const pending = handlers["im.message.receive_v1"]?.({
+      event_id: "event-1",
+      message: {
+        chat_id: "chat",
+        content: JSON.stringify({ text: "hello" }),
+        message_id: "message-1"
+      },
+      sender: {
+        sender_id: {
+          open_id: "open"
+        }
+      }
+    });
+    await vi.runAllTimersAsync();
+    await pending;
+
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it("redacts secrets from logged errors", async () => {
+    const create = vi.fn(() =>
+      Promise.reject(
+        Object.assign(new Error("read ECONNRESET"), {
+          code: "ECONNRESET",
+          config: {
+            headers: {
+              Authorization: "Bearer secret-token"
+            },
+            url: "https://open.feishu.cn/open-apis/im/v1/messages"
+          }
+        })
+      )
+    );
+    const patch = vi.fn(() => Promise.resolve({}));
+    const logger = {
+      error: vi.fn()
+    };
+    const submitTask = vi.fn(() => Promise.resolve({
+      adapter: {
+        adapterId: "feishu-im",
+        capabilities: {
+          approvalInteraction: { supported: true },
+          attachmentCapability: { supported: true },
+          fileCapability: { supported: true },
+          streamingCapability: { supported: true },
+          structuredCardCapability: { supported: true },
+          textInteraction: { supported: true }
+        },
+        description: "x",
+        displayName: "x",
+        kind: "sdk" as const,
+        lifecycleState: "running" as const
+      },
+      notices: [],
+      result: { errorCode: null, errorMessage: null, output: "ok", pendingApprovalId: null, status: "succeeded", taskId: "t1" },
+      sessionBinding: {
+        adapterId: "feishu-im",
+        createdAt: new Date().toISOString(),
+        externalSessionId: "chat",
+        externalUserId: "open",
+        metadata: {},
+        runtimeUserId: "feishu-im:open",
+        sessionBindingId: "s1",
+        taskId: "t1",
+        updatedAt: new Date().toISOString()
+      }
+    }));
+
+    let handlers: Record<string, (data: unknown) => Promise<void> | void> = {};
+    const adapter = new FeishuAdapter(
+      { appId: "app", appSecret: "secret", domain: "feishu" },
+      {
+        logger,
+        createClients: () => Promise.resolve({
+          client: { im: { message: { create, patch } } },
+          createEventDispatcher: () => ({
+            register: (registeredHandlers) => {
+              handlers = registeredHandlers;
+              return {
+                handlers: registeredHandlers
+              };
+            }
+          }),
+          wsClient: { start: vi.fn() }
+        })
+      }
+    );
+    await adapter.start({
+      runtimeApi: {
+        getTaskSnapshot: () => null,
+        registerOutboundAdapter: () => undefined,
+        resolveApproval: vi.fn(() => Promise.resolve(null)),
+        submitTask,
+        subscribeToCompletion: () => () => undefined,
+        subscribeToTaskEvents: () => () => undefined
+      }
+    });
+
+    await handlers["im.message.receive_v1"]?.({
+      event_id: "event-1",
+      message: {
+        chat_id: "chat",
+        content: JSON.stringify({ text: "hello" }),
+        message_id: "message-1"
+      },
+      sender: {
+        sender_id: {
+          open_id: "open"
+        }
+      }
+    });
+
+    const loggedPayload = logger.error.mock.calls[0]?.[1] as Record<string, unknown> | undefined;
+    expect(JSON.stringify(loggedPayload)).not.toContain("secret-token");
+    expect(loggedPayload).toMatchObject({
+      code: "ECONNRESET",
+      name: "Error",
+      url: "https://open.feishu.cn/open-apis/im/v1/messages"
     });
   });
 });

@@ -26,6 +26,7 @@ export async function startTui(options: StartTuiOptions = {}): Promise<void> {
   try {
     const sessionId = options.resumeSessionId ?? randomUUID();
     let initialMessages = undefined;
+    let initialThreadId = undefined;
     if (options.resumeSessionId !== undefined) {
       const loaded = await loadSession(handle.config.workspaceRoot, options.resumeSessionId);
       const missing: ChatMessage[] = [
@@ -37,6 +38,7 @@ export async function startTui(options: StartTuiOptions = {}): Promise<void> {
         }
       ];
       initialMessages = loaded?.messages ?? missing;
+      initialThreadId = loaded?.threadId;
     }
 
     const app = render(
@@ -44,6 +46,7 @@ export async function startTui(options: StartTuiOptions = {}): Promise<void> {
         config: handle.config,
         cwd,
         ...(initialMessages !== undefined ? { initialMessages } : {}),
+        ...(initialThreadId !== undefined ? { initialThreadId } : {}),
         initialSessionId: sessionId,
         reviewerId: process.env.USERNAME ?? process.env.USER ?? "local-reviewer",
         service: handle.service

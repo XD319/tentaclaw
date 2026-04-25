@@ -19,6 +19,7 @@ export interface ChatTuiAppProps {
   cwd: string;
   initialMessages?: ChatMessage[];
   initialSessionId: string;
+  initialThreadId?: string;
   reviewerId: string;
   service: AgentApplicationService;
 }
@@ -28,6 +29,7 @@ export function ChatTuiApp({
   cwd,
   initialMessages,
   initialSessionId,
+  initialThreadId,
   reviewerId,
   service
 }: ChatTuiAppProps): React.ReactElement {
@@ -42,6 +44,7 @@ export function ChatTuiApp({
     config,
     cwd,
     ...(initialMessages !== undefined ? { initialMessages } : {}),
+    ...(initialThreadId !== undefined ? { initialThreadId } : {}),
     reviewerId,
     service
   });
@@ -70,6 +73,7 @@ export function ChatTuiApp({
       void saveSession(config.workspaceRoot, {
         id: sessionId,
         messages: controller.messages,
+        ...(controller.activeThreadId !== null ? { threadId: controller.activeThreadId } : {}),
         updatedAt: new Date().toISOString()
       });
     }, 600);
@@ -207,6 +211,7 @@ export function ChatTuiApp({
           `model: ${config.provider.model ?? config.provider.name}`,
           `provider: ${config.provider.name}`,
           `reviewer: ${reviewerId}`,
+          `thread: ${controller.activeThreadId ?? "(none)"}`,
           `busy: ${controller.busy}`,
           `active_task: ${controller.activeTaskId ?? "(none)"}`,
           `tasks: ${controller.summary.tasks} running: ${controller.summary.runningTasks} approvals: ${controller.summary.pendingApprovals}`,

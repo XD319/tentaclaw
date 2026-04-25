@@ -111,6 +111,7 @@ export class ToolOrchestrator {
 
     const parsed = tool.inputSchema.safeParse(request.input);
     if (!parsed.success) {
+      const validationSummary = summarizeValidationIssues(parsed.error.issues);
       return this.failToolCall(
         toolCall,
         new AppError({
@@ -118,7 +119,7 @@ export class ToolOrchestrator {
           details: {
             issues: z.treeifyError(parsed.error)
           },
-          message: parsed.error.message
+          message: validationSummary
         })
       );
     }
@@ -606,6 +607,19 @@ export class ToolOrchestrator {
 
     throw error;
   }
+}
+
+function summarizeValidationIssues(issues: z.ZodIssue[]): string {
+  if (issues.length === 0) {
+    return "Tool input validation failed.";
+  }
+
+  return issues
+    .map((issue) => {
+      const path = issue.path.length > 0 ? `${issue.path.join(".")}: ` : "";
+      return `${path}${issue.message}`;
+    })
+    .join(" | ");
 }
 
 function formatApprovalReason(reason: string, sandboxPlan: SandboxExecutionPlan): string {
