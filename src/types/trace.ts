@@ -420,7 +420,7 @@ export interface SessionCompactedPayload extends JsonObject {
 export interface ThreadSessionMemoryWrittenPayload extends JsonObject {
   sessionMemoryId: string;
   threadId: string;
-  trigger: "compact" | "manual" | "resume";
+  trigger: "compact" | "manual" | "resume" | "final";
   goal: string;
 }
 

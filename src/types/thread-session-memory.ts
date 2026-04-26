@@ -1,6 +1,6 @@
 import type { JsonObject } from "./common.js";
 
-export const THREAD_SESSION_MEMORY_TRIGGERS = ["compact", "manual", "resume"] as const;
+export const THREAD_SESSION_MEMORY_TRIGGERS = ["compact", "manual", "resume", "final"] as const;
 
 export type ThreadSessionMemoryTrigger = (typeof THREAD_SESSION_MEMORY_TRIGGERS)[number];
 

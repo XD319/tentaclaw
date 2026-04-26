@@ -27,6 +27,7 @@ import type {
   ProviderToolCall,
   RuntimeTaskEvent,
   RunMetadataRepository,
+  SessionCompactInput,
   RuntimeRunOptions,
   RuntimeRunResult,
   SessionCompactResult,
@@ -734,6 +735,23 @@ export class ExecutionKernel {
             finalOutput: providerResponse.message,
             status: task.status
           });
+          if (task.threadId !== null && task.threadId !== undefined) {
+            const latestRun =
+              this.dependencies.threadRunRepository.findByTaskId(task.taskId) ??
+              this.dependencies.threadRunRepository.findLatestByThreadId(task.threadId);
+            const finalSessionMemoryDraft = this.dependencies.contextCompactor.buildSessionMemory({
+              availableTools,
+              compact: buildFinalSessionCompactInput(messages, task),
+              task,
+              trigger: "final"
+            });
+            this.dependencies.threadSessionMemoryService.create({
+              ...finalSessionMemoryDraft,
+              runId: latestRun?.runId ?? null,
+              threadId: task.threadId,
+              trigger: "final"
+            });
+          }
 
           return {
             output: providerResponse.message,
@@ -1395,6 +1413,32 @@ function summarizeToolOutput(output: unknown): string {
     return `output=${output.description ?? "symbol"}`;
   }
   return "output=[unsupported]";
+}
+
+function buildFinalSessionCompactInput(
+  messages: ConversationMessage[],
+  task: TaskRecord
+): SessionCompactInput & { reason: "context_budget" } {
+  return {
+    maxMessagesBeforeCompact: messages.length,
+    messages: messages.map((message) => ({
+      content: message.content,
+      role: message.role,
+      ...(message.toolCallId !== undefined ? { toolCallId: message.toolCallId } : {}),
+      ...(message.toolName !== undefined ? { toolName: message.toolName } : {}),
+      ...(message.toolCalls !== undefined
+        ? {
+            toolCalls: message.toolCalls.map((toolCall) => ({
+              toolCallId: toolCall.toolCallId,
+              toolName: toolCall.toolName
+            }))
+          }
+        : {})
+    })),
+    reason: "context_budget",
+    sessionScopeKey: task.threadId ?? task.taskId,
+    taskId: task.taskId
+  };
 }
 
 function readThreadResumeMessages(metadata: RuntimeRunOptions["metadata"]): ConversationMessage[] {

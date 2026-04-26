@@ -39,6 +39,18 @@ class ToolThenFinalProvider implements Provider {
   }
 }
 
+class ImmediateFinalProvider implements Provider {
+  public readonly name = "immediate-final";
+
+  public generate(): Promise<ProviderResponse> {
+    return Promise.resolve({
+      kind: "final",
+      message: "final response without compaction",
+      usage: { inputTokens: 1, outputTokens: 1 }
+    });
+  }
+}
+
 describe("thread compact resume e2e", () => {
   it("creates session memory on compaction and rehydrates resume context", async () => {
     const workspace = mkdtempSync(join(tmpdir(), "talon-thread-snapshot-"));
@@ -83,6 +95,48 @@ describe("thread compact resume e2e", () => {
       );
       expect(systemPreviews.some((preview) => preview.includes("Open loops: pending file_read"))).toBe(true);
       expect(systemPreviews.some((preview) => preview.includes("Decisions: use existing context"))).toBe(true);
+    } finally {
+      handle.close();
+      rmSync(workspace, { force: true, recursive: true });
+    }
+  });
+
+  it("writes final-trigger session memory for short non-compact runs and injects resume context", async () => {
+    const workspace = mkdtempSync(join(tmpdir(), "talon-thread-final-session-memory-"));
+    const handle = createApplication(workspace, {
+      config: {
+        compact: {
+          messageThreshold: 999,
+          summarizer: "deterministic",
+          tokenThreshold: 99999,
+          toolCallThreshold: 999
+        },
+        databasePath: join(workspace, "runtime.db")
+      },
+      provider: new ImmediateFinalProvider()
+    });
+    try {
+      const firstOptions = createDefaultRunOptions(
+        "Remember this thread goal from final branch",
+        workspace,
+        handle.config
+      );
+      const firstRun = await handle.service.runTask(firstOptions);
+      const threadId = firstRun.task.threadId!;
+      const sessionMemories = handle.service.listThreadSnapshots(threadId);
+      expect(sessionMemories.length).toBeGreaterThan(0);
+      expect(sessionMemories.some((memory) => memory.trigger === "final")).toBe(true);
+
+      const secondRun = await handle.service.continueThread(threadId, "continue with remembered goal", {
+        cwd: workspace
+      });
+      const contextDebug = handle.service.traceTaskContext(secondRun.task.taskId);
+      const systemPreviews = contextDebug.contextAssembly?.systemPromptFragments.map((fragment) => fragment.preview) ?? [];
+      expect(
+        systemPreviews.some((preview) =>
+          preview.includes("[Thread Resume] Goal: Remember this thread goal from final branch")
+        )
+      ).toBe(true);
     } finally {
       handle.close();
       rmSync(workspace, { force: true, recursive: true });
