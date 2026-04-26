@@ -41,6 +41,11 @@ import type {
 } from "../types/index.js";
 import type { MemoryPlane } from "../memory/memory-plane.js";
 import { buildCapabilityDeclaration } from "../memory/capability-declaration-builder.js";
+import {
+  DeterministicCompactSummarizer,
+  type CompactSummarizer,
+  ProviderSubagentSummarizer
+} from "../memory/compact-summarizer.js";
 import type { CompactTriggerPolicy } from "../memory/compact-policy.js";
 import type { ToolOrchestrator } from "../tools/index.js";
 import type { TraceService } from "../tracing/trace-service.js";
@@ -902,7 +907,7 @@ export class ExecutionKernel {
         summary: "Pre-compress lifecycle hook published",
         taskId: task.taskId
       });
-      const compacted = this.compactMessages({
+      const compacted = await this.compactMessages({
         maxMessagesBeforeCompact: this.dependencies.compact.messageThreshold,
         messages,
         pendingToolCalls,
@@ -1035,12 +1040,12 @@ export class ExecutionKernel {
     });
   }
 
-  private compactMessages(
+  private async compactMessages(
     input: Parameters<CompactTriggerPolicy["shouldCompact"]>[0]
-  ): SessionCompactResult {
+  ): Promise<SessionCompactResult> {
     const decision = this.dependencies.compactPolicy.shouldCompact(input);
     if (!decision.triggered) {
-      return {
+      return Promise.resolve({
         reason: null,
         replacementMessages: input.messages.map((message) => ({
           content: message.content,
@@ -1050,45 +1055,19 @@ export class ExecutionKernel {
         })),
         summaryMemory: null,
         triggered: false
-      };
+      });
     }
 
-    const draft = this.dependencies.contextCompactor.buildSessionMemory({
-      availableTools: [],
-      compact: {
-        ...input,
-        reason:
-          decision.reason === "token_budget" || decision.reason === "tool_call_count"
-            ? decision.reason
-            : "message_count"
-      },
-      task: {
-        agentProfileId: "executor",
-        createdAt: "",
-        currentIteration: 0,
-        cwd: "",
-        errorCode: null,
-        errorMessage: null,
-        finalOutput: null,
-        finishedAt: null,
-        input: input.messages.find((message) => message.role === "user")?.content ?? "",
-        maxIterations: 0,
-        metadata: {},
-        providerName: "",
-        requesterUserId: "",
-        startedAt: null,
-        status: "running",
-        taskId: input.taskId,
-        threadId: input.sessionScopeKey,
-        tokenBudget: {
-          inputLimit: 0,
-          outputLimit: 0,
-          reservedOutput: 0,
-          usedInput: 0,
-          usedOutput: 0
-        },
-        updatedAt: ""
-      }
+    const summarizer = this.selectCompactSummarizer(input.taskId, input.sessionScopeKey);
+    const summarized = await summarizer.summarize({
+      maxMessagesBeforeCompact: input.maxMessagesBeforeCompact,
+      messages: input.messages,
+      reason:
+        decision.reason === "token_budget" || decision.reason === "tool_call_count"
+          ? decision.reason
+          : "message_count",
+      sessionScopeKey: input.sessionScopeKey,
+      taskId: input.taskId
     });
     const preserved = input.messages.slice(-3).map((message) => ({
       content: message.content,
@@ -1104,7 +1083,7 @@ export class ExecutionKernel {
           : "message_count",
       replacementMessages: [
         {
-          content: `Session summary:\n${draft.summary}`,
+          content: `Session summary:\n${summarized.summary}`,
           role: "system"
         },
         ...preserved
@@ -1112,6 +1091,24 @@ export class ExecutionKernel {
       summaryMemory: null,
       triggered: true
     };
+  }
+
+  private selectCompactSummarizer(taskId: string, threadId: string | null): CompactSummarizer {
+    if (this.dependencies.compact.summarizer !== "provider_subagent") {
+      return new DeterministicCompactSummarizer();
+    }
+    return new ProviderSubagentSummarizer((context) => {
+      if (context.kind !== "summarize") {
+        return null;
+      }
+      return (
+        this.dependencies.providerRouter?.selectProvider({
+          kind: "summarize",
+          taskId,
+          threadId
+        }).provider ?? this.dependencies.provider
+      );
+    });
   }
 
   private finalizeTaskFailure(

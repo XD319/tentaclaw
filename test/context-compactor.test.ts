@@ -43,7 +43,10 @@ describe("context compactor", () => {
       compact: {
         maxMessagesBeforeCompact: 6,
         messages: [
-          { content: "My long-running objective", role: "user" },
+          {
+            content: "My long-running objective and email me at demo@example.com with token=ghp_abcdefghijklmnopqrstuvwxyz",
+            role: "user"
+          },
           {
             content: "I will run tools",
             role: "assistant",
@@ -68,6 +71,12 @@ describe("context compactor", () => {
     expect(sessionMemory.decisions.join(" ")).toContain("Next I should execute pending Shell command");
     expect(sessionMemory.openLoops.join(" ")).toContain("tc-1");
     expect(sessionMemory.nextActions.length).toBeGreaterThan(0);
+    expect(sessionMemory.summary).toContain("completedWork=");
+    expect(sessionMemory.summary).toContain("filesTouched=");
+    expect(sessionMemory.summary).toContain("commandsRun=");
+    expect(sessionMemory.summary).toContain("blockers=");
+    expect(sessionMemory.summary).toContain("[REDACTED_EMAIL]");
+    expect(sessionMemory.summary).toContain("token=[REDACTED]");
     expect(
       Array.isArray(sessionMemory.metadata?.toolCapabilitySummary) &&
         sessionMemory.metadata.toolCapabilitySummary.includes("Shell")

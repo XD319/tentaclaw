@@ -4,6 +4,11 @@ import type {
   TaskRecord,
   ThreadSessionMemoryDraft
 } from "../../types/index.js";
+import {
+  collectStructuredSummaryFields,
+  formatStructuredSummary,
+  redactSensitiveSummary
+} from "../../memory/compact-summarizer.js";
 
 export interface BuildSessionMemoryInput {
   task: TaskRecord;
@@ -14,11 +19,13 @@ export interface BuildSessionMemoryInput {
 
 export class ContextCompactor {
   public buildSessionMemory(input: BuildSessionMemoryInput): ThreadSessionMemoryDraft {
-    const goal = summarize(
+    const goal = redactSensitiveSummary(
+      summarize(
       input.compact.messages.find((message) => message.role === "user")?.content ?? input.task.input,
       500
+      )
     );
-    const decisions = collectDecisions(input.compact.messages);
+    const decisions = collectDecisions(input.compact.messages).map((item) => redactSensitiveSummary(item));
     const unresolvedToolCalls = new Map<string, string>();
     const resolvedToolCalls = new Set<string>();
     for (const message of input.compact.messages) {
@@ -33,14 +40,17 @@ export class ContextCompactor {
     }
     const openLoops = [...unresolvedToolCalls.entries()]
       .filter(([toolCallId]) => !resolvedToolCalls.has(toolCallId))
-      .map(([toolCallId, toolName]) => `pending ${toolName} (${toolCallId})`);
-    const nextActions = collectNextActions(input.compact.messages);
-    const summary = [
-      `goal=${goal || "[n/a]"}`,
-      `decisions=${decisions.join("; ") || "[none]"}`,
-      `open_loops=${openLoops.join("; ") || "[none]"}`,
-      `next_actions=${nextActions.join("; ") || "[none]"}`
-    ].join("\n");
+      .map(([toolCallId, toolName]) => redactSensitiveSummary(`pending ${toolName} (${toolCallId})`));
+    const nextActions = collectNextActions(input.compact.messages).map((item) => redactSensitiveSummary(item));
+    const structured = collectStructuredSummaryFields(input.compact);
+    const summary = redactSensitiveSummary(
+      [
+        formatStructuredSummary(structured),
+        `decisions=${decisions.join("; ") || "[none]"}`,
+        `open_loops=${openLoops.join("; ") || "[none]"}`,
+        `next_actions=${nextActions.join("; ") || "[none]"}`
+      ].join("\n")
+    );
 
     return {
       decisions,
