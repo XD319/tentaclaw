@@ -41,6 +41,15 @@ function createTask(): TaskRecord {
 describe("RecallPlanner", () => {
   it("builds explain payload with selected and skipped entries", () => {
     const records: string[] = [];
+    let recallRequest:
+      | {
+          taskId: string;
+          query: string;
+          projectScopeKey: string;
+          profileScopeKey: string;
+          limit: number;
+        }
+      | null = null;
     const planner = new RecallPlanner({
       budgetPolicy: new RecallBudgetPolicy({ budgetRatio: 0.05 }),
       enabled: true,
@@ -49,12 +58,14 @@ describe("RecallPlanner", () => {
       } as never,
       maxCandidatesPerScope: 5,
       memoryPlane: {
-        recall: () => ({
+        recall: (request) => {
+          recallRequest = request;
+          return {
           candidates: [
             {
               confidenceScore: 0.8,
               downrankReasons: [],
-              explanation: "working memory match",
+              explanation: "project memory match",
               finalScore: 0.85,
               freshnessScore: 1,
               keywordScore: 0.8,
@@ -69,9 +80,9 @@ describe("RecallPlanner", () => {
                 memoryId: "mem-1",
                 metadata: {},
                 privacyLevel: "internal",
-                retentionPolicy: { kind: "working", reason: "x", ttlDays: null },
-                scope: "working",
-                scopeKey: "task-1",
+                retentionPolicy: { kind: "project", reason: "x", ttlDays: 30 },
+                scope: "project",
+                scopeKey: "/repo",
                 source: {
                   label: "task",
                   sourceType: "user_input",
@@ -91,7 +102,8 @@ describe("RecallPlanner", () => {
           decisions: [],
           query: "q",
           selectedFragments: []
-        }),
+        };
+        },
         recordRecall: () => undefined
       },
       sessionSearchService: {
@@ -116,5 +128,12 @@ describe("RecallPlanner", () => {
     expect(result.explain.items.length).toBe(1);
     expect(result.explain.enrichedQuery).toContain("stabilize migration workflow");
     expect(records).toContain("recall_explain");
+    expect(recallRequest).toEqual({
+      limit: 5,
+      profileScopeKey: "u1:executor",
+      projectScopeKey: "/repo",
+      query: result.explain.enrichedQuery,
+      taskId: "task-1"
+    });
   });
 });

@@ -288,6 +288,20 @@ export class MemoryPlane {
   }
 
   private persistMemoryIfAllowed(record: MemoryDraft): MemoryRecord | null {
+    if (record.scope === "working") {
+      this.dependencies.traceService.record({
+        actor: "memory.plane",
+        eventType: "memory_write_rejected",
+        payload: {
+          reason: "working_scope_moved_to_thread_session_memory",
+          scope: record.scope
+        },
+        stage: "memory",
+        summary: "Rejected working memory write; use ThreadSessionMemory instead",
+        taskId: record.source.taskId ?? "memory-admin"
+      });
+      return null;
+    }
     if (record.scope === "project" || record.scope === "profile") {
       const decision = this.dependencies.contextPolicy.decideLongTermWrite({
         content: record.content,

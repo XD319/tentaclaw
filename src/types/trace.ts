@@ -55,6 +55,7 @@ export const TRACE_EVENT_TYPES = [
   "memory_recalled",
   "recall_explain",
   "memory_written",
+  "memory_write_rejected",
   "session_compacted",
   "thread_session_memory_written",
   "schedule_created",
@@ -408,6 +409,11 @@ export interface MemoryWrittenPayload extends JsonObject {
   sourceType: MemorySourceType;
   privacyLevel: PrivacyLevel;
   status: MemoryStatus;
+}
+
+export interface MemoryWriteRejectedPayload extends JsonObject {
+  scope: MemoryScope;
+  reason: "working_scope_moved_to_thread_session_memory";
 }
 
 export interface SessionCompactedPayload extends JsonObject {
@@ -776,6 +782,7 @@ export type TraceEvent =
   | TraceEventBase<"memory_recalled", MemoryRecalledPayload>
   | TraceEventBase<"recall_explain", RecallExplainPayload>
   | TraceEventBase<"memory_written", MemoryWrittenPayload>
+  | TraceEventBase<"memory_write_rejected", MemoryWriteRejectedPayload>
   | TraceEventBase<"session_compacted", SessionCompactedPayload>
   | TraceEventBase<"thread_session_memory_written", ThreadSessionMemoryWrittenPayload>
   | TraceEventBase<"schedule_created", ScheduleCreatedPayload>

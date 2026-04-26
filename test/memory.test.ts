@@ -315,6 +315,53 @@ describe("Phase 3 memory plane", () => {
     }
   });
 
+  it("rejects working scope writes and records rejection trace", () => {
+    const { memoryPlane, storage, close } = createMemoryHarness();
+
+    try {
+      const persisted = memoryPlane.writeMemory({
+        confidence: 0.6,
+        content: "ephemeral task scratchpad",
+        expiresAt: null,
+        keywords: ["scratchpad", "working"],
+        privacyLevel: "internal",
+        retentionPolicy: {
+          kind: "working",
+          reason: "Task-scoped scratchpad",
+          ttlDays: null
+        },
+        scope: "working",
+        scopeKey: "task-working-1",
+        source: {
+          label: "Task scratchpad",
+          sourceType: "user_input",
+          taskId: "task-working-1",
+          toolCallId: null,
+          traceEventId: null
+        },
+        status: "candidate",
+        summary: "temporary scratchpad",
+        title: "Working note"
+      });
+
+      expect(persisted).toBeNull();
+      expect(
+        storage.memories.list({
+          includeExpired: true,
+          includeRejected: true
+        })
+      ).toHaveLength(0);
+      const rejectedEvent = storage.traces
+        .listByTaskId("task-working-1")
+        .find((event) => event.eventType === "memory_write_rejected");
+      expect(rejectedEvent).toBeDefined();
+      expect(rejectedEvent?.payload.scope).toBe("working");
+      expect(rejectedEvent?.payload.reason).toBe("working_scope_moved_to_thread_session_memory");
+    } finally {
+      close();
+    }
+  });
+
   it("records recall provenance in task trace", async () => {
     const workspaceRoot = await createTempWorkspace();
     const handle = createApplication(workspaceRoot, {
