@@ -13,6 +13,16 @@ export const DEFAULT_LOCAL_POLICY_CONFIG: LocalPolicyConfig = {
       priority: 100
     },
     {
+      description: "Planner profile is read-focused and cannot mutate files or run shell by default.",
+      effect: "deny",
+      id: "planner-read-only",
+      match: {
+        agentProfiles: ["planner"],
+        capabilities: ["filesystem.write", "shell.execute", "mcp.invoke"]
+      },
+      priority: 91
+    },
+    {
       description: "Reviewer profile is read-focused and cannot mutate files or run shell.",
       effect: "deny",
       id: "reviewer-read-only",

@@ -37,6 +37,8 @@ interface SessionIndexRow {
   score: number;
 }
 
+type SqlParameter = string | number | bigint | Buffer | Uint8Array | null;
+
 export class SqliteThreadSessionMemoryRepository implements ThreadSessionMemoryRepository {
   public constructor(private readonly database: DatabaseSync) {}
 
@@ -196,7 +198,7 @@ export class SqliteThreadSessionMemoryRepository implements ThreadSessionMemoryR
 
   private searchFts(input: { limit: number; query: string; threadId: string }): SessionIndexRow[] | null {
     const whereClause = "thread_id = ? AND session_index MATCH ?";
-    const parameters: unknown[] = [input.threadId, input.query, input.limit];
+    const parameters: SqlParameter[] = [input.threadId, input.query, input.limit];
     return this.searchFtsWithQuery(whereClause, parameters);
   }
 
@@ -206,7 +208,7 @@ export class SqliteThreadSessionMemoryRepository implements ThreadSessionMemoryR
     excludeThreadId?: string | null;
   }): SessionIndexRow[] | null {
     const whereClauses = ["session_index MATCH ?"];
-    const parameters: unknown[] = [input.query];
+    const parameters: SqlParameter[] = [input.query];
     if (input.excludeThreadId !== undefined && input.excludeThreadId !== null) {
       whereClauses.push("thread_id != ?");
       parameters.push(input.excludeThreadId);
@@ -215,7 +217,7 @@ export class SqliteThreadSessionMemoryRepository implements ThreadSessionMemoryR
     return this.searchFtsWithQuery(whereClauses.join(" AND "), parameters);
   }
 
-  private searchFtsWithQuery(whereClause: string, parameters: unknown[]): SessionIndexRow[] | null {
+  private searchFtsWithQuery(whereClause: string, parameters: SqlParameter[]): SessionIndexRow[] | null {
     try {
       return this.database
         .prepare(
@@ -259,7 +261,7 @@ export class SqliteThreadSessionMemoryRepository implements ThreadSessionMemoryR
       limit: input.limit,
       query: input.query,
       whereClause: hasExclude ? "thread_id != ?" : "1=1",
-      whereParams: hasExclude ? [input.excludeThreadId] : []
+      whereParams: hasExclude ? [input.excludeThreadId as string] : []
     });
   }
 
@@ -267,7 +269,7 @@ export class SqliteThreadSessionMemoryRepository implements ThreadSessionMemoryR
     limit: number;
     query: string;
     whereClause: string;
-    whereParams: unknown[];
+      whereParams: SqlParameter[];
   }): SessionIndexRow[] {
     const pattern = `%${input.query.trim().replace(/\s+/gu, "%")}%`;
     return this.database

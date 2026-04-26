@@ -220,7 +220,7 @@ function buildSummaryTask(input: SessionCompactInput): {
   finishedAt: null;
   input: string;
   maxIterations: number;
-  metadata: {};
+  metadata: Record<string, never>;
   providerName: string;
   requesterUserId: string;
   startedAt: string | null;

@@ -46,44 +46,75 @@ function toResumeMessages(
   const messages: ConversationMessage[] = [
     {
       role: "system",
-      content: `[Thread Resume] Goal: ${sessionMemory.goal}`
+      content: `KnownThreadGoal: ${normalizeLine(sessionMemory.goal, 220)}`
     }
   ];
-  if (sessionMemory.decisions.length > 0) {
+  const decisions = compactItems(sessionMemory.decisions, 3, 180);
+  if (decisions.length > 0) {
     messages.push({
       role: "system",
-      content: `Decisions: ${sessionMemory.decisions.join(", ")}`
+      content: `KnownDecisions: ${decisions.join(" | ")}`
     });
   }
-  if (sessionMemory.openLoops.length > 0) {
+  const openLoops = compactItems(sessionMemory.openLoops, 3, 180);
+  if (openLoops.length > 0) {
     messages.push({
       role: "system",
-      content: `Open loops: ${sessionMemory.openLoops.join(", ")}`
+      content: `KnownOpenLoops: ${openLoops.join(" | ")}`
     });
   }
-  if (sessionMemory.nextActions.length > 0) {
+  const nextActions = compactItems(sessionMemory.nextActions, 3, 180);
+  if (nextActions.length > 0) {
     messages.push({
       role: "system",
-      content: `Next actions: ${sessionMemory.nextActions.join(", ")}`
+      content: `KnownNextActions: ${nextActions.join(" | ")}`
     });
   }
   if (commitmentState.currentObjective !== null) {
     messages.push({
       role: "system",
-      content: `Current objective: ${commitmentState.currentObjective.title}`
+      content: `KnownCurrentObjective: ${normalizeLine(commitmentState.currentObjective.title, 180)}`
     });
   }
   if (commitmentState.nextAction !== null) {
     messages.push({
       role: "system",
-      content: `Next action: ${commitmentState.nextAction.title} (${commitmentState.nextAction.status})`
+      content: `KnownPlannedNextAction: ${normalizeLine(
+        `${commitmentState.nextAction.title} (${commitmentState.nextAction.status})`,
+        180
+      )}`
     });
   }
   if (commitmentState.pendingDecision !== null) {
     messages.push({
       role: "system",
-      content: `Pending decision: ${commitmentState.pendingDecision}`
+      content: `KnownPendingDecision: ${normalizeLine(commitmentState.pendingDecision, 180)}`
     });
   }
   return messages;
+}
+
+function compactItems(values: string[], limit: number, maxLength: number): string[] {
+  const unique = new Set<string>();
+  const items: string[] = [];
+  for (const value of values) {
+    const compact = normalizeLine(value, maxLength);
+    if (compact.length === 0 || unique.has(compact)) {
+      continue;
+    }
+    unique.add(compact);
+    items.push(compact);
+    if (items.length >= limit) {
+      break;
+    }
+  }
+  return items;
+}
+
+function normalizeLine(value: string, maxLength: number): string {
+  const compact = value.replace(/\s+/gu, " ").trim();
+  if (compact.length === 0) {
+    return "";
+  }
+  return compact.length <= maxLength ? compact : `${compact.slice(0, maxLength)}...`;
 }

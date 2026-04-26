@@ -116,21 +116,53 @@ export class RecallPlanner {
             limit: this.dependencies.maxCandidatesPerScope,
             query: enrichedQuery
           });
-    const sessionCandidates = [...sessionFragments, ...globalSessionFragments].map((fragment) =>
-      toSessionCandidate(fragment)
+    const threadLocalSessionCandidates = sessionFragments.map((fragment) =>
+      toSessionCandidate(fragment, {
+        scoreBoost: 0.35,
+        source: "thread_local"
+      })
     );
-
-    const selection = this.selector.select(
-      [...memoryCandidates, ...experienceCandidates, ...skillCandidates, ...sessionCandidates],
-      {
-        scopeWeights: budget.scopeWeights,
-        tokenBudget: budget.totalTokenBudget
-      }
+    const globalSessionCandidates = globalSessionFragments.map((fragment) =>
+      toSessionCandidate(fragment, {
+        scoreBoost: 0.1,
+        source: "global"
+      })
     );
+    const allCandidates = [
+      ...memoryCandidates,
+      ...experienceCandidates,
+      ...skillCandidates,
+      ...threadLocalSessionCandidates,
+      ...globalSessionCandidates
+    ];
+    const reservedThreadLocal = reserveThreadLocalCandidates(
+      threadLocalSessionCandidates,
+      budget.totalTokenBudget,
+      2
+    );
+    const reservedIds = new Set(reservedThreadLocal.selected.map((item) => item.id));
+    const remainingCandidates = allCandidates.filter((candidate) => !reservedIds.has(candidate.id));
+    const remainingSelection = this.selector.select(remainingCandidates, {
+      scopeWeights: budget.scopeWeights,
+      tokenBudget: Math.max(0, budget.totalTokenBudget - reservedThreadLocal.tokenUsed)
+    });
+    const selection = {
+      selected: [...reservedThreadLocal.selected, ...remainingSelection.selected],
+      selectedFragments: [
+        ...reservedThreadLocal.selectedFragments,
+        ...remainingSelection.selectedFragments
+      ],
+      skipped: [...reservedThreadLocal.skipped, ...remainingSelection.skipped],
+      tokenUsed: reservedThreadLocal.tokenUsed + remainingSelection.tokenUsed
+    };
 
     const explain: RecallExplainPayload = {
       candidateCount:
-        memoryCandidates.length + experienceCandidates.length + skillCandidates.length + sessionCandidates.length,
+        memoryCandidates.length +
+        experienceCandidates.length +
+        skillCandidates.length +
+        threadLocalSessionCandidates.length +
+        globalSessionCandidates.length,
       enrichedQuery,
       items: [...selection.selected, ...selection.skipped].map((item) => ({
         id: item.id,
@@ -321,15 +353,100 @@ function toSkillCandidate(
   };
 }
 
-function toSessionCandidate(fragment: ContextFragment): ScoredRecallCandidate {
+function toSessionCandidate(
+  fragment: ContextFragment,
+  options: {
+    scoreBoost?: number;
+    source?: "thread_local" | "global";
+  } = {}
+): ScoredRecallCandidate {
+  const source = options.source ?? "thread_local";
+  const scoreBoost = options.scoreBoost ?? 0;
+  const score = Number((fragment.confidence + scoreBoost).toFixed(4));
   return {
     fragment,
     id: fragment.memoryId,
-    reason: fragment.explanation,
-    score: Number(fragment.confidence.toFixed(4)),
+    reason: `${fragment.explanation}; session_source=${source}; score_boost=${scoreBoost.toFixed(2)}`,
+    score,
     scope: fragment.scope,
     tokenEstimate: estimateTokens(fragment.text)
   };
+}
+
+function reserveThreadLocalCandidates(
+  candidates: ScoredRecallCandidate[],
+  tokenBudget: number,
+  minSlots: number
+): {
+  selected: Array<{
+    id: string;
+    reason: string;
+    scope: ScoredRecallCandidate["scope"];
+    score: number;
+    selected: true;
+    tokenEstimate: number;
+  }>;
+  selectedFragments: ContextFragment[];
+  skipped: Array<{
+    id: string;
+    reason: string;
+    scope: ScoredRecallCandidate["scope"];
+    score: number;
+    selected: false;
+    tokenEstimate: number;
+  }>;
+  tokenUsed: number;
+} {
+  if (candidates.length === 0 || tokenBudget <= 0 || minSlots <= 0) {
+    return { selected: [], selectedFragments: [], skipped: [], tokenUsed: 0 };
+  }
+  const sorted = [...candidates].sort((left, right) => right.score - left.score);
+  const selected: Array<{
+    id: string;
+    reason: string;
+    scope: ScoredRecallCandidate["scope"];
+    score: number;
+    selected: true;
+    tokenEstimate: number;
+  }> = [];
+  const selectedFragments: ContextFragment[] = [];
+  const skipped: Array<{
+    id: string;
+    reason: string;
+    scope: ScoredRecallCandidate["scope"];
+    score: number;
+    selected: false;
+    tokenEstimate: number;
+  }> = [];
+  let tokenUsed = 0;
+  for (const candidate of sorted) {
+    if (selected.length >= minSlots) {
+      break;
+    }
+    const cost = Math.max(1, candidate.tokenEstimate);
+    if (tokenUsed + cost > tokenBudget) {
+      skipped.push({
+        id: candidate.id,
+        reason: `${candidate.reason}; skipped_by_budget`,
+        scope: candidate.scope,
+        score: candidate.score,
+        selected: false,
+        tokenEstimate: candidate.tokenEstimate
+      });
+      continue;
+    }
+    tokenUsed += cost;
+    selected.push({
+      id: candidate.id,
+      reason: `${candidate.reason}; reserved_thread_local`,
+      scope: candidate.scope,
+      score: candidate.score,
+      selected: true,
+      tokenEstimate: candidate.tokenEstimate
+    });
+    selectedFragments.push(candidate.fragment);
+  }
+  return { selected, selectedFragments, skipped, tokenUsed };
 }
 
 function buildEnrichedQuery(

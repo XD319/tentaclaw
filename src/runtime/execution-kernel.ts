@@ -212,8 +212,6 @@ export class ExecutionKernel {
       const threadId = task.threadId ?? null;
       const initialToolExposure = this.dependencies.toolExposurePlanner
         ? await this.dependencies.toolExposurePlanner.plan({
-            agentProfileId: options.agentProfileId,
-            allowedToolNames: profile.allowedToolNames,
             context: {
               agentProfileId: options.agentProfileId,
               cwd: options.cwd,
@@ -225,15 +223,11 @@ export class ExecutionKernel {
             },
             iteration: 1,
             taskId,
-            taskInput: options.taskInput,
-            threadCommitmentState:
-              threadId === null ? null : this.dependencies.getThreadCommitmentState?.(threadId) ?? null,
             threadId
           })
         : null;
       const availableTools =
-        initialToolExposure?.tools ??
-        this.dependencies.toolOrchestrator.listTools(profile.allowedToolNames);
+        initialToolExposure?.tools ?? this.dependencies.toolOrchestrator.listTools();
       const recallPlan = await this.planRecall({
         task,
         threadCommitmentState:
@@ -398,8 +392,7 @@ export class ExecutionKernel {
   }
 
   private async executeLoop(state: ExecutionLoopState): Promise<RuntimeRunResult> {
-    const profile = this.dependencies.agentProfileRegistry.get(state.task.agentProfileId);
-    let availableTools = this.dependencies.toolOrchestrator.listTools(profile.allowedToolNames);
+    let availableTools = this.dependencies.toolOrchestrator.listTools();
     let task = state.task;
     const messages = [...state.messages];
     let pendingToolCalls = [...state.pendingToolCalls];
@@ -421,8 +414,6 @@ export class ExecutionKernel {
       if (pendingToolCalls.length === 0) {
         if (this.dependencies.toolExposurePlanner !== undefined) {
           const exposure = await this.dependencies.toolExposurePlanner.plan({
-            agentProfileId: state.task.agentProfileId,
-            allowedToolNames: profile.allowedToolNames,
             context: {
               agentProfileId: state.task.agentProfileId,
               cwd: state.cwd,
@@ -434,11 +425,6 @@ export class ExecutionKernel {
             },
             iteration,
             taskId: task.taskId,
-            taskInput: task.input,
-            threadCommitmentState:
-              task.threadId === null || task.threadId === undefined
-                ? null
-                : this.dependencies.getThreadCommitmentState?.(task.threadId) ?? null,
             threadId: task.threadId ?? null
           });
           availableTools = exposure.tools;
@@ -1062,10 +1048,6 @@ export class ExecutionKernel {
     const summarized = await summarizer.summarize({
       maxMessagesBeforeCompact: input.maxMessagesBeforeCompact,
       messages: input.messages,
-      reason:
-        decision.reason === "token_budget" || decision.reason === "tool_call_count"
-          ? decision.reason
-          : "message_count",
       sessionScopeKey: input.sessionScopeKey,
       taskId: input.taskId
     });

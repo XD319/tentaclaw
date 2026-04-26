@@ -71,6 +71,9 @@ describe("context compactor", () => {
     expect(sessionMemory.decisions.join(" ")).toContain("Next I should execute pending Shell command");
     expect(sessionMemory.openLoops.join(" ")).toContain("tc-1");
     expect(sessionMemory.nextActions.length).toBeGreaterThan(0);
+    expect(sessionMemory.decisions.every((item) => item.length <= 123)).toBe(true);
+    expect(sessionMemory.nextActions.every((item) => item.length <= 123)).toBe(true);
+    expect(sessionMemory.nextActions.length).toBeLessThanOrEqual(3);
     expect(sessionMemory.summary).toContain("completedWork=");
     expect(sessionMemory.summary).toContain("filesTouched=");
     expect(sessionMemory.summary).toContain("commandsRun=");

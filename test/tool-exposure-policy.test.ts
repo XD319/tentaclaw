@@ -37,47 +37,66 @@ describe("tool exposure policy", () => {
   it("hides unavailable tools", () => {
     const tools = [createTool({ name: "file_read" })];
     const decisions = evaluateToolExposure({
-      allowedToolNames: ["file_read"],
       availability: new Map([["file_read", { available: false, reason: "disabled" }]]),
       budgetDowngradeActive: false,
-      iteration: 1,
-      taskInput: "read files",
-      threadCommitmentState: null,
       tools
     });
-    expect(decisions[0]?.exposed).toBe(false);
+
+    expect(decisions[0]).toMatchObject({
+      exposed: false,
+      reason: "unavailable: disabled",
+      toolName: "file_read"
+    });
   });
 
-  it("flags expensive tools during budget downgrade", () => {
-    const tools = [createTool({ costLevel: "expensive", name: "web_fetch" })];
+  it("keeps mutation tools exposed on the first iteration when available", () => {
+    const tools = [
+      createTool({
+        capability: "filesystem.write",
+        name: "file_write",
+        riskLevel: "medium",
+        sideEffectLevel: "workspace_mutation"
+      }),
+      createTool({
+        capability: "shell.execute",
+        name: "shell",
+        riskLevel: "high",
+        sideEffectLevel: "external_mutation"
+      }),
+      createTool({
+        capability: "shell.execute",
+        name: "test_run",
+        riskLevel: "high",
+        sideEffectLevel: "workspace_mutation"
+      })
+    ];
+
     const decisions = evaluateToolExposure({
-      allowedToolNames: ["web_fetch"],
-      availability: new Map([["web_fetch", { available: true, reason: "ok" }]]),
-      budgetDowngradeActive: true,
-      iteration: 2,
-      taskInput: "fetch docs",
-      threadCommitmentState: null,
+      availability: new Map(
+        tools.map((tool) => [tool.name, { available: true, reason: "ok" }] as const)
+      ),
+      budgetDowngradeActive: false,
       tools
     });
+
+    expect(decisions.every((decision) => decision.exposed)).toBe(true);
+    expect(decisions.map((decision) => decision.reason)).toEqual(["eligible", "eligible", "eligible"]);
+  });
+
+  it("flags expensive tools during budget downgrade without hiding them", () => {
+    const tools = [createTool({ costLevel: "expensive", name: "mcp__docs__search" })];
+    const decisions = evaluateToolExposure({
+      availability: new Map([["mcp__docs__search", { available: true, reason: "ok" }]]),
+      budgetDowngradeActive: true,
+      tools
+    });
+
     expect(decisions[0]?.exposed).toBe(true);
     expect(decisions[0]?.costWarning).toBe(true);
+    expect(decisions[0]?.reason).toBe("budget downgrade active");
   });
 
-  it("hides high risk tools on first iteration without mutation intent", () => {
-    const tools = [createTool({ name: "shell", riskLevel: "high" })];
-    const decisions = evaluateToolExposure({
-      allowedToolNames: ["shell"],
-      availability: new Map([["shell", { available: true, reason: "ok" }]]),
-      budgetDowngradeActive: false,
-      iteration: 1,
-      taskInput: "analyze code quality",
-      threadCommitmentState: null,
-      tools
-    });
-    expect(decisions[0]?.exposed).toBe(false);
-  });
-
-  it("keeps medium-risk public web fetch available on first iteration", () => {
+  it("keeps public web fetch exposed when available", () => {
     const tools = [
       createTool({
         capability: "network.fetch_public_readonly",
@@ -87,12 +106,8 @@ describe("tool exposure policy", () => {
       })
     ];
     const decisions = evaluateToolExposure({
-      allowedToolNames: ["web_fetch"],
       availability: new Map([["web_fetch", { available: true, reason: "ok" }]]),
       budgetDowngradeActive: false,
-      iteration: 1,
-      taskInput: "help me check today's weather in New York",
-      threadCommitmentState: null,
       tools
     });
 

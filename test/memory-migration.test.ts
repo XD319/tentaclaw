@@ -75,7 +75,7 @@ describe("memory scope migration", () => {
       expect(migrated?.scope).toBe("profile");
       expect(migrated?.retentionPolicy.kind).toBe("profile");
       const userVersion = db.prepare("PRAGMA user_version").get() as { user_version: number };
-      expect(userVersion.user_version).toBe(9);
+      expect(userVersion.user_version).toBe(10);
     } finally {
       db.close();
       rmSync(workspace, { force: true, recursive: true });

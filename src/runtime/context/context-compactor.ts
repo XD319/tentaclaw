@@ -134,20 +134,20 @@ function collectNextActions(messages: SessionCompactInput["messages"]): string[]
   if (Array.isArray(lastAssistant.toolCalls) && lastAssistant.toolCalls.length > 0) {
     actions.push(...lastAssistant.toolCalls.map((call) => `run ${call.toolName} (${call.toolCallId})`));
   }
-  const compact = summarize(lastAssistant.content, 240);
-  if (compact.length > 0) {
+  const compact = normalizeMemoryLine(lastAssistant.content, 120);
+  if (compact.length > 0 && looksActionable(compact)) {
     actions.push(compact);
   }
-  return uniqueList(actions);
+  return uniqueList(actions).slice(0, 3);
 }
 
 function collectDecisions(messages: SessionCompactInput["messages"]): string[] {
   const candidates = messages
     .filter((message) => message.role === "assistant" || message.role === "user")
     .slice(-6)
-    .map((message) => summarize(message.content, 180))
+    .map((message) => normalizeMemoryLine(message.content, 120))
     .filter((message) => message.length > 0);
-  return uniqueList(candidates).slice(-4);
+  return uniqueList(candidates).slice(-3);
 }
 
 function uniqueList(values: string[]): string[] {
@@ -157,4 +157,25 @@ function uniqueList(values: string[]): string[] {
 function summarize(value: string, maxLength: number): string {
   const compact = value.replace(/\s+/gu, " ").trim();
   return compact.length <= maxLength ? compact : `${compact.slice(0, maxLength)}...`;
+}
+
+function normalizeMemoryLine(value: string, maxLength: number): string {
+  const compact = value
+    .replace(/[`#>*_|~]/gu, " ")
+    .replace(/\[(.*?)\]\((.*?)\)/gu, "$1")
+    .replace(/\s+/gu, " ")
+    .trim();
+  if (compact.length === 0) {
+    return "";
+  }
+  return compact.length <= maxLength ? compact : `${compact.slice(0, maxLength)}...`;
+}
+
+function looksActionable(value: string): boolean {
+  return (
+    /\b(run|write|update|fix|create|check|verify|read|search|continue|summarize|execute)\b/iu.test(
+      value
+    ) ||
+    /执行|写入|更新|修复|创建|检查|验证|读取|搜索|继续|总结/u.test(value)
+  );
 }

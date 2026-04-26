@@ -213,7 +213,7 @@ export class RuntimeDashboardQueryService {
       memoryHits: buildMemoryHits(detail.trace, memories),
       metadata: buildMetadata(currentTask),
       recentEvents: detail.trace.slice(-5).map((event) => event.summary),
-      trace: detail.trace.slice(-30).map(toTraceEntry)
+      trace: detail.trace.slice(-100).map(toTraceEntry)
     };
   }
 }

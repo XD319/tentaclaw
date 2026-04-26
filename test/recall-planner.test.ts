@@ -191,4 +191,95 @@ describe("RecallPlanner", () => {
 
     expect(globalSearchCalls).toBe(1);
   });
+
+  it("reserves same-thread session memory before generic memories", () => {
+    const planner = new RecallPlanner({
+      budgetPolicy: new RecallBudgetPolicy({ budgetRatio: 0.03 }),
+      enabled: true,
+      experiencePlane: {
+        recallExperiences: () => []
+      } as never,
+      maxCandidatesPerScope: 5,
+      memoryPlane: {
+        recall: () => ({
+          candidates: [
+            {
+              confidenceScore: 0.95,
+              downrankReasons: [],
+              explanation: "generic profile memory",
+              finalScore: 0.96,
+              freshnessScore: 1,
+              keywordScore: 0.9,
+              memory: {
+                confidence: 0.95,
+                content: "x",
+                conflictsWith: [],
+                createdAt: "2026-04-23T09:00:00.000Z",
+                expiresAt: null,
+                keywords: ["sqlite"],
+                lastVerifiedAt: null,
+                memoryId: "mem-generic-1",
+                metadata: {},
+                privacyLevel: "internal",
+                retentionPolicy: { kind: "project", reason: "x", ttlDays: 30 },
+                scope: "project",
+                scopeKey: "/repo",
+                source: {
+                  label: "task",
+                  sourceType: "user_input",
+                  taskId: "task-1",
+                  toolCallId: null,
+                  traceEventId: null
+                },
+                sourceType: "user_input",
+                status: "verified",
+                summary: "generic summary that would usually dominate candidate ranking",
+                supersedes: null,
+                title: "generic title",
+                updatedAt: "2026-04-23T09:00:00.000Z"
+              }
+            }
+          ],
+          decisions: [],
+          query: "q",
+          selectedFragments: []
+        }),
+        recordRecall: () => undefined
+      },
+      sessionSearchService: {
+        searchAsContext: () => [
+          {
+            confidence: 0.62,
+            explanation: "thread session hit",
+            fragmentId: "thread-local-fragment",
+            memoryId: "session:thread-local",
+            privacyLevel: "internal",
+            retentionPolicy: { kind: "working", reason: "thread recall", ttlDays: null },
+            scope: "working",
+            sourceType: "system",
+            status: "verified",
+            text: "Known decision from this thread",
+            title: "Thread decisions"
+          }
+        ],
+        searchGlobalAsContext: () => []
+      },
+      skillContextService: {
+        rankSkills: () => []
+      } as never,
+      traceService: {
+        record: () => undefined
+      } as never
+    });
+
+    const result = planner.plan({
+      task: createTask(),
+      threadCommitmentState: null,
+      tokenBudget: createTask().tokenBudget,
+      toolPlan: ["shell"]
+    });
+
+    expect(result.fragments.some((fragment) => fragment.memoryId === "session:thread-local")).toBe(true);
+    expect(result.explain.items.some((item) => item.reason.includes("reserved_thread_local"))).toBe(true);
+  });
 });

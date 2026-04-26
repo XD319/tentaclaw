@@ -2,11 +2,7 @@ import { checkToolAvailability } from "../tools/availability/index.js";
 import { evaluateToolExposure } from "../tools/policy/index.js";
 import type { ToolOrchestrator } from "../tools/tool-orchestrator.js";
 import type { TraceService } from "../tracing/trace-service.js";
-import type {
-  ThreadCommitmentState,
-  ToolExposurePlan,
-  ToolExecutionContext
-} from "../types/index.js";
+import type { ToolExposurePlan, ToolExecutionContext } from "../types/index.js";
 import type { BudgetService } from "./budget/budget-service.js";
 
 export interface ToolExposurePlannerDependencies {
@@ -18,12 +14,8 @@ export interface ToolExposurePlannerDependencies {
 export interface ToolExposurePlannerInput {
   taskId: string;
   threadId: string | null;
-  iteration: number;
-  taskInput: string;
-  agentProfileId: string;
-  allowedToolNames: string[];
   context: ToolExecutionContext;
-  threadCommitmentState: ThreadCommitmentState | null;
+  iteration: number;
 }
 
 export class ToolExposurePlanner {
@@ -37,12 +29,8 @@ export class ToolExposurePlanner {
       (input.threadId !== null &&
         this.dependencies.budgetService?.isDowngradeActive("thread", input.threadId) === true);
     const decisions = evaluateToolExposure({
-      allowedToolNames: input.allowedToolNames,
       availability,
       budgetDowngradeActive,
-      iteration: input.iteration,
-      taskInput: input.taskInput,
-      threadCommitmentState: input.threadCommitmentState,
       tools
     });
     const exposedNames = decisions.filter((d) => d.exposed).map((d) => d.toolName);

@@ -162,7 +162,7 @@ export class OpenAiCompatibleProvider implements Provider {
     if (toolCalls.length > 0) {
       return {
         kind: "tool_calls",
-        message: content.length > 0 ? content : "Provider requested tool execution.",
+        message: content,
         metadata,
         toolCalls,
         usage
@@ -368,7 +368,7 @@ export class OpenAiCompatibleProvider implements Provider {
       if (toolCalls.length > 0) {
         return {
           kind: "tool_calls",
-          message: content.length > 0 ? content : "Provider requested tool execution.",
+          message: content,
           metadata,
           toolCalls,
           usage

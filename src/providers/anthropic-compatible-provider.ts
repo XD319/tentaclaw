@@ -164,7 +164,7 @@ export class AnthropicCompatibleProvider implements Provider {
     if (toolCalls.length > 0) {
       return {
         kind: "tool_calls",
-        message: message.length > 0 ? message : "Provider requested tool execution.",
+        message,
         metadata,
         toolCalls,
         usage

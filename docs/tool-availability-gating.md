@@ -1,6 +1,6 @@
 # Tool Availability Gating
 
-`ToolExposurePlanner` separates runtime tool registration from per-iteration tool exposure.
+`ToolExposurePlanner` separates runtime tool registration from per-iteration tool visibility decisions.
 
 ## Metadata
 
@@ -12,7 +12,7 @@ Each tool now declares:
 - `approvalDefault`
 - `toolKind`
 
-This metadata enables policy-style gating before tools are sent to provider schemas.
+This metadata supports stable tool visibility, budget hints, and downstream governance decisions.
 
 ## Availability Checks
 
@@ -26,11 +26,10 @@ If absent, the default is available.
 
 Per iteration, the planner evaluates:
 
-1. Profile allowlist membership.
-2. Availability check outcome.
-3. High-risk first-iteration suppression unless mutation intent is explicit.
-4. Budget soft-downgrade behavior (expensive tools get `costWarning`).
-5. Thread pending-decision state (mutation tools hidden).
+1. Availability check outcome.
+2. Budget soft-downgrade behavior (expensive tools get `costWarning`).
+
+Runtime profiles no longer hide tools by intent, first-iteration risk, or pending-decision state. Mutation and external actions stay visible to the model and are governed at execution time by policy, sandbox checks, and approval flow.
 
 ## Trace
 
@@ -39,5 +38,11 @@ Planner emits `tool_exposure_decided` with:
 - exposed tool names
 - hidden tool names
 - per-tool reasons
+
+Typical reasons:
+
+- `eligible`
+- `budget downgrade active`
+- `unavailable: <reason>`
 
 Sample: `fixtures/tool-exposure/tool_exposure_decided.sample.json`.

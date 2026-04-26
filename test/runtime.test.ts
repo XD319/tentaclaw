@@ -34,6 +34,16 @@ const APPROVAL_REQUIRED_POLICY_CONFIG: LocalPolicyConfig = {
       priority: 100
     },
     {
+      description: "Planner profile is read-focused and cannot mutate files or run shell.",
+      effect: "deny",
+      id: "planner-read-only",
+      match: {
+        agentProfiles: ["planner"],
+        capabilities: ["filesystem.write", "shell.execute"]
+      },
+      priority: 91
+    },
+    {
       description: "Reviewer profile is read-focused and cannot mutate files or run shell.",
       effect: "deny",
       id: "reviewer-read-only",
@@ -329,6 +339,24 @@ describe("Phase 2 governance runtime", () => {
     try {
       const options = createDefaultRunOptions("reviewer should not write", workspaceRoot, handle.config);
       options.agentProfileId = "reviewer";
+
+      const result = await handle.service.runTask(options);
+
+      expect(result.error?.code).toBe("policy_denied");
+      expect(result.task.status).toBe("failed");
+      expect(handle.service.listPendingApprovals()).toHaveLength(0);
+    } finally {
+      handle.close();
+    }
+  });
+
+  it("applies policy denies for the planner profile", async () => {
+    const workspaceRoot = await createTempWorkspace();
+    const handle = createApprovalWriteApplication(workspaceRoot);
+
+    try {
+      const options = createDefaultRunOptions("planner should not write", workspaceRoot, handle.config);
+      options.agentProfileId = "planner";
 
       const result = await handle.service.runTask(options);
 

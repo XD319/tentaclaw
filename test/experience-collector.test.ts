@@ -233,12 +233,14 @@ describe("ExperienceCollector runtime hooks", () => {
 
       expect(result.error).toBeUndefined();
       expect(result.output).toContain("Replayed the cached tool result successfully.");
-      expect(replayedToolFinish?.payload).toMatchObject({
-        outputPreview: expect.stringContaining("cached README contents"),
-        summary: "Read cached README contents.",
-        toolCallId: "tool-readme-replay",
-        toolName: "file_read"
-      });
+      expect(replayedToolFinish?.eventType).toBe("tool_call_finished");
+      if (replayedToolFinish?.eventType !== "tool_call_finished") {
+        throw new Error("Expected tool_call_finished trace event.");
+      }
+      expect(replayedToolFinish.payload.outputPreview).toContain("cached README contents");
+      expect(replayedToolFinish.payload.summary).toBe("Read cached README contents.");
+      expect(replayedToolFinish.payload.toolCallId).toBe("tool-readme-replay");
+      expect(replayedToolFinish.payload.toolName).toBe("file_read");
       expect(experiences[0]?.summary).toBe("Read cached README contents.");
       expect(experiences[0]?.content).toContain("cached README contents");
     } finally {

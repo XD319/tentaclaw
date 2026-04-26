@@ -86,11 +86,11 @@ Audit is the governance view:
 The `reviewer` profile reuses the same execution kernel as other profiles but changes:
 
 - prompt
-- tool whitelist
+- execution policy
 - applicable policy rules
 
 Boundaries:
 
 - no custom scheduler
 - no multi-agent orchestration
-- no write or shell capability by default
+- visible mutation tools may still be denied at execution time

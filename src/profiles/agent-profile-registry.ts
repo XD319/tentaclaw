@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import type { AgentProfile, AgentProfileId } from "../types/index.js";
 
+const DEPRECATED_UNIFIED_TOOL_NAMES = ["file_read", "file_write", "shell", "skill_view", "test_run", "web_fetch"];
+
 const agentProfileSchema = z.object({
   allowedToolNames: z.array(z.string().min(1)).min(1),
   description: z.string().min(1),
@@ -12,15 +14,15 @@ const agentProfileSchema = z.object({
 
 export const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
   {
-    allowedToolNames: ["file_read", "skill_view", "web_fetch"],
-    description: "Read-oriented planning profile with no direct mutation tools.",
+    allowedToolNames: DEPRECATED_UNIFIED_TOOL_NAMES,
+    description: "Planning profile with broad tool visibility and policy-enforced read-only execution by default.",
     displayName: "Planner",
     id: "planner",
     systemPrompt:
-      "You are the planner profile. Break down the task, prefer read-only inspection, and avoid making changes unless explicitly delegated."
+      "You are the planner profile. Break down the task, prefer read-only inspection, and expect write, shell, or external actions to be blocked unless policy explicitly permits them."
   },
   {
-    allowedToolNames: ["file_read", "file_write", "shell", "skill_view", "test_run", "web_fetch"],
+    allowedToolNames: DEPRECATED_UNIFIED_TOOL_NAMES,
     description: "Execution profile for controlled implementation work.",
     displayName: "Executor",
     id: "executor",
@@ -28,12 +30,12 @@ export const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
       "You are the executor profile. Complete the task end to end, use tools when justified, and keep outputs grounded in observable evidence."
   },
   {
-    allowedToolNames: ["file_read", "skill_view", "web_fetch"],
-    description: "Reviewer profile focused on checks, risk discovery, and output critique.",
+    allowedToolNames: DEPRECATED_UNIFIED_TOOL_NAMES,
+    description: "Reviewer profile focused on checks, risk discovery, and output critique with policy-enforced read-only execution.",
     displayName: "Reviewer",
     id: "reviewer",
     systemPrompt:
-      "You are the reviewer profile. Inspect work critically, surface risks, and provide review-oriented feedback without mutating the workspace."
+      "You are the reviewer profile. Inspect work critically, surface risks, and provide review-oriented feedback. Visible mutation tools may still be blocked by policy, and you should treat the workspace as read-only by default."
   }
 ];
 

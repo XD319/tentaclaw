@@ -1335,17 +1335,18 @@ export async function main(argv = process.argv): Promise<void> {
           if (commandOptions.global === true && commandOptions.thread !== undefined) {
             throw new Error("Use either --global or --thread, not both.");
           }
-          const hits = handle.service.searchThreadSnapshots({
-            ...(commandOptions.global === true
-              ? {
-                  excludeThreadId: commandOptions.excludeThread ?? null
-                }
-              : {
-                  threadId: commandOptions.thread
-                }),
-            limit,
-            query
-          });
+          const hits =
+            commandOptions.global === true
+              ? handle.service.searchThreadSnapshots({
+                  excludeThreadId: commandOptions.excludeThread ?? null,
+                  limit,
+                  query
+                })
+              : handle.service.searchThreadSnapshots({
+                  limit,
+                  query,
+                  threadId: commandOptions.thread ?? ""
+                });
           console.log(formatThreadSessionSearchHits(hits));
         } finally {
           handle.close();

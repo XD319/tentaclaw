@@ -132,6 +132,22 @@ export class ToolOrchestrator {
       return replayOutcome;
     }
 
+    if (tool.checkAvailability !== undefined) {
+      const availability = await tool.checkAvailability(context);
+      if (!availability.available) {
+        return this.failToolCall(
+          toolCall,
+          new AppError({
+            code: "tool_unavailable",
+            details: {
+              reason: availability.reason
+            },
+            message: `Tool ${tool.name} is unavailable: ${availability.reason}`
+          })
+        );
+      }
+    }
+
     const parsed = tool.inputSchema.safeParse(request.input);
     if (!parsed.success) {
       const validationSummary = summarizeValidationIssues(parsed.error.issues);

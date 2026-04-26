@@ -7,5 +7,6 @@ export interface AgentProfile {
   displayName: string;
   description: string;
   systemPrompt: string;
+  /** @deprecated Runtime tool visibility is governed by policy/availability, not profile allowlists. */
   allowedToolNames: string[];
 }

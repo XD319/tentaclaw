@@ -16,6 +16,7 @@ export const RUNTIME_ERROR_CODES = [
   "timeout",
   "tool_execution_error",
   "tool_not_found",
+  "tool_unavailable",
   "tool_validation_error"
 ] as const;
 

@@ -123,6 +123,100 @@ describe("ToolOrchestrator network policy", () => {
     expect(approvalRequested).toBe(false);
     expect(records.get("call-1")?.status).toBe("finished");
   });
+
+  it("fails early when a tool becomes unavailable at execution time", async () => {
+    const records = new Map<string, ToolCallRecord>();
+    const tool: ToolDefinition<z.ZodObject<{ value: z.ZodString }>, { value: string }> = {
+      approvalDefault: "when_needed",
+      capability: "filesystem.read",
+      checkAvailability: () => ({
+        available: false,
+        reason: "dependency missing"
+      }),
+      costLevel: "cheap",
+      description: "Sometimes unavailable tool",
+      execute: () =>
+        Promise.resolve({
+          output: {
+            ok: true
+          },
+          success: true,
+          summary: "should not run"
+        }),
+      inputSchema: z.object({
+        value: z.string()
+      }),
+      inputSchemaDescriptor: {
+        properties: {
+          value: { type: "string" }
+        },
+        required: ["value"],
+        type: "object"
+      },
+      name: "unstable_reader",
+      prepare: () => ({
+        governance: {
+          pathScope: "workspace",
+          summary: "read"
+        },
+        preparedInput: {
+          value: "ok"
+        },
+        sandbox: {
+          kind: "file",
+          operation: "read",
+          pathScope: "workspace",
+          requestedPath: ".",
+          resolvedPath: ".",
+          withinExtraWriteRoot: false
+        }
+      }),
+      privacyLevel: "internal",
+      riskLevel: "low",
+      sideEffectLevel: "read_only",
+      toolKind: "runtime_primitive"
+    };
+
+    const orchestrator = new ToolOrchestrator({
+      approvalService: {
+        ensureApprovalRequest: () => {
+          throw new Error("approval should not be requested");
+        }
+      } as never,
+      artifactRepository: {
+        createMany: () => undefined
+      } as never,
+      auditService: {
+        record: () => undefined
+      } as never,
+      contextPolicy: {
+        redactText: (value: string) => value
+      } as never,
+      policyEngine: new PolicyEngine(DEFAULT_LOCAL_POLICY_CONFIG),
+      toolCallRepository: createToolCallRepository(records),
+      tools: [tool],
+      traceService: {
+        record: () => undefined
+      } as never
+    });
+
+    await expect(
+      orchestrator.execute(
+        {
+          input: { value: "hello" },
+          iteration: 1,
+          reason: "Need file context",
+          taskId: "task-2",
+          toolCallId: "call-2",
+          toolName: "unstable_reader"
+        },
+        createContext()
+      )
+    ).rejects.toMatchObject({
+      code: "tool_unavailable"
+    });
+    expect(records.get("call-2")?.status).toBe("failed");
+  });
 });
 
 function createContext(): ToolExecutionContext {

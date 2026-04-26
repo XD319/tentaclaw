@@ -6,16 +6,17 @@
   "eventType": "tool_exposure_decided",
   "stage": "planning",
   "actor": "runtime.tool_exposure",
-  "summary": "Tool exposure selected 3 tools",
+  "summary": "Tool exposure selected 6 tools",
   "payload": {
     "iteration": 1,
     "taskId": "task-123",
-    "exposedTools": ["file_read", "skill_view", "web_fetch"],
-    "hiddenTools": ["shell", "test_run", "file_write"],
+    "exposedTools": ["file_read", "skill_view", "web_fetch", "shell", "test_run", "file_write"],
+    "hiddenTools": ["mcp__docs__search"],
     "reasons": [
       "file_read:eligible",
-      "file_write:high risk hidden at initial iteration without mutation intent",
-      "shell:high risk hidden at initial iteration without mutation intent"
+      "file_write:eligible",
+      "shell:eligible",
+      "mcp__docs__search:unavailable: server offline"
     ],
     "decisions": [
       {
@@ -25,8 +26,13 @@
       },
       {
         "toolName": "file_write",
+        "exposed": true,
+        "reason": "eligible"
+      },
+      {
+        "toolName": "mcp__docs__search",
         "exposed": false,
-        "reason": "high risk hidden at initial iteration without mutation intent"
+        "reason": "unavailable: server offline"
       }
     ]
   }

@@ -23,6 +23,7 @@ describe("ExecutionContextAssembler", () => {
 
     expect(messages[0]?.content).toContain("When web_fetch is available");
     expect(messages[0]?.content).toContain("read public web pages");
+    expect(messages[0]?.content).toContain("Visible tools may still be denied");
     expect(messages[0]?.content).toContain("Available tools: web_fetch.");
   });
 
@@ -44,6 +45,7 @@ describe("ExecutionContextAssembler", () => {
     );
 
     expect(messages[0]?.content).not.toContain("When web_fetch is available");
+    expect(messages[0]?.content).toContain("Visible tools may still be denied");
     expect(messages[0]?.content).toContain("Available tools: file_read.");
   });
 });

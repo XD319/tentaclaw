@@ -9,7 +9,8 @@ import type { Provider, ProviderRequest, ProviderResponse } from "../src/types/i
 class FinalSummaryProvider implements Provider {
   public readonly name = "final-summary-provider";
 
-  public generate(_input: ProviderRequest): Promise<ProviderResponse> {
+  public generate(input: ProviderRequest): Promise<ProviderResponse> {
+    void input;
     return Promise.resolve({
       kind: "final",
       message:
@@ -22,7 +23,8 @@ class FinalSummaryProvider implements Provider {
 class ThrowingSummaryProvider implements Provider {
   public readonly name = "throwing-summary-provider";
 
-  public generate(_input: ProviderRequest): Promise<ProviderResponse> {
+  public generate(input: ProviderRequest): Promise<ProviderResponse> {
+    void input;
     throw new Error("provider failed");
   }
 }

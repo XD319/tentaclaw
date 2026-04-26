@@ -602,6 +602,20 @@ function migrateV9(database: DatabaseSync): void {
 
 function migrateV10(database: DatabaseSync): void {
   database.exec(`
+    CREATE TABLE IF NOT EXISTS threads (
+      thread_id TEXT PRIMARY KEY,
+      title TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'active',
+      owner_user_id TEXT NOT NULL DEFAULT 'local-user',
+      cwd TEXT NOT NULL DEFAULT '',
+      agent_profile_id TEXT NOT NULL DEFAULT 'executor',
+      provider_name TEXT NOT NULL DEFAULT 'unknown',
+      created_at TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT '',
+      archived_at TEXT,
+      metadata_json TEXT NOT NULL DEFAULT '{}'
+    );
+
     CREATE TABLE IF NOT EXISTS thread_session_memory_events (
       session_memory_id TEXT PRIMARY KEY,
       thread_id TEXT NOT NULL REFERENCES threads(thread_id),

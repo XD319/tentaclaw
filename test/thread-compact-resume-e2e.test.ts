@@ -90,11 +90,12 @@ describe("thread compact resume e2e", () => {
       });
       const contextDebug = handle.service.traceTaskContext(secondRun.task.taskId);
       const systemPreviews = contextDebug.contextAssembly?.systemPromptFragments.map((fragment) => fragment.preview) ?? [];
-      expect(systemPreviews.some((preview) => preview.includes("[Thread Resume] Goal: Preserve this goal"))).toBe(
-        true
-      );
-      expect(systemPreviews.some((preview) => preview.includes("Open loops: pending file_read"))).toBe(true);
-      expect(systemPreviews.some((preview) => preview.includes("Decisions: use existing context"))).toBe(true);
+      expect(systemPreviews.some((preview) => preview.includes("KnownThreadGoal: Preserve this goal"))).toBe(true);
+      expect(systemPreviews.some((preview) => preview.includes("KnownOpenLoops: pending file_read"))).toBe(true);
+      expect(systemPreviews.some((preview) => preview.includes("KnownDecisions: use existing context"))).toBe(true);
+      const memoryRecall = contextDebug.contextAssembly?.memoryRecallFragments ?? [];
+      expect(memoryRecall.some((fragment) => fragment.label === "Thread goal")).toBe(true);
+      expect(memoryRecall.some((fragment) => fragment.label === "Thread decisions")).toBe(true);
     } finally {
       handle.close();
       rmSync(workspace, { force: true, recursive: true });
@@ -134,7 +135,7 @@ describe("thread compact resume e2e", () => {
       const systemPreviews = contextDebug.contextAssembly?.systemPromptFragments.map((fragment) => fragment.preview) ?? [];
       expect(
         systemPreviews.some((preview) =>
-          preview.includes("[Thread Resume] Goal: Remember this thread goal from final branch")
+          preview.includes("KnownThreadGoal: Remember this thread goal from final branch")
         )
       ).toBe(true);
     } finally {

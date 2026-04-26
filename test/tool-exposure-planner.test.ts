@@ -33,7 +33,7 @@ function makeTool(name: string, riskLevel: "low" | "medium" | "high"): ToolDefin
 }
 
 describe("tool exposure planner", () => {
-  it("filters tools and emits trace event", async () => {
+  it("keeps all available tools exposed and emits trace data", async () => {
     const tools = [makeTool("file_read", "low"), makeTool("shell", "high")];
     const planner = new ToolExposurePlanner({
       budgetService: { isDowngradeActive: () => false } as never,
@@ -54,8 +54,6 @@ describe("tool exposure planner", () => {
       traceService: { record: vi.fn() } as never
     });
     const plan = await planner.plan({
-      agentProfileId: "executor",
-      allowedToolNames: ["file_read", "shell"],
       context: {
         agentProfileId: "executor",
         cwd: process.cwd(),
@@ -67,17 +65,16 @@ describe("tool exposure planner", () => {
       },
       iteration: 1,
       taskId: "task-1",
-      taskInput: "inspect project structure",
-      threadCommitmentState: null,
       threadId: null
     });
-    expect(plan.tools.map((tool) => tool.name)).toEqual(["file_read"]);
+    expect(plan.tools.map((tool) => tool.name)).toEqual(["file_read", "shell"]);
   });
 
-  it("keeps public web fetch exposed on first iteration for read-only prompts", async () => {
+  it("hides only tools that fail availability checks", async () => {
     const webFetch = makeTool("web_fetch", "medium");
     webFetch.capability = "network.fetch_public_readonly";
     webFetch.sideEffectLevel = "external_read_only";
+    webFetch.checkAvailability = () => ({ available: false, reason: "network disabled" });
     const tools = [makeTool("file_read", "low"), webFetch];
     const planner = new ToolExposurePlanner({
       budgetService: { isDowngradeActive: () => false } as never,
@@ -99,8 +96,6 @@ describe("tool exposure planner", () => {
     });
 
     const plan = await planner.plan({
-      agentProfileId: "executor",
-      allowedToolNames: ["file_read", "web_fetch"],
       context: {
         agentProfileId: "executor",
         cwd: process.cwd(),
@@ -112,11 +107,13 @@ describe("tool exposure planner", () => {
       },
       iteration: 1,
       taskId: "task-2",
-      taskInput: "check today's weather in New York",
-      threadCommitmentState: null,
       threadId: null
     });
 
-    expect(plan.tools.map((tool) => tool.name)).toEqual(["file_read", "web_fetch"]);
+    expect(plan.tools.map((tool) => tool.name)).toEqual(["file_read"]);
+    expect(plan.decisions.find((decision) => decision.toolName === "web_fetch")).toMatchObject({
+      exposed: false,
+      reason: "unavailable: network disabled"
+    });
   });
 });
