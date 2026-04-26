@@ -1,61 +1,70 @@
 import type { DatabaseSync } from "node:sqlite";
 
+interface SchemaMigration {
+  description: string;
+  up: (db: DatabaseSync) => void;
+  version: number;
+}
+
+const SCHEMA_MIGRATIONS: SchemaMigration[] = [
+  {
+    description: "create base runtime tables",
+    up: migrateV1,
+    version: 1
+  },
+  {
+    description: "add profile and requester columns",
+    up: migrateV2,
+    version: 2
+  },
+  {
+    description: "add thread first-class tables",
+    up: migrateV3,
+    version: 3
+  },
+  {
+    description: "add thread snapshots table",
+    up: migrateV4,
+    version: 4
+  },
+  {
+    description: "add schedule and schedule run tables",
+    up: migrateV5,
+    version: 5
+  },
+  {
+    description: "add inbox items table",
+    up: migrateV6,
+    version: 6
+  },
+  {
+    description: "add commitments and next actions tables",
+    up: migrateV7,
+    version: 7
+  },
+  {
+    description: "rename legacy memory scopes to layered names",
+    up: migrateV8,
+    version: 8
+  },
+  {
+    description: "add thread session memory and session search tables",
+    up: migrateV9,
+    version: 9
+  },
+  {
+    description: "split thread session memory into current state and events",
+    up: migrateV10,
+    version: 10
+  }
+];
+
+export const RUNTIME_SCHEMA_VERSION =
+  SCHEMA_MIGRATIONS[SCHEMA_MIGRATIONS.length - 1]?.version ?? 0;
+
 export function runMigrations(database: DatabaseSync): void {
   const currentVersion = readUserVersion(database);
-  const migrations: Array<{ description: string; up: (db: DatabaseSync) => void; version: number }> = [
-    {
-      description: "create base runtime tables",
-      up: migrateV1,
-      version: 1
-    },
-    {
-      description: "add profile and requester columns",
-      up: migrateV2,
-      version: 2
-    },
-    {
-      description: "add thread first-class tables",
-      up: migrateV3,
-      version: 3
-    },
-    {
-      description: "add thread snapshots table",
-      up: migrateV4,
-      version: 4
-    },
-    {
-      description: "add schedule and schedule run tables",
-      up: migrateV5,
-      version: 5
-    },
-    {
-      description: "add inbox items table",
-      up: migrateV6,
-      version: 6
-    },
-    {
-      description: "add commitments and next actions tables",
-      up: migrateV7,
-      version: 7
-    },
-    {
-      description: "rename legacy memory scopes to layered names",
-      up: migrateV8,
-      version: 8
-    },
-    {
-      description: "add thread session memory and session search tables",
-      up: migrateV9,
-      version: 9
-    },
-    {
-      description: "split thread session memory into current state and events",
-      up: migrateV10,
-      version: 10
-    }
-  ];
-
-  for (const migration of migrations) {
+  for (const migration of SCHEMA_MIGRATIONS) {
     if (migration.version <= currentVersion) {
       continue;
     }

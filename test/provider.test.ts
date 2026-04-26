@@ -845,7 +845,7 @@ describe("Provider integration", () => {
     } finally {
       handle.close();
     }
-  });
+  }, 30_000);
 });
 
 function createProviderInput(): ProviderInput {

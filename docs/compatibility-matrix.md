@@ -29,7 +29,7 @@
 
 ## Memory / Storage
 
-- Runtime schema baseline: `PRAGMA user_version = 8`.
+- Runtime schema baseline: `PRAGMA user_version = 10`.
 - Schema upgrades from legacy unversioned DB: supported via migration pipeline.
 - Config files without `version`: auto-migrated to `version: 1`.
 - Scope rename compatibility:
@@ -47,5 +47,5 @@
 
 - `talon release check` from the auto-talon repository root
 - `talon eval run`
-- `talon eval smoke`
+- `talon smoke run`
 - `talon eval beta`

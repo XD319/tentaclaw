@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 
 import { AppError } from "../../runtime/app-error.js";
 import type {
@@ -23,6 +23,7 @@ interface JsonRpcMessage {
 }
 
 export class McpStdioTransport implements McpClientHandle {
+  private static readonly REQUEST_TIMEOUT_MS = 30_000;
   public readonly serverId: string;
 
   public constructor(private readonly config: McpServerConfig) {
@@ -52,7 +53,27 @@ export class McpStdioTransport implements McpClientHandle {
     request: McpToolCallRequest,
     context?: McpInvocationContext
   ): Promise<McpToolCallResult> {
-    return Promise.resolve(this.callToolSync(request, context));
+    if (context?.signal?.aborted === true) {
+      return Promise.reject(
+        new AppError({
+          code: "interrupt",
+          message: `MCP tool call aborted before start: ${this.serverId}/${request.toolName}`
+        })
+      );
+    }
+    return this.requestAsync(
+      "tools/call",
+      {
+        arguments: request.input,
+        name: request.toolName
+      },
+      context
+    ).then((response) => {
+      const payload = asObject(response.result);
+      return {
+        content: (payload.content ?? payload) as McpToolCallResult["content"]
+      };
+    });
   }
 
   public callToolSync(
@@ -121,7 +142,7 @@ export class McpStdioTransport implements McpClientHandle {
         ...this.config.env
       },
       input,
-      timeout: 30_000
+      timeout: McpStdioTransport.REQUEST_TIMEOUT_MS
     });
 
     if (output.error !== undefined) {
@@ -173,6 +194,178 @@ export class McpStdioTransport implements McpClientHandle {
     }
 
     return methodResponse;
+  }
+
+  private requestAsync(
+    method: string,
+    params: Record<string, unknown>,
+    context?: McpInvocationContext
+  ): Promise<JsonRpcMessage> {
+    const initializeId = 1;
+    const methodId = 2;
+    const requests = [
+      {
+        id: initializeId,
+        jsonrpc: "2.0",
+        method: "initialize",
+        params: {
+          clientInfo: {
+            name: "auto-talon",
+            version: "phase5"
+          },
+          protocolVersion: "2024-11-05"
+        }
+      },
+      {
+        id: methodId,
+        jsonrpc: "2.0",
+        method,
+        params
+      }
+    ];
+    const input = `${requests.map((item) => JSON.stringify(item)).join("\n")}\n`;
+    return new Promise<JsonRpcMessage>((resolve, reject) => {
+      const child = spawn(this.config.command, this.config.args, {
+        env: {
+          ...process.env,
+          ...this.config.env
+        },
+        stdio: "pipe"
+      });
+      let stdout = "";
+      let stderr = "";
+      let settled = false;
+
+      const finishError = (error: AppError): void => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        reject(error);
+      };
+      const finishSuccess = (response: JsonRpcMessage): void => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        resolve(response);
+      };
+      const timeout = setTimeout(() => {
+        child.kill();
+        finishError(
+          new AppError({
+            code: "tool_execution_error",
+            details: {
+              method,
+              serverId: this.serverId
+            },
+            message: `MCP ${this.serverId}/${method} timed out.`
+          })
+        );
+      }, McpStdioTransport.REQUEST_TIMEOUT_MS);
+      const onAbort = (): void => {
+        child.kill();
+        finishError(
+          new AppError({
+            code: "interrupt",
+            details: {
+              method,
+              serverId: this.serverId
+            },
+            message: `MCP ${this.serverId}/${method} aborted.`
+          })
+        );
+      };
+      const cleanup = (): void => {
+        clearTimeout(timeout);
+        context?.signal?.removeEventListener("abort", onAbort);
+      };
+
+      context?.signal?.addEventListener("abort", onAbort, { once: true });
+      child.stdin.on("error", (error) => {
+        finishError(
+          new AppError({
+            cause: error,
+            code: "tool_execution_error",
+            details: {
+              serverId: this.serverId
+            },
+            message: `Failed to write request to MCP server ${this.serverId}.`
+          })
+        );
+      });
+      child.stdout.setEncoding("utf8");
+      child.stderr.setEncoding("utf8");
+      child.stdout.on("data", (chunk: string) => {
+        stdout += chunk;
+      });
+      child.stderr.on("data", (chunk: string) => {
+        stderr += chunk;
+      });
+      child.on("error", (error) => {
+        finishError(
+          new AppError({
+            cause: error,
+            code: "tool_execution_error",
+            details: {
+              serverId: this.serverId
+            },
+            message: `Failed to run MCP server ${this.serverId}.`
+          })
+        );
+      });
+      child.on("close", (code) => {
+        if (code !== 0) {
+          finishError(
+            new AppError({
+              code: "tool_execution_error",
+              details: {
+                exitCode: code,
+                serverId: this.serverId,
+                stderr
+              },
+              message: `MCP server ${this.serverId} exited with status ${code}.`
+            })
+          );
+          return;
+        }
+        const messages = parseJsonRpcLines(stdout);
+        const methodResponse = messages.find((message) => message.id === methodId);
+        if (methodResponse === undefined) {
+          finishError(
+            new AppError({
+              code: "tool_execution_error",
+              details: {
+                serverId: this.serverId,
+                stdout
+              },
+              message: `MCP server ${this.serverId} returned no response for ${method}.`
+            })
+          );
+          return;
+        }
+        if (methodResponse.error !== undefined) {
+          finishError(
+            new AppError({
+              code: "tool_execution_error",
+              details: {
+                error: methodResponse.error,
+                method,
+                serverId: this.serverId
+              },
+              message: `MCP ${this.serverId}/${method} failed: ${methodResponse.error.message ?? "unknown error"}`
+            })
+          );
+          return;
+        }
+        finishSuccess(methodResponse);
+      });
+
+      child.stdin.write(input, "utf8");
+      child.stdin.end();
+    });
   }
 }
 

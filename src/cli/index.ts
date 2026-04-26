@@ -487,36 +487,8 @@ export async function main(argv = process.argv): Promise<void> {
       "Filter category: task_completed | task_failed | task_blocked | decision_requested | approval_requested | memory_suggestion | skill_promotion"
     )
     .option("--limit <count>", "Limit entries", "50")
-    .action((commandOptions: {
-      category?:
-        | "task_completed"
-        | "task_failed"
-        | "task_blocked"
-        | "decision_requested"
-        | "approval_requested"
-        | "memory_suggestion"
-        | "skill_promotion";
-      limit?: string;
-      status?: "pending" | "seen" | "done" | "dismissed";
-      user?: string;
-    }) => {
-      const handle = createApplication(process.cwd());
-      try {
-        console.log(
-          formatInboxList(
-            handle.service.listInbox({
-              ...(commandOptions.user !== undefined ? { userId: commandOptions.user } : {}),
-              ...(commandOptions.status !== undefined ? { status: commandOptions.status } : {}),
-              ...(commandOptions.category !== undefined ? { category: commandOptions.category } : {}),
-              ...(commandOptions.limit !== undefined
-                ? { limit: Number.parseInt(commandOptions.limit, 10) }
-                : {})
-            })
-          )
-        );
-      } finally {
-        handle.close();
-      }
+    .action((commandOptions: InboxListOptions) => {
+      listInboxItems(commandOptions);
     });
   inboxCommand
     .command("list")
@@ -527,36 +499,8 @@ export async function main(argv = process.argv): Promise<void> {
       "Filter category: task_completed | task_failed | task_blocked | decision_requested | approval_requested | memory_suggestion | skill_promotion"
     )
     .option("--limit <count>", "Limit entries", "50")
-    .action((commandOptions: {
-      category?:
-        | "task_completed"
-        | "task_failed"
-        | "task_blocked"
-        | "decision_requested"
-        | "approval_requested"
-        | "memory_suggestion"
-        | "skill_promotion";
-      limit?: string;
-      status?: "pending" | "seen" | "done" | "dismissed";
-      user?: string;
-    }) => {
-      const handle = createApplication(process.cwd());
-      try {
-        console.log(
-          formatInboxList(
-            handle.service.listInbox({
-              ...(commandOptions.user !== undefined ? { userId: commandOptions.user } : {}),
-              ...(commandOptions.status !== undefined ? { status: commandOptions.status } : {}),
-              ...(commandOptions.category !== undefined ? { category: commandOptions.category } : {}),
-              ...(commandOptions.limit !== undefined
-                ? { limit: Number.parseInt(commandOptions.limit, 10) }
-                : {})
-            })
-          )
-        );
-      } finally {
-        handle.close();
-      }
+    .action((commandOptions: InboxListOptions) => {
+      listInboxItems(commandOptions);
     });
   inboxCommand.command("show").argument("<inbox_id>").action((inboxId: string) => {
     const handle = createApplication(process.cwd());
@@ -971,19 +915,7 @@ export async function main(argv = process.argv): Promise<void> {
     .command("map")
     .option("--cwd <path>", "Workspace path", process.cwd())
     .action((commandOptions: { cwd: string }) => {
-      const repoMap = buildRepoMap(commandOptions.cwd);
-      console.log(repoMap.summary);
-      console.log(`Workspace: ${repoMap.workspaceRoot}`);
-      console.log(`Languages: ${repoMap.languages.join(", ") || "-"}`);
-      console.log(`Package Manager: ${repoMap.packageManager ?? "-"}`);
-      console.log(`Important Files: ${repoMap.importantFiles.join(", ") || "-"}`);
-      console.log(
-        `Scripts: ${
-          Object.keys(repoMap.scripts).length === 0
-            ? "-"
-            : Object.entries(repoMap.scripts).map(([name, command]) => `${name}=${command}`).join("; ")
-        }`
-      );
+      printWorkspaceMap(commandOptions.cwd);
     });
 
   program
@@ -992,19 +924,8 @@ export async function main(argv = process.argv): Promise<void> {
     .command("map")
     .option("--cwd <path>", "Workspace path", process.cwd())
     .action((commandOptions: { cwd: string }) => {
-      const repoMap = buildRepoMap(commandOptions.cwd);
-      console.log(repoMap.summary);
-      console.log(`Workspace: ${repoMap.workspaceRoot}`);
-      console.log(`Languages: ${repoMap.languages.join(", ") || "-"}`);
-      console.log(`Package Manager: ${repoMap.packageManager ?? "-"}`);
-      console.log(`Important Files: ${repoMap.importantFiles.join(", ") || "-"}`);
-      console.log(
-        `Scripts: ${
-          Object.keys(repoMap.scripts).length === 0
-            ? "-"
-            : Object.entries(repoMap.scripts).map(([name, command]) => `${name}=${command}`).join("; ")
-        }`
-      );
+      console.warn("Warning: `talon repo map` is deprecated; use `talon workspace map`.");
+      printWorkspaceMap(commandOptions.cwd);
     });
 
   workspaceCommand
@@ -1198,25 +1119,9 @@ export async function main(argv = process.argv): Promise<void> {
     .option("--fixture <path>", "Custom fixture file path")
     .option("--no-auto-approve", "Do not auto-resolve approvals during smoke runs")
     .action(
-      async (commandOptions: {
-        autoApprove: boolean;
-        fixture?: string;
-        provider: SupportedProviderName | "scripted-smoke";
-        tasks?: string;
-      }) => {
-        const report = await runSmokeSuite({
-          autoApprove: commandOptions.autoApprove,
-          ...(commandOptions.fixture !== undefined
-            ? { fixturePath: commandOptions.fixture }
-            : {}),
-          providerName: commandOptions.provider,
-          taskIds:
-            commandOptions.tasks?.split(",").map((value) => value.trim()).filter(Boolean) ?? []
-        });
-        console.log(formatSmokeSuiteReport(report));
-        if (report.failedCount > 0) {
-          process.exitCode = 1;
-        }
+      async (commandOptions: SmokeCommandOptions) => {
+        console.warn("Warning: `talon eval smoke` is a compatibility alias; use `talon smoke run`.");
+        await runSmokeCommand(commandOptions);
       }
     );
 
@@ -1262,28 +1167,9 @@ export async function main(argv = process.argv): Promise<void> {
     .option("--tasks <taskIds>", "Comma-separated smoke task ids")
     .option("--fixture <path>", "Custom fixture file path")
     .option("--no-auto-approve", "Do not auto-resolve approvals during smoke runs")
-    .action(
-      async (commandOptions: {
-        autoApprove: boolean;
-        fixture?: string;
-        provider: SupportedProviderName | "scripted-smoke";
-        tasks?: string;
-      }) => {
-        const report = await runSmokeSuite({
-          autoApprove: commandOptions.autoApprove,
-          ...(commandOptions.fixture !== undefined
-            ? { fixturePath: commandOptions.fixture }
-            : {}),
-          providerName: commandOptions.provider,
-          taskIds:
-            commandOptions.tasks?.split(",").map((value) => value.trim()).filter(Boolean) ?? []
-        });
-        console.log(formatSmokeSuiteReport(report));
-        if (report.failedCount > 0) {
-          process.exitCode = 1;
-        }
-      }
-    );
+    .action(async (commandOptions: SmokeCommandOptions) => {
+      await runSmokeCommand(commandOptions);
+    });
 
   const memoryCommand = program.command("memory").description("Inspect governed memories");
 
@@ -1850,8 +1736,81 @@ interface ExperienceFilterOptions {
   type?: string;
 }
 
+interface InboxListOptions {
+  category?:
+    | "task_completed"
+    | "task_failed"
+    | "task_blocked"
+    | "decision_requested"
+    | "approval_requested"
+    | "memory_suggestion"
+    | "skill_promotion";
+  limit?: string;
+  status?: "pending" | "seen" | "done" | "dismissed";
+  user?: string;
+}
+
+interface SmokeCommandOptions {
+  autoApprove: boolean;
+  fixture?: string;
+  provider: SupportedProviderName | "scripted-smoke";
+  tasks?: string;
+}
+
 function collectOption(value: string, previous: string[]): string[] {
   return [...previous, value];
+}
+
+async function runSmokeCommand(commandOptions: SmokeCommandOptions): Promise<void> {
+  const report = await runSmokeSuite({
+    autoApprove: commandOptions.autoApprove,
+    ...(commandOptions.fixture !== undefined
+      ? { fixturePath: commandOptions.fixture }
+      : {}),
+    providerName: commandOptions.provider,
+    taskIds:
+      commandOptions.tasks?.split(",").map((value) => value.trim()).filter(Boolean) ?? []
+  });
+  console.log(formatSmokeSuiteReport(report));
+  if (report.failedCount > 0) {
+    process.exitCode = 1;
+  }
+}
+
+function printWorkspaceMap(cwd: string): void {
+  const repoMap = buildRepoMap(cwd);
+  console.log(repoMap.summary);
+  console.log(`Workspace: ${repoMap.workspaceRoot}`);
+  console.log(`Languages: ${repoMap.languages.join(", ") || "-"}`);
+  console.log(`Package Manager: ${repoMap.packageManager ?? "-"}`);
+  console.log(`Important Files: ${repoMap.importantFiles.join(", ") || "-"}`);
+  console.log(
+    `Scripts: ${
+      Object.keys(repoMap.scripts).length === 0
+        ? "-"
+        : Object.entries(repoMap.scripts).map(([name, command]) => `${name}=${command}`).join("; ")
+    }`
+  );
+}
+
+function listInboxItems(commandOptions: InboxListOptions): void {
+  const handle = createApplication(process.cwd());
+  try {
+    console.log(
+      formatInboxList(
+        handle.service.listInbox({
+          ...(commandOptions.user !== undefined ? { userId: commandOptions.user } : {}),
+          ...(commandOptions.status !== undefined ? { status: commandOptions.status } : {}),
+          ...(commandOptions.category !== undefined ? { category: commandOptions.category } : {}),
+          ...(commandOptions.limit !== undefined
+            ? { limit: Number.parseInt(commandOptions.limit, 10) }
+            : {})
+        })
+      )
+    );
+  } finally {
+    handle.close();
+  }
 }
 
 function resolveSandboxCliOptions(options: SandboxCommandOptions): ResolveAppConfigOptions {

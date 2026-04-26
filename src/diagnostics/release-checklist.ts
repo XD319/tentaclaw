@@ -6,6 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { runEvalReport } from "./eval.js";
 import { runBetaReadinessCheck } from "./beta-readiness.js";
 import type { SupportedProviderName } from "../providers/index.js";
+import { RUNTIME_SCHEMA_VERSION } from "../storage/migrations.js";
 
 export interface ReleaseChecklistItem {
   id: string;
@@ -66,7 +67,12 @@ export async function runReleaseChecklist(
     ),
     toItem("beta", "Approval/provider/gateway readiness checks pass", beta.allPassed, `${beta.checklist.length} checks`),
     toItem("doctor", "Config doctor can run", true, "covered by beta readiness doctor/provider checks"),
-    toItem("schema", "Schema version matches v0.1.0 baseline", schemaVersion === 2, `user_version=${schemaVersion}`),
+    toItem(
+      "schema",
+      "Schema version matches current runtime baseline",
+      schemaVersion === RUNTIME_SCHEMA_VERSION,
+      `user_version=${schemaVersion}, expected=${RUNTIME_SCHEMA_VERSION}`
+    ),
     toItem(
       "compat-matrix",
       "Compatibility matrix document exists",

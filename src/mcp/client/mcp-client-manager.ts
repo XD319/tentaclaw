@@ -38,7 +38,12 @@ export class McpClientManager {
   > {
     const result: Array<{ id: string; toolCount: number; tools: string[] }> = [];
     for (const [serverId, handle] of this.handles) {
-      const tools = handle.listToolsSync();
+      let tools: Array<{ name: string }> = [];
+      try {
+        tools = handle.listToolsSync();
+      } catch {
+        tools = [];
+      }
       result.push({
         id: serverId,
         toolCount: tools.length,

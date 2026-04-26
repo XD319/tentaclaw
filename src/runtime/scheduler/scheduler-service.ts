@@ -41,6 +41,7 @@ export interface SchedulerServiceDependencies {
 
 export class SchedulerService {
   private timer: NodeJS.Timeout | null = null;
+  private tickInProgress = false;
 
   public constructor(private readonly dependencies: SchedulerServiceDependencies) {}
 
@@ -50,7 +51,24 @@ export class SchedulerService {
     }
     const pollIntervalMs = this.dependencies.pollIntervalMs ?? 2_000;
     this.timer = setInterval(() => {
-      void this.tick();
+      void this.tick().catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : "Unknown scheduler tick error.";
+        this.dependencies.traceService.record({
+          actor: "scheduler",
+          eventType: "schedule_run_failed",
+          payload: {
+            attemptNumber: 0,
+            errorCode: null,
+            errorMessage: message,
+            runId: "scheduler_tick",
+            scheduleId: "scheduler",
+            taskId: null
+          },
+          stage: "control",
+          summary: "Scheduler tick failed",
+          taskId: "scheduler:tick"
+        });
+      });
     }, pollIntervalMs);
   }
 
@@ -62,12 +80,20 @@ export class SchedulerService {
   }
 
   public async tick(now = new Date()): Promise<void> {
-    const nowIso = now.toISOString();
-    const dueSchedules = this.dependencies.scheduleRepository.findDue({ now: nowIso, limit: 25 });
-    for (const schedule of dueSchedules) {
-      this.enqueueScheduledRun(schedule, now);
+    if (this.tickInProgress) {
+      return;
     }
-    await this.dependencies.jobRunner.drain(nowIso);
+    this.tickInProgress = true;
+    try {
+      const nowIso = now.toISOString();
+      const dueSchedules = this.dependencies.scheduleRepository.findDue({ now: nowIso, limit: 25 });
+      for (const schedule of dueSchedules) {
+        this.enqueueScheduledRun(schedule, now);
+      }
+      await this.dependencies.jobRunner.drain(nowIso);
+    } finally {
+      this.tickInProgress = false;
+    }
   }
 
   public createSchedule(input: CreateScheduleInput): ScheduleRecord {

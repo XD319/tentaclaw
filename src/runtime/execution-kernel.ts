@@ -1248,7 +1248,7 @@ function createToolFeedbackMessage(
   toolCall: { toolCallId: string; toolName: string },
   privacyLevel: "public" | "internal" | "restricted"
 ): ConversationMessage {
-  const serializedOutput = JSON.stringify(output, null, 2);
+  const serializedOutput = safeSerializeToolOutput(output);
   return {
     content: serializedOutput ?? "null",
     metadata: {
@@ -1259,6 +1259,36 @@ function createToolFeedbackMessage(
     role: "tool",
     toolCallId: toolCall.toolCallId,
     toolName: toolCall.toolName
+  };
+}
+
+function safeSerializeToolOutput(output: unknown): string {
+  try {
+    return JSON.stringify(output, createSafeJsonReplacer(), 2) ?? "null";
+  } catch {
+    return "[unserializable tool output]";
+  }
+}
+
+function createSafeJsonReplacer(): (this: unknown, key: string, value: unknown) => unknown {
+  const seen = new WeakSet<object>();
+  return (_key: string, value: unknown): unknown => {
+    if (typeof value === "bigint") {
+      return value.toString();
+    }
+    if (typeof value === "function") {
+      return `[function:${value.name || "anonymous"}]`;
+    }
+    if (typeof value === "symbol") {
+      return `[symbol:${value.description ?? "symbol"}]`;
+    }
+    if (typeof value === "object" && value !== null) {
+      if (seen.has(value)) {
+        return "[circular]";
+      }
+      seen.add(value);
+    }
+    return value;
   };
 }
 
