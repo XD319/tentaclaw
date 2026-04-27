@@ -66,7 +66,7 @@ export interface ChatController {
 const welcomeMessage: ChatMessage = {
   id: "system:welcome",
   kind: "system",
-  text: "Welcome to auto-talon chat mode. Type a prompt and press Enter to send.",
+  text: "Welcome to your AutoTalon personal assistant. Type a request and press Enter to start.",
   timestamp: new Date().toISOString()
 };
 const STREAM_FLUSH_INTERVAL_MS = 50;

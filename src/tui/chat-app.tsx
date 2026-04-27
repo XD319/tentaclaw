@@ -10,9 +10,15 @@ import { buildTokenMetrics, StatusBar } from "./components/status-bar.js";
 import { useChatController } from "./hooks/use-chat-controller.js";
 import { useTextInput } from "./hooks/use-text-input.js";
 import { listSessionIds, saveSession } from "./session-store.js";
-import { completeSlashCommand } from "./slash-commands.js";
+import { completeSlashCommand, SLASH_COMMANDS } from "./slash-commands.js";
 import { theme } from "./theme.js";
 import { displayChatMessages, type ChatMessage } from "./view-models/chat-messages.js";
+import {
+  buildTodaySummary,
+  formatThreadDetailForTui,
+  formatTodaySummary,
+  resolveRuntimeUserId
+} from "./view-models/today-summary.js";
 
 export interface ChatTuiAppProps {
   config: AppConfig;
@@ -34,7 +40,7 @@ export function ChatTuiApp({
   service
 }: ChatTuiAppProps): React.ReactElement {
   const { exit } = useApp();
-  const [sessionTitle, setSessionTitle] = React.useState("chat");
+  const [sessionTitle, setSessionTitle] = React.useState("assistant");
   const [sessionId, setSessionId] = React.useState(initialSessionId);
   const historyRef = React.useRef<string[]>([]);
   const historyIndexRef = React.useRef<number | null>(null);
@@ -60,6 +66,14 @@ export function ChatTuiApp({
   const liveMessages = React.useMemo(
     () => displayMessages.filter(isLiveTranscriptMessage),
     [displayMessages]
+  );
+  const todaySummaryText = React.useMemo(
+    () => formatTodaySummary(buildTodaySummary(service, { activeThreadId: controller.activeThreadId })),
+    [controller.activeThreadId, service]
+  );
+  const showTodaySummary = React.useMemo(
+    () => isEmptyConversation(controller.messages),
+    [controller.messages]
   );
 
   React.useEffect(() => {
@@ -119,14 +133,102 @@ export function ChatTuiApp({
       if (text === "/help") {
         controller.addSystemMessage(
           [
-            "Commands: /help /clear /new /stop /title <name> /history /status /sandbox /rollback <id|last> /cost /context /diff /sessions",
-            "Tip: use `talon tui --mode dashboard` or `talon dashboard` for the observability view.",
+            "Commands: /today /inbox /thread /next /commitments /schedule /help /ops /status /clear /new /stop /history /context /cost /diff /sandbox /sessions /rollback <id|last> /title <name>",
+            "Compatibility: /dashboard remains available and maps to /ops.",
+            "Tip: use `talon ops` or `talon tui --mode ops` for the observability view.",
             "Shortcuts: Enter send | Alt+Enter / Ctrl+J newline | Ctrl+Shift+V paste | Tab slash-complete | Ctrl+P/N history",
             "Session files: .auto-talon/sessions/<id>.json | resume: talon tui --resume <id>",
             "Token pricing estimate: AGENT_TOKEN_PRICE_IN_PER_M / AGENT_TOKEN_PRICE_OUT_PER_M (optional)",
             "Transcript scroll uses the terminal buffer; use your terminal scrollbar or mouse wheel."
           ].join("\n")
         );
+        return true;
+      }
+
+      if (text === "/today") {
+        controller.addSystemMessage(todaySummaryText);
+        return true;
+      }
+
+      if (text === "/inbox") {
+        const userId = resolveRuntimeUserId();
+        const items = service
+          .listInbox({ status: "pending", userId })
+          .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+          .slice(0, 20);
+        controller.addSystemMessage(
+          items.length === 0
+            ? `Inbox pending (user=${userId}): none`
+            : `Inbox pending (user=${userId}, showing ${items.length}):\n${items
+                .map((item) => `- ${item.inboxId.slice(0, 8)} | ${item.title} [${item.status}]`)
+                .join("\n")}`
+        );
+        return true;
+      }
+
+      if (text === "/thread") {
+        if (controller.activeThreadId !== null) {
+          controller.addSystemMessage(formatThreadDetailForTui(service, controller.activeThreadId));
+          return true;
+        }
+        const userId = resolveRuntimeUserId();
+        const threads = service
+          .listThreads("active")
+          .filter((item) => item.ownerUserId === userId)
+          .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+          .slice(0, 20);
+        controller.addSystemMessage(
+          threads.length === 0
+            ? `Active threads (user=${userId}): none`
+            : `Active threads (user=${userId}, showing ${threads.length}):\n${threads
+                .map((item) => `- ${item.threadId.slice(0, 8)} | ${item.title} [${item.status}]`)
+                .join("\n")}`
+        );
+        return true;
+      }
+
+      if (text === "/next") {
+        const summary = buildTodaySummary(service, { activeThreadId: controller.activeThreadId, limit: 20 });
+        controller.addSystemMessage(
+          summary.nextActions.total === 0
+            ? `Next actions (user=${summary.userId}): none`
+            : `Next actions (user=${summary.userId}, showing ${summary.nextActions.items.length}/${summary.nextActions.total}):\n${summary.nextActions.items
+                .map((item) => `- ${item.nextActionId.slice(0, 8)} | ${item.title} [${item.status}]`)
+                .join("\n")}`
+        );
+        return true;
+      }
+
+      if (text === "/commitments") {
+        const summary = buildTodaySummary(service, { activeThreadId: controller.activeThreadId, limit: 20 });
+        controller.addSystemMessage(
+          summary.commitments.total === 0
+            ? `Commitments (user=${summary.userId}): none`
+            : `Commitments (user=${summary.userId}, showing ${summary.commitments.items.length}/${summary.commitments.total}):\n${summary.commitments.items
+                .map((item) => `- ${item.commitmentId.slice(0, 8)} | ${item.title} [${item.status}]`)
+                .join("\n")}`
+        );
+        return true;
+      }
+
+      if (text === "/schedule") {
+        const userId = resolveRuntimeUserId();
+        const schedules = service
+          .listSchedules({ ownerUserId: userId, status: "active" })
+          .sort((left, right) => (left.nextFireAt ?? "9999").localeCompare(right.nextFireAt ?? "9999"))
+          .slice(0, 20);
+        controller.addSystemMessage(
+          schedules.length === 0
+            ? `Schedules (user=${userId}): none`
+            : `Schedules (user=${userId}, showing ${schedules.length}):\n${schedules
+                .map((item) => `- ${item.scheduleId.slice(0, 8)} | ${item.name} | next=${item.nextFireAt ?? "none"}`)
+                .join("\n")}`
+        );
+        return true;
+      }
+
+      if (text === "/ops") {
+        controller.addSystemMessage("Open ops with: talon ops (or talon tui --mode ops).");
         return true;
       }
 
@@ -137,10 +239,10 @@ export function ChatTuiApp({
 
       if (text === "/new") {
         controller.clearConversation();
-        setSessionTitle("chat");
+        setSessionTitle("assistant");
         const nextId = randomUUID();
         setSessionId(nextId);
-        controller.addSystemMessage(`Started a new chat session. id=${nextId}`);
+        controller.addSystemMessage(`Started a new assistant session. id=${nextId}`);
         return true;
       }
 
@@ -197,7 +299,7 @@ export function ChatTuiApp({
       }
 
       if (text === "/dashboard") {
-        controller.addSystemMessage("Open dashboard with: talon tui --mode dashboard (or talon dashboard).");
+        controller.addSystemMessage("`/dashboard` is a compatibility alias. Use /ops, talon ops, or talon tui --mode ops.");
         return true;
       }
 
@@ -339,22 +441,7 @@ export function ChatTuiApp({
 
   const slashHints =
     textInput.value.startsWith("/") && textInput.value.length > 0
-      ? [
-          "/clear",
-          "/context",
-          "/cost",
-          "/diff",
-          "/dashboard",
-          "/help",
-          "/history",
-          "/new",
-          "/rollback ",
-          "/sessions",
-          "/sandbox",
-          "/status",
-          "/stop",
-          "/title "
-        ].filter((command) => command.startsWith(textInput.value))
+      ? SLASH_COMMANDS.filter((command) => command.startsWith(textInput.value))
       : [];
 
   return (
@@ -363,13 +450,15 @@ export function ChatTuiApp({
       <Banner
         details={[config.provider.model ?? config.provider.name, shortenPath(cwd, 20)]}
         productName="AUTOTALON"
-        title={sessionTitle === "chat" ? "Interactive Chat" : sessionTitle}
+        title={sessionTitle === "assistant" ? "Personal Assistant" : sessionTitle}
       />
       <Box flexDirection="column">
         {liveMessages.length > 0 ? (
           <MessageStream messages={liveMessages} />
+        ) : showTodaySummary ? (
+          <Text color={theme.muted}>{todaySummaryText}</Text>
         ) : staticMessages.length === 0 ? (
-          <Text color={theme.muted}>No messages yet.</Text>
+          <Text color={theme.muted}>No conversation yet.</Text>
         ) : null}
       </Box>
       <Box>
@@ -410,4 +499,8 @@ function isLiveTranscriptMessage(message: ChatMessage): boolean {
     (message.kind === "agent" && message.streaming === true) ||
     (message.kind === "approval" && message.status === "pending")
   );
+}
+
+function isEmptyConversation(messages: ChatMessage[]): boolean {
+  return !messages.some((message) => message.kind === "user" || message.kind === "agent");
 }
