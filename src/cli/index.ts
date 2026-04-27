@@ -1492,15 +1492,15 @@ export async function main(argv = process.argv): Promise<void> {
 
   program
     .command("tui")
-    .description("Open chat-style terminal UI")
+    .description("Open personal assistant terminal UI")
     .option("--cwd <path>", "Workspace path", process.cwd())
     .option("--write-root <path>", "Additional writable root (repeatable)", collectOption, [])
     .option("--sandbox-profile <name>", "Sandbox profile from .auto-talon/sandbox.config.json")
     .option("--sandbox-mode <mode>", "Sandbox mode: local | docker")
-    .option("--mode <mode>", "UI mode: chat | dashboard", "chat")
+    .option("--mode <mode>", "UI mode: chat | ops", "chat")
     .option("--resume <sessionId>", "Resume a saved session from .auto-talon/sessions")
     .action(async (commandOptions: SandboxCommandOptions & { mode?: string; resume?: string }) => {
-      if (commandOptions.mode === "dashboard") {
+      if (commandOptions.mode === "ops" || commandOptions.mode === "dashboard") {
         await startDashboardTui(commandOptions.cwd, resolveSandboxCliOptions(commandOptions));
         return;
       }
@@ -1512,8 +1512,19 @@ export async function main(argv = process.argv): Promise<void> {
     });
 
   program
+    .command("ops")
+    .description("Open ops terminal UI for runtime observability and approvals")
+    .option("--cwd <path>", "Workspace path", process.cwd())
+    .option("--write-root <path>", "Additional writable root (repeatable)", collectOption, [])
+    .option("--sandbox-profile <name>", "Sandbox profile from .auto-talon/sandbox.config.json")
+    .option("--sandbox-mode <mode>", "Sandbox mode: local | docker")
+    .action(async (commandOptions: SandboxCommandOptions) => {
+      await startDashboardTui(commandOptions.cwd, resolveSandboxCliOptions(commandOptions));
+    });
+
+  program
     .command("dashboard")
-    .description("Open dashboard terminal UI for observability and approvals")
+    .description("Compatibility alias for `talon ops`")
     .option("--cwd <path>", "Workspace path", process.cwd())
     .option("--write-root <path>", "Additional writable root (repeatable)", collectOption, [])
     .option("--sandbox-profile <name>", "Sandbox profile from .auto-talon/sandbox.config.json")
