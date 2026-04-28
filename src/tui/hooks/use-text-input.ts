@@ -1,5 +1,5 @@
 import React from "react";
-import { useInput } from "ink";
+import { useInput, usePaste, useStdin } from "ink";
 
 import { readClipboardText } from "../clipboard.js";
 
@@ -27,15 +27,22 @@ export interface UseTextInputOptions {
   onExit: () => void;
   onSubmit: (text: string) => boolean | Promise<boolean>;
   onSubmitBlockedBusy?: () => void;
+  onPageScroll?: (direction: -1 | 1, accelerated: boolean) => void;
+  onPageJump?: (target: "start" | "end") => void;
   /** Return replacement value, or null to leave input unchanged. */
   onTabComplete?: (value: string) => string | null;
+  onExternalEditorEdit?: (value: string) => Promise<string>;
 }
 
 export interface TextInputController {
+  collapsePreview: null | { charCount: number; lineCount: number; previewLines: string[] };
   clearValue: () => void;
   cursorIndex: number;
+  expandCollapsedPreview: () => void;
+  isCollapsed: boolean;
   lines: string[];
   replaceValue: (nextValue: string) => void;
+  toggleCollapsedPreview: () => void;
   value: string;
 }
 
@@ -58,23 +65,61 @@ export function resolveApprovalShortcut(
 }
 
 export function canSubmitTextInput(value: string, busy: boolean): boolean {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return false;
-  }
-  return !busy || trimmed === "/stop";
+  void busy;
+  return value.trim().length > 0;
 }
 
 export function useTextInput(options: UseTextInputOptions): TextInputController {
   const [value, setValue] = React.useState("");
   const [cursorIndex, setCursorIndex] = React.useState(0);
+  const [collapsedByPaste, setCollapsedByPaste] = React.useState(false);
   const preferredColumnRef = React.useRef<number | null>(null);
   const interruptRequestedAtRef = React.useRef<number | null>(null);
   const cursorIndexRef = React.useRef(0);
+  const { setRawMode } = useStdin();
 
   React.useEffect(() => {
     cursorIndexRef.current = cursorIndex;
   }, [cursorIndex]);
+
+  const expandCollapsedPreview = React.useCallback(() => {
+    setCollapsedByPaste(false);
+  }, []);
+
+  const openExternalEditor = React.useCallback(() => {
+    if (options.onExternalEditorEdit === undefined) {
+      return;
+    }
+    const currentValue = valueRef.current;
+    setRawMode(false);
+    void options.onExternalEditorEdit(currentValue)
+      .then((nextValue) => {
+        const normalized = normalizeNewlines(nextValue);
+        setValue(normalized);
+        setCursorIndex(normalized.length);
+        preferredColumnRef.current = null;
+        setCollapsedByPaste(false);
+      })
+      .catch(() => {})
+      .finally(() => {
+        setRawMode(true);
+      });
+  }, [options, setRawMode]);
+
+  const valueRef = React.useRef(value);
+  React.useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
+
+  usePaste((pastedText) => {
+    const clip = normalizeNewlines(pastedText);
+    const insertionIndex = cursorIndexRef.current;
+    const nextValue = insertAt(valueRef.current, insertionIndex, clip);
+    setValue(nextValue);
+    setCursorIndex(insertionIndex + clip.length);
+    preferredColumnRef.current = null;
+    setCollapsedByPaste(shouldAutoCollapse(clip));
+  });
 
   useInput((input, key) => {
     if (key.ctrl && input === "c") {
@@ -150,19 +195,20 @@ export function useTextInput(options: UseTextInputOptions): TextInputController 
     }
 
     if (key.pageUp || key.pageDown) {
+      options.onPageScroll?.(key.pageUp ? -1 : 1, key.shift === true);
       return;
     }
 
     if (key.ctrl && key.shift && input === "v") {
-      void readClipboardText()
-        .then((text) => {
-          const clip = normalizeNewlines(text);
-          const insertionIndex = cursorIndexRef.current;
-          setValue((current) => insertAt(current, insertionIndex, clip));
-          setCursorIndex(insertionIndex + clip.length);
-          preferredColumnRef.current = null;
-        })
-        .catch(() => {});
+      void readClipboardText().then((text) => {
+        const clip = normalizeNewlines(text);
+        const insertionIndex = cursorIndexRef.current;
+        const nextValue = insertAt(valueRef.current, insertionIndex, clip);
+        setValue(nextValue);
+        setCursorIndex(insertionIndex + clip.length);
+        preferredColumnRef.current = null;
+        setCollapsedByPaste(shouldAutoCollapse(clip));
+      }).catch(() => {});
       return;
     }
 
@@ -173,9 +219,22 @@ export function useTextInput(options: UseTextInputOptions): TextInputController 
     }
 
     if (key.ctrl && input === "j") {
+      if (collapsedByPaste) {
+        setCollapsedByPaste(false);
+      }
       setValue((current) => insertAt(current, cursorIndex, "\n"));
       setCursorIndex((current) => current + 1);
       preferredColumnRef.current = null;
+      return;
+    }
+
+    if (key.ctrl && input === "o") {
+      openExternalEditor();
+      return;
+    }
+
+    if (keyAlt.alt === true && input === "p") {
+      setCollapsedByPaste((current) => !current && shouldAutoCollapse(valueRef.current));
       return;
     }
 
@@ -236,12 +295,20 @@ export function useTextInput(options: UseTextInputOptions): TextInputController 
 
     const navKey = key as { end?: boolean; home?: boolean };
     if (navKey.home === true) {
+      if (key.ctrl) {
+        options.onPageJump?.("start");
+        return;
+      }
       setCursorIndex(getLineStartIndex(value, cursorIndex));
       preferredColumnRef.current = null;
       return;
     }
 
     if (navKey.end === true) {
+      if (key.ctrl) {
+        options.onPageJump?.("end");
+        return;
+      }
       setCursorIndex(getLineEndIndex(value, cursorIndex));
       preferredColumnRef.current = null;
       return;
@@ -263,6 +330,7 @@ export function useTextInput(options: UseTextInputOptions): TextInputController 
               }
               setValue("");
               setCursorIndex(0);
+              setCollapsedByPaste(false);
               preferredColumnRef.current = null;
             })
             .catch(() => {});
@@ -276,6 +344,7 @@ export function useTextInput(options: UseTextInputOptions): TextInputController 
     if (key.ctrl && input === "u") {
       setValue("");
       setCursorIndex(0);
+      setCollapsedByPaste(false);
       preferredColumnRef.current = null;
       return;
     }
@@ -293,6 +362,9 @@ export function useTextInput(options: UseTextInputOptions): TextInputController 
     }
 
     if (key.ctrl && input === "w") {
+      if (collapsedByPaste) {
+        setCollapsedByPaste(false);
+      }
       const next = deletePreviousWord(value, cursorIndex);
       if (next.value !== value || next.cursorIndex !== cursorIndex) {
         setValue(next.value);
@@ -306,6 +378,9 @@ export function useTextInput(options: UseTextInputOptions): TextInputController 
       if (cursorIndex === 0) {
         return;
       }
+      if (collapsedByPaste) {
+        setCollapsedByPaste(false);
+      }
       const next = deleteCharacterBefore(value, cursorIndex);
       setValue(next.value);
       setCursorIndex(next.cursorIndex);
@@ -314,6 +389,9 @@ export function useTextInput(options: UseTextInputOptions): TextInputController 
     }
 
     if (key.delete) {
+      if (collapsedByPaste) {
+        setCollapsedByPaste(false);
+      }
       const next = deleteCharacterAfter(value, cursorIndex);
       setValue(next.value);
       setCursorIndex(next.cursorIndex);
@@ -325,25 +403,52 @@ export function useTextInput(options: UseTextInputOptions): TextInputController 
       return;
     }
 
+    if (collapsedByPaste) {
+      setCollapsedByPaste(false);
+    }
     setValue((current) => insertAt(current, cursorIndex, input));
     setCursorIndex((current) => current + input.length);
     preferredColumnRef.current = null;
   });
 
+  const collapsePreview = collapsedByPaste ? buildCollapsePreview(value) : null;
+
   return {
+    collapsePreview,
     clearValue: () => {
       setValue("");
       setCursorIndex(0);
+      setCollapsedByPaste(false);
       preferredColumnRef.current = null;
     },
     cursorIndex,
+    expandCollapsedPreview,
+    isCollapsed: collapsePreview !== null,
     lines: buildLinesWithCursor(value, cursorIndex),
     replaceValue: (nextValue: string) => {
       setValue(nextValue);
       setCursorIndex(nextValue.length);
+      setCollapsedByPaste(false);
       preferredColumnRef.current = null;
     },
+    toggleCollapsedPreview: () => {
+      setCollapsedByPaste((current) => !current && shouldAutoCollapse(value));
+    },
     value
+  };
+}
+
+function shouldAutoCollapse(value: string): boolean {
+  const lineCount = value.split("\n").length;
+  return lineCount > 12 || value.length > 800;
+}
+
+function buildCollapsePreview(value: string): { charCount: number; lineCount: number; previewLines: string[] } {
+  const previewLines = value.split("\n").slice(0, 3);
+  return {
+    charCount: value.length,
+    lineCount: value.split("\n").length,
+    previewLines
   };
 }
 

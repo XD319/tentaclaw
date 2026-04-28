@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+﻿import { randomUUID } from "node:crypto";
 
 import React from "react";
 
@@ -46,6 +46,12 @@ export interface FileEditEntry {
   taskId: string;
 }
 
+export interface QueuedPromptEntry {
+  createdAt: string;
+  id: string;
+  text: string;
+}
+
 export interface ChatController {
   activeTaskId: string | null;
   activeThreadId: string | null;
@@ -60,6 +66,8 @@ export interface ChatController {
   messages: ChatMessage[];
   pendingApproval: ApprovalRecord | null;
   pendingClarifyPrompt: ClarifyPromptRecord | null;
+  queuedPromptCount: number;
+  queuedPrompts: QueuedPromptEntry[];
   requestInterrupt: () => boolean;
   resetVisibleChatPreserveActiveThread: () => void;
   runDurationLabel: string;
@@ -110,6 +118,7 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     input.initialSessionApprovalFingerprints ?? []
   );
   const [fileEdits, setFileEdits] = React.useState<FileEditEntry[]>([]);
+  const [queuedPrompts, setQueuedPrompts] = React.useState<QueuedPromptEntry[]>([]);
   const [tokenHud, setTokenHud] = React.useState<TokenHud>({
     contextPercent: 0,
     estimatedCostUsd: 0,
@@ -137,8 +146,13 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
   const flushTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const approvalInFlightRef = React.useRef(false);
   const submitInFlightRef = React.useRef(false);
+  const queuedPromptsRef = React.useRef<QueuedPromptEntry[]>([]);
   const seenApprovalMessageIdsRef = React.useRef<Set<string>>(collectApprovalMessageIds(messages));
   const busy = busyCount > 0;
+
+  React.useEffect(() => {
+    queuedPromptsRef.current = queuedPrompts;
+  }, [queuedPrompts]);
 
   const beginBusy = React.useCallback(() => {
     setBusyCount((current) => current + 1);
@@ -249,6 +263,33 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     ]);
   }, []);
 
+  const shiftQueuedPrompt = React.useCallback(
+    (): { prompt: QueuedPromptEntry; remaining: number } | null => {
+      const next = queuedPromptsRef.current[0] ?? null;
+      if (next === null) {
+        return null;
+      }
+      const remaining = Math.max(queuedPromptsRef.current.length - 1, 0);
+      setQueuedPrompts((current) => current.slice(1));
+      return { prompt: next, remaining };
+    },
+    []
+  );
+
+  const enqueuePrompt = React.useCallback(
+    (text: string): void => {
+      const entry = {
+        createdAt: new Date().toISOString(),
+        id: randomUUID(),
+        text
+      } satisfies QueuedPromptEntry;
+      setQueuedPrompts((current) => [...current, entry]);
+      const nextSize = queuedPromptsRef.current.length + 1;
+      addSystemMessage(`Queued message ${nextSize === 1 ? "(1 waiting)" : `(${nextSize} waiting)`}.`);
+    },
+    [addSystemMessage]
+  );
+
   const clearConversation = React.useCallback(() => {
     setMessages([welcomeMessage]);
     setStatusLine("conversation cleared");
@@ -267,6 +308,7 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     seenApprovalMessageIdsRef.current.clear();
     setSessionApprovalFingerprints([]);
     setFileEdits([]);
+    setQueuedPrompts([]);
     setUsedMemoryCount(0);
     setActiveThreadId(null);
     stopTraceSubscription();
@@ -288,6 +330,7 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     activeTaskIdRef.current = null;
     seenApprovalMessageIdsRef.current.clear();
     setFileEdits([]);
+    setQueuedPrompts([]);
     setUsedMemoryCount(0);
     stopTraceSubscription();
   }, [stopTraceSubscription]);
@@ -445,38 +488,6 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     setMessages((current) => current.filter((message) => message.id !== id));
   }, []);
 
-  const upsertStreamingAgentMessage = React.useCallback(
-    (id: string, text: string, streaming: boolean) => {
-      setMessages((current) => {
-        const index = current.findIndex((message) => message.id === id);
-        if (index === -1) {
-          return [
-            ...current,
-            {
-              id,
-              kind: "agent",
-              streaming,
-              text,
-              timestamp: new Date().toISOString()
-            }
-          ];
-        }
-        const message = current[index];
-        if (message === undefined || message.kind !== "agent") {
-          return current;
-        }
-        const next = [...current];
-        next[index] = {
-          ...message,
-          streaming,
-          text
-        } satisfies Extract<ChatMessage, { kind: "agent" }>;
-        return next;
-      });
-    },
-    []
-  );
-
   const finalizeStreamingAgentMessage = React.useCallback(
     (id: string, text: string) => {
       setMessages((current) => {
@@ -509,11 +520,8 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     []
   );
 
-  const submitPrompt = React.useCallback(
-    (text: string): boolean => {
-      if (submitInFlightRef.current) {
-        return false;
-      }
+  const executePrompt = React.useCallback(
+    (text: string): void => {
       submitInFlightRef.current = true;
       beginBusy();
       setStatusLine("running");
@@ -686,11 +694,23 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
           cancelPendingDelta();
           endBusy();
           stopTraceSubscription();
-          setTimeout(refresh, 0);
+          setTimeout(() => {
+            refresh();
+            if (submitInFlightRef.current) {
+              return;
+            }
+            const nextQueuedPrompt = shiftQueuedPrompt();
+            if (nextQueuedPrompt !== null) {
+              addSystemMessage(
+                nextQueuedPrompt.remaining === 0
+                  ? "Sending queued message."
+                  : `Sending queued message (${nextQueuedPrompt.remaining} remaining).`
+              );
+              executePrompt(nextQueuedPrompt.prompt.text);
+            }
+          }, 0);
         }
       })();
-
-      return true;
     },
     [
       addSystemMessage,
@@ -706,9 +726,25 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
       sessionApprovalFingerprints,
       refresh,
       removeStreamingMessage,
+      shiftQueuedPrompt,
       startTraceSubscription,
-      stopTraceSubscription,
-      upsertStreamingAgentMessage
+      stopTraceSubscription
+    ]
+  );
+
+  const submitPrompt = React.useCallback(
+    (text: string): boolean => {
+      if (submitInFlightRef.current || busy) {
+        enqueuePrompt(text);
+        return true;
+      }
+      executePrompt(text);
+      return true;
+    },
+    [
+      busy,
+      enqueuePrompt,
+      executePrompt
     ]
   );
 
@@ -960,6 +996,8 @@ export function useChatController(input: UseChatControllerOptions): ChatControll
     messages,
     pendingApproval,
     pendingClarifyPrompt,
+    queuedPromptCount: queuedPrompts.length,
+    queuedPrompts,
     requestInterrupt,
     resetVisibleChatPreserveActiveThread,
     sessionApprovalFingerprints,

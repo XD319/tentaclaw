@@ -15,8 +15,18 @@ export function getSessionsDir(workspaceRoot: string): string {
   return join(workspaceRoot, ".auto-talon", "sessions");
 }
 
+export function getDraftsDir(workspaceRoot: string): string {
+  return join(workspaceRoot, ".auto-talon", "drafts");
+}
+
 export async function ensureSessionsDir(workspaceRoot: string): Promise<string> {
   const dir = getSessionsDir(workspaceRoot);
+  await mkdir(dir, { recursive: true });
+  return dir;
+}
+
+export async function ensureDraftsDir(workspaceRoot: string): Promise<string> {
+  const dir = getDraftsDir(workspaceRoot);
   await mkdir(dir, { recursive: true });
   return dir;
 }

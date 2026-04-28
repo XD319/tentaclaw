@@ -147,7 +147,7 @@ describe("use-chat-controller helpers", () => {
     expect(completed.at(-1)?.id).toBe("approval-result:approval-1:allow");
   });
 
-  it("rejects overlapping prompt submissions before they can drop replies", async () => {
+  it("queues overlapping prompt submissions and flushes them in order", async () => {
     const stdout = new PassThrough();
     const config = createControllerConfig();
     const service = createStreamingControllerService();
@@ -185,16 +185,16 @@ describe("use-chat-controller helpers", () => {
         throw new Error("submitPrompt should be initialized before the test submits prompts.");
       }
       expect(submitPrompt("one")).toBe(true);
-      expect(submitPrompt("two")).toBe(false);
+      expect(submitPrompt("two")).toBe(true);
 
-      await waitFor(() => messages.some((message) => message.kind === "agent"));
+      await waitFor(() => messages.filter((message) => message.kind === "agent").length === 2);
 
       expect(
         messages.filter((message) => message.kind === "user").map((message) => message.text)
-      ).toEqual(["one"]);
+      ).toEqual(["one", "two"]);
       expect(
         messages.filter((message) => message.kind === "agent").map((message) => message.text)
-      ).toEqual(["reply-one"]);
+      ).toEqual(["reply-one", "reply-two"]);
     } finally {
       app.unmount();
       await app.waitUntilExit();
@@ -484,10 +484,10 @@ describe("use-text-input helpers", () => {
     expect(resolveApprovalShortcut("d", "", false)).toBeNull();
   });
 
-  it("allows only /stop to submit while busy", () => {
+  it("allows queued submissions while busy", () => {
     expect(canSubmitTextInput("/stop", true)).toBe(true);
     expect(canSubmitTextInput(" /stop ", true)).toBe(true);
-    expect(canSubmitTextInput("hello", true)).toBe(false);
+    expect(canSubmitTextInput("hello", true)).toBe(true);
     expect(canSubmitTextInput("hello", false)).toBe(true);
     expect(canSubmitTextInput("   ", false)).toBe(false);
   });

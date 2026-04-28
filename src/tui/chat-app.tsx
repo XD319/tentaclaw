@@ -11,10 +11,17 @@ import { InputBox } from "./components/input-box.js";
 import { MessageStream, StaticMessageStream } from "./components/message-stream.js";
 import { PromptZone } from "./components/prompt-zone.js";
 import { buildTokenMetrics, StatusBar } from "./components/status-bar.js";
+import { editInExternalEditor } from "./external-editor.js";
 import { useChatController } from "./hooks/use-chat-controller.js";
 import { useTextInput } from "./hooks/use-text-input.js";
 import { listSessionIds, saveSession } from "./session-store.js";
-import { completeSlashCommand, SLASH_COMMANDS } from "./slash-commands.js";
+import {
+  STATIC_SLASH_SUGGESTIONS,
+  completeSlashCommand,
+  getMatchingSuggestions,
+  longestCommonPrefix,
+  type SlashSuggestion
+} from "./slash-commands.js";
 import { theme } from "./theme.js";
 import { displayChatMessages, type ChatMessage } from "./view-models/chat-messages.js";
 import {
@@ -61,9 +68,11 @@ export function ChatTuiApp({
   const [approvalSelectionIndex, setApprovalSelectionIndex] = React.useState(0);
   const [clarifySelectionIndex, setClarifySelectionIndex] = React.useState(0);
   const [clarifyCustomActive, setClarifyCustomActive] = React.useState(false);
+  const [liveScrollOffset, setLiveScrollOffset] = React.useState(0);
   const historyRef = React.useRef<string[]>([]);
   const historyIndexRef = React.useRef<number | null>(null);
   const saveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completionStateRef = React.useRef<{ candidates: string[]; index: number; query: string } | null>(null);
 
   const controller = useChatController({
     config,
@@ -89,6 +98,16 @@ export function ChatTuiApp({
     () => displayMessages.filter(isLiveTranscriptMessage),
     [displayMessages]
   );
+  const visibleLiveMessages = React.useMemo(() => {
+    if (liveMessages.length <= LIVE_TRANSCRIPT_WINDOW_SIZE) {
+      return liveMessages;
+    }
+    const maxOffset = Math.max(liveMessages.length - LIVE_TRANSCRIPT_WINDOW_SIZE, 0);
+    const boundedOffset = Math.min(liveScrollOffset, maxOffset);
+    const end = liveMessages.length - boundedOffset;
+    const start = Math.max(0, end - LIVE_TRANSCRIPT_WINDOW_SIZE);
+    return liveMessages.slice(start, end);
+  }, [liveMessages, liveScrollOffset]);
   const todaySummaryText = React.useMemo(
     () => formatTodaySummary(buildTodaySummary(service, { activeThreadId: controller.activeThreadId })),
     [controller.activeThreadId, service]
@@ -134,6 +153,10 @@ export function ChatTuiApp({
     }
   }, [controller.pendingClarifyPrompt?.promptId]);
 
+  React.useEffect(() => {
+    setLiveScrollOffset(0);
+  }, [liveMessages.length]);
+
   const navigateHistoryPrevious = React.useCallback((): string | null => {
     const history = historyRef.current;
     if (history.length === 0) {
@@ -160,6 +183,71 @@ export function ChatTuiApp({
     return history[historyIndexRef.current] ?? "";
   }, []);
 
+  const openExternalEditor = React.useCallback(
+    async (value: string): Promise<string> =>
+      editInExternalEditor(value, {
+        workspaceRoot: config.workspaceRoot
+      }),
+    [config.workspaceRoot]
+  );
+
+  const scrollLiveTranscript = React.useCallback((direction: -1 | 1, accelerated: boolean) => {
+    const delta = accelerated ? LIVE_TRANSCRIPT_PAGE_SIZE * 2 : LIVE_TRANSCRIPT_PAGE_SIZE;
+    setLiveScrollOffset((current) => Math.max(0, current + (direction < 0 ? delta : -delta)));
+  }, []);
+
+  const jumpLiveTranscript = React.useCallback(
+    (target: "start" | "end") => {
+      if (target === "end") {
+        setLiveScrollOffset(0);
+        return;
+      }
+      setLiveScrollOffset(Math.max(liveMessages.length - LIVE_TRANSCRIPT_WINDOW_SIZE, 0));
+    },
+    [liveMessages.length]
+  );
+
+  const slashSuggestions = React.useCallback(
+    (value: string): SlashSuggestion[] => {
+      if (!value.startsWith("/")) {
+        return [];
+      }
+      const dynamicSuggestions = buildDynamicSlashSuggestions(value, controller.activeThreadId, service);
+      return getMatchingSuggestions(value, [...STATIC_SLASH_SUGGESTIONS, ...dynamicSuggestions]);
+    },
+    [controller.activeThreadId, service]
+  );
+
+  const completeInput = React.useCallback(
+    (value: string): string | null => {
+      const suggestions = slashSuggestions(value);
+      if (suggestions.length === 0) {
+        completionStateRef.current = null;
+        return completeSlashCommand(value);
+      }
+      const candidates = suggestions.map((item) => item.insertText);
+      const previous = completionStateRef.current;
+      if (
+        previous !== null &&
+        previous.query === value &&
+        previous.candidates.length === candidates.length &&
+        previous.candidates.every((candidate, index) => candidate === candidates[index])
+      ) {
+        const index = (previous.index + 1) % candidates.length;
+        completionStateRef.current = { candidates, index, query: withTrailingSpace(candidates[index] ?? value) };
+        return withTrailingSpace(candidates[index] ?? value);
+      }
+      const common = longestCommonPrefix(candidates);
+      const nextValue =
+        common.length > value.length
+          ? withTrailingSpaceIfExact(common, candidates)
+          : withTrailingSpace(candidates[0] ?? value);
+      completionStateRef.current = { candidates, index: 0, query: nextValue };
+      return nextValue;
+    },
+    [slashSuggestions]
+  );
+
   const handleSlashCommand = React.useCallback(
     (text: string): boolean => {
       if (!text.startsWith("/")) {
@@ -169,14 +257,14 @@ export function ChatTuiApp({
       if (text === "/help") {
         controller.addSystemMessage(
           [
-            "Commands: /today /inbox /thread [summary|list|new|switch] /next [list|done|block] /commitments [list|done|block] /schedule /help /ops /status /clear /new /stop /history /context /cost /diff /sandbox /sessions /rollback <id|last> /title <name>",
+            "Commands: /today /inbox /thread [summary|list|new|switch] /next [list|done|block] /commitments [list|done|block] /schedule /edit /help /ops /status /clear /new /stop /history /context /cost /diff /sandbox /sessions /rollback <id|last> /title <name>",
             "Memory: /memory /memory review /memory add <profile|project> <text> /memory forget <memory-id-prefix> /memory why [memory-id-prefix]",
             "Compatibility: /dashboard remains available and maps to /ops.",
             "Tip: use `talon ops` or `talon tui --mode ops` for the observability view.",
-            "Shortcuts: Enter send | Alt+Enter / Ctrl+J newline | Ctrl+Shift+V paste | Tab slash-complete | Ctrl+P/N history",
+            "Shortcuts: Enter send | Alt+Enter / Ctrl+J newline | Ctrl+Shift+V paste | Ctrl+O external editor | Alt+P expand pasted draft | Tab slash-complete | Ctrl+P/N history | PgUp/PgDn live scroll",
             "Session files: .auto-talon/sessions/<id>.json | resume: talon tui --resume <id>",
             "Token pricing estimate: AGENT_TOKEN_PRICE_IN_PER_M / AGENT_TOKEN_PRICE_OUT_PER_M (optional)",
-            "Transcript scroll uses the terminal buffer; use your terminal scrollbar or mouse wheel."
+            "Transcript keeps terminal scrollback for native copy/mouse wheel; PgUp/PgDn accelerates the live area."
           ].join("\n")
         );
         return true;
@@ -236,6 +324,10 @@ export function ChatTuiApp({
       if (text === "/ops") {
         controller.addSystemMessage("Open ops with: talon ops (or talon tui --mode ops).");
         return true;
+      }
+
+      if (text === "/edit") {
+        return false;
       }
 
       if (text === "/clear") {
@@ -323,10 +415,11 @@ export function ChatTuiApp({
           `busy: ${controller.busy}`,
           `active_task: ${controller.activeTaskId ?? "(none)"}`,
           `tasks: ${controller.summary.tasks} running: ${controller.summary.runningTasks} approvals: ${controller.summary.pendingApprovals}`,
+          `queued_prompts: ${controller.queuedPromptCount}`,
           `status_line: ${controller.statusLine}`,
           `ui_status: ${controller.uiStatus.primaryLabel}`,
           `elapsed: ${controller.runDurationLabel}`,
-          "ui_scroll: terminal",
+          `ui_scroll: terminal + live(offset=${liveScrollOffset})`,
           `message_rows: ${controller.messages.length}`,
           `tokens_in: ${controller.tokenHud.inputTokens} tokens_out: ${controller.tokenHud.outputTokens}`,
           `context_pct: ${controller.tokenHud.contextPercent} est_cost_usd: ${controller.tokenHud.estimatedCostUsd.toFixed(4)}`
@@ -490,8 +583,19 @@ export function ChatTuiApp({
       }
       setClarifyCustomActive((current) => !current);
     },
-    onTabComplete: completeSlashCommand,
+    onExternalEditorEdit: openExternalEditor,
+    onPageJump: jumpLiveTranscript,
+    onPageScroll: scrollLiveTranscript,
+    onTabComplete: completeInput,
     onSubmit: (value) => {
+      if (value.trim() === "/edit") {
+        void openExternalEditor("");
+        return true;
+      }
+      if (controller.busy && value.startsWith("/") && value.trim() !== "/stop") {
+        controller.addSystemMessage("Commands are paused while the agent is running. Wait, queue plain text, or use /stop.");
+        return false;
+      }
       if (handleSlashCommand(value)) {
         return true;
       }
@@ -511,10 +615,7 @@ export function ChatTuiApp({
     }
   });
 
-  const slashHints =
-    textInput.value.startsWith("/") && textInput.value.length > 0
-      ? SLASH_COMMANDS.filter((command) => command.startsWith(textInput.value))
-      : [];
+  const slashHints = textInput.value.startsWith("/") && textInput.value.length > 0 ? slashSuggestions(textInput.value) : [];
 
   React.useEffect(() => {
     if (controller.pendingApproval !== null || controller.pendingClarifyPrompt !== null) {
@@ -532,7 +633,7 @@ export function ChatTuiApp({
       />
       <Box flexDirection="column">
         {liveMessages.length > 0 ? (
-          <MessageStream messages={liveMessages} />
+          <MessageStream messages={visibleLiveMessages} />
         ) : showTodaySummary ? (
           <Text color={theme.muted}>{todaySummaryText}</Text>
         ) : staticMessages.length === 0 ? (
@@ -567,8 +668,11 @@ export function ChatTuiApp({
         {controller.pendingApproval === null && controller.pendingClarifyPrompt === null ? (
           <InputBox
             busy={controller.busy}
+            collapsePreview={textInput.collapsePreview}
             hasPendingApproval={controller.hasPendingApproval}
+            isCollapsed={textInput.isCollapsed}
             lines={textInput.lines}
+            queuedPromptCount={controller.queuedPromptCount}
             slashHints={slashHints}
             value={textInput.value}
           />
@@ -614,6 +718,8 @@ const APPROVAL_ACTIONS: Array<{ action: "allow" | "deny"; scope?: ApprovalAllowS
   { action: "allow", scope: "always" },
   { action: "deny" }
 ];
+const LIVE_TRANSCRIPT_WINDOW_SIZE = 12;
+const LIVE_TRANSCRIPT_PAGE_SIZE = 6;
 
 function clampSelection(index: number, size: number): number {
   if (size <= 0) {
@@ -646,6 +752,80 @@ function parseSlashInput(text: string): { args: string[]; command: string; rest:
   const args = parts.slice(1);
   const rest = command.length >= trimmed.length ? "" : trimmed.slice(command.length).trim();
   return { args, command, rest };
+}
+
+function buildDynamicSlashSuggestions(
+  value: string,
+  activeThreadId: string | null,
+  service: AgentApplicationService
+): SlashSuggestion[] {
+  const parsed = parseSlashInput(value);
+  const userId = resolveRuntimeUserId();
+
+  if (parsed.command === "/thread" && (parsed.args[0] === "switch" || parsed.args[0] === "summary")) {
+    return service
+      .listThreads("active")
+      .filter((item) => item.ownerUserId === userId)
+      .map((item) => ({
+        description: item.title,
+        insertText: `/thread ${parsed.args[0]} ${item.threadId.slice(0, 8)}`,
+        key: `thread:${item.threadId}`,
+        label: `/thread ${parsed.args[0]} ${item.threadId.slice(0, 8)}`,
+        rank: 1
+      }));
+  }
+
+  if (parsed.command === "/schedule" && (parsed.args[0] === "pause" || parsed.args[0] === "resume")) {
+    return service.listSchedules({ ownerUserId: userId }).map((item) => ({
+      description: item.name,
+      insertText: `/schedule ${parsed.args[0]} ${item.scheduleId.slice(0, 8)}`,
+      key: `schedule:${item.scheduleId}`,
+      label: `/schedule ${parsed.args[0]} ${item.scheduleId.slice(0, 8)}`,
+      rank: 1
+    }));
+  }
+
+  if (parsed.command === "/memory" && (parsed.args[0] === "forget" || parsed.args[0] === "why")) {
+    return service.listMemories().map((item) => ({
+      description: item.title,
+      insertText: `/memory ${parsed.args[0]} ${item.memoryId}`,
+      key: `memory:${item.memoryId}`,
+      label: `/memory ${parsed.args[0]} ${item.memoryId}`,
+      rank: 1
+    }));
+  }
+
+  if (parsed.command === "/next" && (parsed.args[0] === "done" || parsed.args[0] === "block")) {
+    const items = activeThreadId === null ? service.listNextActions() : service.listNextActions({ threadId: activeThreadId });
+    return items.map((item) => ({
+      description: item.title,
+      insertText: `/next ${parsed.args[0]} ${item.nextActionId.slice(0, 8)}`,
+      key: `next:${item.nextActionId}`,
+      label: `/next ${parsed.args[0]} ${item.nextActionId.slice(0, 8)}`,
+      rank: 1
+    }));
+  }
+
+  if (parsed.command === "/commitments" && (parsed.args[0] === "done" || parsed.args[0] === "block")) {
+    const items = activeThreadId === null ? service.listCommitments() : service.listCommitments({ threadId: activeThreadId });
+    return items.map((item) => ({
+      description: item.title,
+      insertText: `/commitments ${parsed.args[0]} ${item.commitmentId.slice(0, 8)}`,
+      key: `commitment:${item.commitmentId}`,
+      label: `/commitments ${parsed.args[0]} ${item.commitmentId.slice(0, 8)}`,
+      rank: 1
+    }));
+  }
+
+  return [];
+}
+
+function withTrailingSpace(value: string): string {
+  return value.endsWith(" ") ? value : `${value} `;
+}
+
+function withTrailingSpaceIfExact(prefix: string, candidates: readonly string[]): string {
+  return candidates.includes(prefix) ? withTrailingSpace(prefix) : prefix;
 }
 
 function handleMemoryCommand(
