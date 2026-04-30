@@ -7,6 +7,7 @@ import { parseNaturalLanguageScheduleWhen } from "../runtime/scheduler/index.js"
 import type { ApprovalAllowScope } from "../types/index.js";
 import { formatMemoryGuide, formatMemoryList, formatMemoryRecallExplanation, formatMemorySuggestionQueue } from "../cli/formatters.js";
 import { Banner } from "./components/banner.js";
+import { HomeSummary } from "./components/home-summary.js";
 import { InputBox } from "./components/input-box.js";
 import { MessageStream, StaticMessageStream } from "./components/message-stream.js";
 import { PromptZone } from "./components/prompt-zone.js";
@@ -24,6 +25,9 @@ import {
 } from "./slash-commands.js";
 import { theme } from "./theme.js";
 import { displayChatMessages, type ChatMessage } from "./view-models/chat-messages.js";
+import {
+  buildHomeSummary,
+} from "./view-models/home-summary.js";
 import {
   buildTodaySummary,
   formatThreadDetailForTui,
@@ -110,6 +114,10 @@ export function ChatTuiApp({
   }, [liveMessages, liveScrollOffset]);
   const todaySummaryText = React.useMemo(
     () => formatTodaySummary(buildTodaySummary(service, { activeThreadId: controller.activeThreadId })),
+    [controller.activeThreadId, service]
+  );
+  const homeSummary = React.useMemo(
+    () => buildHomeSummary(service, { activeThreadId: controller.activeThreadId }),
     [controller.activeThreadId, service]
   );
   const showTodaySummary = React.useMemo(
@@ -635,7 +643,7 @@ export function ChatTuiApp({
         {liveMessages.length > 0 ? (
           <MessageStream messages={visibleLiveMessages} />
         ) : showTodaySummary ? (
-          <Text color={theme.muted}>{todaySummaryText}</Text>
+          <HomeSummary summary={homeSummary} />
         ) : staticMessages.length === 0 ? (
           <Text color={theme.muted}>No conversation yet.</Text>
         ) : null}
