@@ -6,8 +6,8 @@
 - Corepack enabled
 
 Node 22.13.0 is the minimum because auto-talon uses the built-in `node:sqlite`
-runtime storage module without an experimental flag. CI also runs a Node 20
-compatibility-floor check to make sure older runtimes fail with a clear message.
+runtime storage module without an experimental flag. CI currently verifies the
+repository on Node 22.13.0.
 
 ## Quick Install
 
@@ -16,6 +16,7 @@ From npm:
 ```bash
 npm install -g auto-talon
 talon init --yes
+talon tui
 ```
 
 From source:
@@ -25,6 +26,7 @@ corepack enable
 corepack pnpm install
 corepack pnpm build
 corepack pnpm dev init --yes
+corepack pnpm dev tui
 ```
 
 Or use scripts:
@@ -38,3 +40,6 @@ Or use scripts:
 talon version
 talon doctor
 ```
+
+For a daily first-run experience, open `talon tui`. Use `talon run` and other
+CLI commands when you want automation, diagnostics, or scripted execution.
