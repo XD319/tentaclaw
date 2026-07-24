@@ -41,12 +41,20 @@
 
 - Node.js `>=22.13.0`
 - 真实助理运行需要 provider（模型服务）API key（想先试用可跳过，改用 mock provider）
+- **仅开发者：** Corepack（随 Node.js 附带），用于锁定仓库的 pnpm 版本
 
+先选一条路径：
 
+| 路径 | 适用对象 | 命令前缀 |
+| --- | --- | --- |
+| [普通用户（npm）](#普通用户npm) | 日常安装与使用 AutoTalon | `talon ...` |
+| [开发者（源码）](#开发者源码) | 贡献代码或本地跑仓库检出 | `corepack pnpm dev ...` |
 
-### 两分钟试用（无需凭据）
+两条路径的 provider 配置参数相同，只是 CLI 入口不同。
 
-用内置的 mock provider 先把 CLI 和 TUI 跑起来，之后再配置真实 key：
+### 普通用户（npm）
+
+#### 两分钟试用（无需凭据）
 
 ```bash
 npm install -g auto-talon
@@ -56,9 +64,7 @@ talon provider test
 talon tui
 ```
 
-
-
-### 完整配置（真实 provider）
+#### 使用真实 provider
 
 `talon provider setup` 与 `talon provider custom add` **默认写入用户级（全局）配置**
 （`~/.auto-talon/provider.config.json`），在任意工作区都可用。只有加 `--workspace`
@@ -102,21 +108,52 @@ $env:DEEPSEEK_API_KEY = "your-api-key"
 talon provider setup openai-compatible --base-url https://api.deepseek.com/v1 --model deepseek-chat --api-key $env:DEEPSEEK_API_KEY
 ```
 
+安装后的更多用法见 [Quickstart](docs/user/quickstart.md)、[Install](docs/user/install.md)。
 
+### 开发者（源码）
+
+在本仓库上开发或调试时走这条路径。把普通用户路径里的每个 `talon` 命令换成
+`corepack pnpm dev` 即可。
+
+```bash
+corepack enable
+corepack pnpm install
+corepack pnpm build
+corepack pnpm dev init --yes
+corepack pnpm dev provider setup mock
+corepack pnpm dev provider test
+corepack pnpm dev tui
+```
+
+真实 provider 示例（参数与普通用户相同）：
+
+```bash
+corepack pnpm dev provider setup openai --api-key "$OPENAI_API_KEY"
+# 或 DeepSeek / 其他兼容 endpoint：
+corepack pnpm dev provider setup openai-compatible --base-url https://api.deepseek.com/v1 --model deepseek-chat --api-key "$DEEPSEEK_API_KEY"
+corepack pnpm dev provider test
+corepack pnpm dev tui
+```
+
+一键引导脚本（安装 + 构建 + init）：
+
+- Linux/macOS：`bash scripts/setup.sh`
+- Windows PowerShell：`./scripts/setup.ps1`
+
+质量检查、发布验证与维护者诊断见
+[CONTRIBUTING.md](CONTRIBUTING.md#develop-from-source)。
 
 ### Windows
 
 原生 Windows 已支持：CLI、TUI 和 gateway 都无需 WSL 即可运行。
-`./scripts/setup.ps1` 会构建并初始化源码检出，并在 `git` 或 ripgrep（`rg`）不在
-`PATH` 上时给出提示。ripgrep、Git 与 PowerShell 执行策略相关的排查见
+ripgrep、Git 与 PowerShell 执行策略相关的排查见
 [Windows 排查](docs/user/windows-troubleshooting.md)。
+在 Windows 上从源码开发可用上面的 `./scripts/setup.ps1`。
 
 ### 升级
 
 从仍使用旧 thread→session schema 的预览检出升级时，需要先运行一次
-`talon doctor --fix`。
-
-从源码运行请参见 [参与贡献](CONTRIBUTING.md#develop-from-source)。
+`talon doctor --fix`（源码检出则用 `corepack pnpm dev doctor --fix`）。
 
 ## 常用命令
 
@@ -210,7 +247,10 @@ AutoTalon 面向需要真实工具权限、同时也需要可见护栏的本地�
 
 ## 参与贡献
 
-欢迎贡献。源码开发、质量检查和发布验证流程见 [CONTRIBUTING.md](CONTRIBUTING.md)。下一版本计划与可认领工作见 [ROADMAP.zh-CN.md](ROADMAP.zh-CN.md)。问题反馈请前往 [issue tracker](https://github.com/XD319/auto-talon/issues)。
+欢迎贡献。先按上面的[开发者（源码）安装路径](#开发者源码)跑起来，再看
+[CONTRIBUTING.md](CONTRIBUTING.md) 了解质量检查与发布验证。下一版本计划与可认领工作见
+[ROADMAP.zh-CN.md](ROADMAP.zh-CN.md)。问题反馈请前往
+[issue tracker](https://github.com/XD319/auto-talon/issues)。
 
 ## License
 

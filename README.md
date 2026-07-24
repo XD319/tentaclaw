@@ -54,10 +54,20 @@ Requirements:
 
 - Node.js `>=22.13.0`
 - A provider API key for real assistant runs (skip it to try the mock provider first)
+- **Developers only:** Corepack (bundled with Node.js) for the pinned pnpm version
 
-### Try it in two minutes (no credentials)
+Pick one path:
 
-Use the built-in mock provider to see the CLI and TUI work before wiring a real key:
+| Path | Who it's for | Command prefix |
+| --- | --- | --- |
+| [Users (npm)](#for-users-npm) | Install and run AutoTalon day to day | `talon ...` |
+| [Developers (from source)](#for-developers-from-source) | Contribute or run a local checkout | `corepack pnpm dev ...` |
+
+Provider setup flags are the same on both paths; only the CLI entrypoint differs.
+
+### For users (npm)
+
+#### Try it in two minutes (no credentials)
 
 ```bash
 npm install -g auto-talon
@@ -67,7 +77,7 @@ talon provider test
 talon tui
 ```
 
-### Full setup (real provider)
+#### Use a real provider
 
 `talon provider setup` and `talon provider custom add` write **user-level
 (global) config** by default (`~/.auto-talon/provider.config.json`), so the
@@ -112,20 +122,54 @@ $env:DEEPSEEK_API_KEY = "your-api-key"
 talon provider setup openai-compatible --base-url https://api.deepseek.com/v1 --model deepseek-chat --api-key $env:DEEPSEEK_API_KEY
 ```
 
+More usage after install: [Quickstart](docs/user/quickstart.md),
+[Install](docs/user/install.md).
+
+### For developers (from source)
+
+Use this path to work on AutoTalon itself. Replace every `talon` command from
+the user path with `corepack pnpm dev`.
+
+```bash
+corepack enable
+corepack pnpm install
+corepack pnpm build
+corepack pnpm dev init --yes
+corepack pnpm dev provider setup mock
+corepack pnpm dev provider test
+corepack pnpm dev tui
+```
+
+Real provider example (same flags as users):
+
+```bash
+corepack pnpm dev provider setup openai --api-key "$OPENAI_API_KEY"
+# or DeepSeek / other compatible endpoints:
+corepack pnpm dev provider setup openai-compatible --base-url https://api.deepseek.com/v1 --model deepseek-chat --api-key "$DEEPSEEK_API_KEY"
+corepack pnpm dev provider test
+corepack pnpm dev tui
+```
+
+Bootstrap scripts (install + build + init):
+
+- Linux/macOS: `bash scripts/setup.sh`
+- Windows PowerShell: `./scripts/setup.ps1`
+
+Quality checks, release validation, and maintainer diagnostics:
+[CONTRIBUTING.md](CONTRIBUTING.md#develop-from-source).
+
 ### Windows
 
 Native Windows is supported: the CLI, TUI, and gateways run without WSL.
-`./scripts/setup.ps1` builds and bootstraps a source checkout and warns if `git`
-or ripgrep (`rg`) are missing from `PATH`. See
-[Windows troubleshooting](docs/user/windows-troubleshooting.md) for ripgrep,
-Git, and PowerShell execution-policy tips.
+See [Windows troubleshooting](docs/user/windows-troubleshooting.md) for ripgrep,
+Git, and PowerShell execution-policy tips. Developers on Windows can use
+`./scripts/setup.ps1` for the source checkout path above.
 
 ### Upgrading
 
 Upgrading from a preview checkout that still uses the legacy thread→session
-schema requires running `talon doctor --fix` once.
-
-To run from source, see [Contributing](CONTRIBUTING.md#develop-from-source).
+schema requires running `talon doctor --fix` once (or
+`corepack pnpm dev doctor --fix` from a source checkout).
 
 ## Common commands
 
@@ -227,10 +271,11 @@ See the [Changelog](CHANGELOG.md) for release history.
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for developing
-from source, running quality checks, and validating a release. The next-release
-plan and claimable work items are in [ROADMAP.md](ROADMAP.md). Report issues at
-the [issue tracker](https://github.com/XD319/auto-talon/issues).
+Contributions are welcome. Start with the
+[developer Install path](#for-developers-from-source), then see
+[CONTRIBUTING.md](CONTRIBUTING.md) for quality checks and release validation.
+The next-release plan and claimable work items are in [ROADMAP.md](ROADMAP.md).
+Report issues at the [issue tracker](https://github.com/XD319/auto-talon/issues).
 
 ## License
 

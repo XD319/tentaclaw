@@ -6,12 +6,18 @@ source checkout and validating a release. For usage, start with the
 
 ## Develop from source
 
+This is the **developer** path. Day-to-day users should install from npm and use
+`talon ...` instead — see the [README Install](README.md#install) section.
+
 Requirements:
 
 - Node.js `>=22.13.0`
 - Corepack (bundled with Node.js) to pin the pinned pnpm version
 
+Mock provider (no credentials):
+
 ```bash
+corepack enable
 corepack pnpm install
 corepack pnpm build
 corepack pnpm dev init --yes
@@ -20,8 +26,23 @@ corepack pnpm dev provider test
 corepack pnpm dev tui
 ```
 
+Real provider: use the same flags as the README user path, with
+`corepack pnpm dev` as the entrypoint. Examples:
+
+```bash
+corepack pnpm dev provider setup openai --api-key "$OPENAI_API_KEY"
+corepack pnpm dev provider setup openai-compatible --base-url https://api.deepseek.com/v1 --model deepseek-chat --api-key "$DEEPSEEK_API_KEY"
+corepack pnpm dev provider test
+corepack pnpm dev tui
+```
+
+Provider config is user-level (global) by default; add `--workspace` for a
+project-local override. Full provider examples (built-ins, DeepSeek, PowerShell):
+[README → For users (npm)](README.md#for-users-npm).
+
 Use `corepack pnpm dev <command>` to run the CLI directly from TypeScript
-sources without a global install.
+sources without a global install. Bootstrap scripts:
+`bash scripts/setup.sh` or `./scripts/setup.ps1`.
 
 ## Quality checks
 

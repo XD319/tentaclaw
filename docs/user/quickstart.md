@@ -1,5 +1,10 @@
 # Quickstart
 
+Install first: pick the **user (npm)** or **developer (from source)** path in the
+[README Install](../../README.md#install) section (or [Install](install.md)).
+This quickstart assumes the user path (`talon ...`). From a source checkout,
+replace `talon` with `corepack pnpm dev`.
+
 1. Initialize local agent state: `talon init --yes`
 2. Configure a reusable user provider: `talon provider setup openai --api-key "$OPENAI_API_KEY"`
 3. Open the personal agent TUI: `talon tui`
