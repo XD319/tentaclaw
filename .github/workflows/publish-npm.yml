@@ -9,6 +9,11 @@ on:
         default: "0.1.1"
         type: string
 
+# OIDC trusted publishing — no long-lived NPM_TOKEN.
+# Configure on npmjs.com → auto-talon → Settings → Trusted Publisher:
+#   Repository: XD319/auto-talon
+#   Workflow filename: publish-npm.yml
+#   Environment: npm-publish
 permissions:
   contents: read
   id-token: write
@@ -38,6 +43,9 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      - name: Ensure npm supports OIDC trusted publishing
+        run: npm install -g npm@latest
+
       - name: Verify release identity
         shell: bash
         env:
@@ -46,6 +54,19 @@ jobs:
           PKG_VERSION=$(node -p "require('./package.json').version")
           test "$PKG_VERSION" = "$RELEASE_VERSION"
           test "$(git describe --tags --exact-match HEAD)" = "v$RELEASE_VERSION"
+          npm --version
+          # Trusted publishing requires npm >= 11.5.1
+          node -e "
+            const [maj, min, pat] = require('child_process')
+              .execSync('npm --version', { encoding: 'utf8' })
+              .trim()
+              .split('.')
+              .map(Number);
+            if (maj < 11 || (maj === 11 && (min < 5 || (min === 5 && pat < 1)))) {
+              console.error('npm >= 11.5.1 required for OIDC trusted publishing; got', [maj, min, pat].join('.'));
+              process.exit(1);
+            }
+          "
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -53,7 +74,6 @@ jobs:
       - name: Run release checks
         run: pnpm check
 
-      - name: Publish with provenance
+      - name: Publish with OIDC provenance
+        # Do not set NODE_AUTH_TOKEN — npm must use GitHub Actions OIDC.
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

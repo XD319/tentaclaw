@@ -85,12 +85,25 @@ tests, and build:
 npm run release:check -- --skip-quality-checks
 ```
 
-Before publishing, confirm the npm identity, publish, then validate the exact
-version from the registry:
+Publishing uses **npm Trusted Publishing (OIDC)** via
+[`.github/workflows/publish-npm.yml`](.github/workflows/publish-npm.yml) — no
+long-lived `NPM_TOKEN`. One-time setup on npmjs.com → package **Settings →
+Trusted Publisher**:
+
+- Repository: `XD319/auto-talon`
+- Workflow filename: `publish-npm.yml` (filename only)
+- Environment: `npm-publish` (must match the workflow `environment:`)
+
+After tagging `v<version>` and pushing, publish from GitHub Actions:
 
 ```bash
-npm whoami
-npm publish --access public
+gh workflow run publish-npm.yml -f version=<version>
+gh run watch
+```
+
+Then validate the registry install:
+
+```bash
 npm install -g auto-talon@<version>
 talon --version
 talon doctor
