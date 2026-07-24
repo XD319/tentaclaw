@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.1.1
+
+- Added layered skills with configurable precedence across team, project, user
+  (`local`), and builtin roots; team skills can be marked `required`, and
+  promotion/rollback can target `project` | `user` | `team`.
+- Added trusted npm publishing workflow with provenance (`publish-npm.yml`).
+- Documented the v0.2.0 roadmap (measurement/cost + parallel desktop companion)
+  and clarified npm vs source-checkout install paths in README / CONTRIBUTING /
+  install docs.
+- Expanded provider setup guidance for OpenAI-compatible endpoints (including
+  DeepSeek) and global vs workspace config.
+- Ignore `*.log` in the repository `.gitignore`.
+
 ## v0.1.0
 
 - First formal release of `auto-talon` as a local-first personal agent for

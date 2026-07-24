@@ -72,7 +72,7 @@ import type { SkillAttachmentKind } from "../types/skill.js";
 
 export async function main(argv = process.argv): Promise<void> {
   const program = new Command();
-  program.name("talon").description("Agent Runtime MVP CLI").version("0.1.0");
+  program.name("talon").description("Agent Runtime MVP CLI").version("0.1.1");
 
   program.command("version").description("Show runtime and environment version").action(() => {
     console.log(`auto-talon v${program.version()}`);

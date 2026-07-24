@@ -142,7 +142,7 @@ import { ToolExposurePlanner } from "./tool-exposure-planner.js";
 import { ensureWorkspaceState, resolveWorkspaceLayout, type WorkspaceMode } from "./workspace-layout.js";
 import { resolveDefaultUserId } from "./runtime-identity.js";
 
-export const RUNTIME_VERSION = "0.1.0";
+export const RUNTIME_VERSION = "0.1.1";
 
 export const DEFAULT_UNKNOWN_CONTEXT_WINDOW_FALLBACK_TOKENS = 32_000;
 

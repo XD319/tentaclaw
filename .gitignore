@@ -4,5 +4,6 @@ node_modules/
 coverage/
 .tmp-tests/
 eval-artifacts/
+*.log
 *.tsbuildinfo
 package-lock.json

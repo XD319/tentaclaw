@@ -28,7 +28,7 @@ describe("cli validation and read-only commands", () => {
     const result = runCli(workspace, ["version"]);
 
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain("auto-talon v0.1.0");
+    expect(result.stdout).toContain("auto-talon v0.1.1");
     expect(existsSync(join(workspace, ".auto-talon"))).toBe(false);
   });
 

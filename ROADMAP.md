@@ -5,7 +5,7 @@
 This roadmap describes the direction for the next release after `v0.1.0`. It is a
 living document: priorities may shift as evals and user feedback arrive.
 
-- Current release: `v0.1.0` (see [CHANGELOG.md](CHANGELOG.md))
+- Current release: `v0.1.1` (see [CHANGELOG.md](CHANGELOG.md))
 - Next target: `v0.2.0`
 - Theme: **Trustworthy self-improvement, at lower cost** — evolution you can
   measure — **∥ desktop companion** (parallel product surface).
