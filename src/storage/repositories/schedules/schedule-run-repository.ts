@@ -1,6 +1,6 @@
 ﻿import type { DatabaseSync } from "node:sqlite";
 
-import { ACTIVE_SCHEDULE_RUN_STATUSES } from "../../../types/schedule.js";
+import { ACTIVE_SCHEDULE_RUN_STATUSES, SCHEDULE_RUN_STATUS_TRANSITIONS } from "../../../types/schedule.js";
 import type {
   JsonObject,
   ScheduleRunDraft,
@@ -177,6 +177,12 @@ export class SqliteScheduleRunRepository implements ScheduleRunRepository {
     const existing = this.findById(runId);
     if (existing === null) {
       throw new Error(`Schedule run ${runId} was not found.`);
+    }
+    if (patch.status !== undefined && patch.status !== existing.status) {
+      const allowed = SCHEDULE_RUN_STATUS_TRANSITIONS[existing.status];
+      if (!allowed.includes(patch.status)) {
+        throw new Error(`Invalid schedule run transition: ${existing.status} -> ${patch.status}.`);
+      }
     }
 
     const next: ScheduleRunRecord = {

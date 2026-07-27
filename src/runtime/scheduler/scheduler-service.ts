@@ -96,7 +96,15 @@ export class SchedulerService {
             this.recordRunSkippedOverlap(schedule.scheduleId, activeRun.runId, "scheduled");
             continue;
           }
-          this.enqueueScheduledRun(schedule, now);
+          try {
+            this.enqueueScheduledRun(schedule, now);
+          } catch (error) {
+            const concurrentRun = this.dependencies.scheduleRunRepository.findActiveByScheduleId(schedule.scheduleId);
+            if (concurrentRun === null) {
+              throw error;
+            }
+            this.recordRunSkippedOverlap(schedule.scheduleId, concurrentRun.runId, "scheduled");
+          }
         }
         await this.dependencies.jobRunner.drain(nowIso);
       } while (this.pendingRetick);
@@ -306,16 +314,24 @@ export class SchedulerService {
       throw new Error(`Schedule already has an active run: ${activeRun.runId}`);
     }
     const latest = this.dependencies.scheduleRunRepository.listByScheduleId(scheduleId, { tail: 1 });
-    const run = this.dependencies.scheduleRunRepository.create({
-      attemptNumber: (latest[0]?.attemptNumber ?? 0) + 1,
-      runId: randomUUID(),
-      scheduleId,
-      scheduledAt: new Date().toISOString(),
-      status: "queued",
-      trigger: "manual"
-    });
-    this.recordRunEnqueued(run);
-    return run;
+    try {
+      const run = this.dependencies.scheduleRunRepository.create({
+        attemptNumber: (latest[0]?.attemptNumber ?? 0) + 1,
+        runId: randomUUID(),
+        scheduleId,
+        scheduledAt: new Date().toISOString(),
+        status: "queued",
+        trigger: "manual"
+      });
+      this.recordRunEnqueued(run);
+      return run;
+    } catch (error) {
+      const concurrentRun = this.dependencies.scheduleRunRepository.findActiveByScheduleId(scheduleId);
+      if (concurrentRun !== null) {
+        throw new Error(`Schedule already has an active run: ${concurrentRun.runId}`);
+      }
+      throw error;
+    }
   }
 
   private enqueueScheduledRun(schedule: ScheduleRecord, now: Date): ScheduleRunRecord {

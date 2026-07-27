@@ -1034,7 +1034,14 @@ function buildApplicationRuntime(
     taskRepository: storage.tasks
   });
   let service: AgentApplicationService | null = null;
+  const schedulerRef: { current: SchedulerService | null } = { current: null };
   const scheduleRunLifecycle = new ScheduleRunLifecycle({
+    onCompleted: (scheduleId) => {
+      const schedule = storage.schedules.findById(scheduleId);
+      if (schedule !== null) {
+        schedulerRef.current?.handleRepeatAfterSuccess(schedule);
+      }
+    },
     scheduleRunRepository: storage.scheduleRuns
   });
   const sessionExecutionLock = new SessionExecutionLock(storage.database, {
@@ -1143,7 +1150,7 @@ function buildApplicationRuntime(
     },
     onRunCompleted: (schedule, status) => {
       if (status === "completed") {
-        schedulerService.handleRepeatAfterSuccess(schedule);
+        schedulerRef.current?.handleRepeatAfterSuccess(schedule);
       }
     }
   });
@@ -1154,6 +1161,7 @@ function buildApplicationRuntime(
     scheduleRunRepository: storage.scheduleRuns,
     traceService
   });
+  schedulerRef.current = schedulerService;
   cronjobTool.bindPort({
     archiveSchedule: (scheduleId) => schedulerService.archiveSchedule(scheduleId),
     createSchedule: (input) =>

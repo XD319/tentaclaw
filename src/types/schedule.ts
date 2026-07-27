@@ -41,7 +41,7 @@ export const SCHEDULE_RUN_STATUS_TRANSITIONS: Record<ScheduleRunStatus, Schedule
   failed: [],
   queued: ["running", "cancelled"],
   running: ["waiting_approval", "blocked", "completed", "failed", "cancelled"],
-  waiting_approval: ["running", "failed", "cancelled"]
+  waiting_approval: ["running", "completed", "failed", "cancelled"]
 };
 
 export interface ScheduleRecord {

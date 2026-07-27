@@ -131,6 +131,11 @@ const SCHEMA_MIGRATIONS: SchemaMigration[] = [
     description: "add memories_fts full-text index for long-term memory search",
     up: migrateV25,
     version: 25
+  },
+  {
+    description: "enforce one active run per schedule",
+    up: migrateV26,
+    version: 26
   }
 ];
 
@@ -1169,6 +1174,12 @@ function migrateV25(database: DatabaseSync): void {
     return;
   }
   rebuildMemoriesFts(database);
+}
+
+function migrateV26(database: DatabaseSync): void {
+  database.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_schedule_runs_one_active
+    ON schedule_runs(schedule_id)
+    WHERE status IN ('queued', 'running', 'waiting_approval', 'blocked');`);
 }
 
 function rebuildMemoriesFts(database: DatabaseSync): void {
