@@ -1177,6 +1177,9 @@ function migrateV25(database: DatabaseSync): void {
 }
 
 function migrateV26(database: DatabaseSync): void {
+  if (!tableExists(database, "schedule_runs")) {
+    return;
+  }
   database.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_schedule_runs_one_active
     ON schedule_runs(schedule_id)
     WHERE status IN ('queued', 'running', 'waiting_approval', 'blocked');`);
