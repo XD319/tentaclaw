@@ -5,12 +5,52 @@ Install first: pick the **user (npm)** or **developer (from source)** path in th
 This quickstart assumes the user path (`talon ...`). From a source checkout,
 replace `talon` with `corepack pnpm dev`.
 
-1. Initialize local agent state: `talon init --yes`
-2. Configure a reusable user provider: `talon provider setup openai --api-key "$OPENAI_API_KEY"`
+## No-credentials mock walkthrough
+
+Use this path on a fresh machine when you want to reach `talon tui` without an
+API key. Mock replies are deterministic demos for local smoke — not a real model.
+
+1. Confirm Node.js: `node -v` must print `>=22.13.0` (Node 20 is not supported
+   because runtime storage uses built-in `node:sqlite`).
+2. Install and initialize:
+
+```bash
+npm install -g auto-talon
+talon init --yes
+talon provider setup mock
+talon provider test
+talon run "say hello"
+talon tui
+```
+
+3. Inside the TUI, send a short message. You should get a mock reply and be able
+   to open today/inbox/session views. Open runtime Ops with `talon ops` when
+   needed (`talon dashboard` is a compatibility alias).
+
+`provider test` and `talon run` should succeed with no credentials. If either
+fails with a missing-key or provider error, re-run `talon provider setup mock`
+and confirm `talon provider status` shows `mock` as active.
+
+### Common first-run blockers
+
+| Symptom | Fix |
+| --- | --- |
+| Unsupported Node / `node:sqlite` errors | Install Node.js `>=22.13.0` and reopen the shell |
+| `talon: command not found` after `npm install -g` | Put npm's global bin directory on `PATH` (or use `npx auto-talon ...`), then reopen the shell |
+| Setup asks for an API key or fails on missing credentials | You selected a real provider; switch with `talon provider setup mock` |
+| Code search later is slow or warns about `rg` | Optional: install ripgrep; see [Windows troubleshooting](windows-troubleshooting.md). Mock first-run does not require `rg` |
+| Unclear workspace / migration state | Run `talon doctor` (use `talon doctor --fix` only when upgrading a legacy checkout) |
+
+## Real provider path
+
+After the mock walkthrough (or instead of it):
+
+1. Configure a reusable user provider:
+   `talon provider setup openai --api-key "$OPENAI_API_KEY"`
+2. Verify: `talon provider test`
 3. Open the personal agent TUI: `talon tui`
 4. Start or continue work from today/inbox/session views inside the TUI
-5. Open runtime Ops view when needed: `talon ops` (`talon dashboard` is a compatibility alias)
-6. Optional: connect a chat entry point with `talon gateway serve-feishu --cwd .`
+5. Optional: connect a chat entry point with `talon gateway serve-feishu --cwd .`
 
 `talon provider setup` writes user config by default, so configured providers are
 visible from any workspace directory in `/model`. Use
@@ -55,4 +95,3 @@ Useful checks:
 - `talon task list`
 - `talon trace <task_id> --summary`
 - `talon audit <task_id> --summary`
-
