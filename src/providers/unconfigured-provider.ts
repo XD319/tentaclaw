@@ -2,6 +2,7 @@ import type { Provider, ProviderDescriptor, ProviderHealthCheck, ProviderRespons
 
 import type { ResolvedProviderConfig } from "./config.js";
 import { createProviderError } from "./provider-runtime.js";
+import { unconfiguredProviderMessage } from "./provider-setup-guidance.js";
 
 export class UnconfiguredProvider implements Provider {
   public readonly capabilities = {
@@ -30,7 +31,7 @@ export class UnconfiguredProvider implements Provider {
     return Promise.resolve({
       apiKeyConfigured: false,
       endpointReachable: null,
-      message: unconfiguredMessage(),
+      message: unconfiguredProviderMessage(),
       modelAvailable: null,
       modelConfigured: false,
       modelName: null,
@@ -42,14 +43,10 @@ export class UnconfiguredProvider implements Provider {
   public generate(): Promise<ProviderResponse> {
     throw createProviderError({
       category: "invalid_request",
-      message: unconfiguredMessage(),
+      message: unconfiguredProviderMessage(),
       providerName: this.name,
       retriable: false,
       summary: "Provider setup is required before running tasks."
     });
   }
-}
-
-function unconfiguredMessage(): string {
-  return "No provider is configured. Set AGENT_PROVIDER or configure ~/.auto-talon/provider.config.json.";
 }
