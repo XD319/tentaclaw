@@ -66,8 +66,9 @@ reflect cache hits.
 - **Eval / replay:** token summaries include cached-input totals when available.
 
 If `cachedInputTokens` stays `0` while you expect hits, either the upstream did
-not report cache fields, or the active provider parser has not mapped them yet
-(see below).
+not report cache fields, or another provider transport has not mapped them yet.
+OpenAI-compatible responses map `prompt_tokens_details.cached_tokens`,
+`prompt_cache_hit_tokens`, and top-level `cached_tokens` into `cachedInputTokens`.
 
 ## What is (and is not) triggered today
 
@@ -76,7 +77,7 @@ not report cache fields, or the active provider parser has not mapped them yet
 | Record `cachedInputTokens` when present on usage | Implemented |
 | Price cached tokens via `cachedInputPerMillion` | Implemented |
 | Emit Anthropic `cache_control` breakpoints on stable prefixes | Not yet — tracked in [#9](https://github.com/XD319/auto-talon/issues/9) |
-| Guarantee OpenAI-compatible cache-hit field mapping | Audit in [#6](https://github.com/XD319/auto-talon/issues/6) |
+| Guarantee OpenAI-compatible cache-hit field mapping | Implemented for common OpenAI-compatible fields (`prompt_tokens_details.cached_tokens`, `prompt_cache_hit_tokens`, `cached_tokens`) |
 | Prompt prefix “stable → variable” ordering for hit rate | Roadmap M2 (pairs with `#9`) |
 
 Today, cache hits are recorded when they **happen to appear** in provider usage.
