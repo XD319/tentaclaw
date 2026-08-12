@@ -187,8 +187,17 @@ Git, and PowerShell execution-policy tips. Developers on Windows can use
 ### Upgrading
 
 Upgrading from a preview checkout that still uses the legacy thread→session
-schema requires running `talon doctor --fix` once (or
-`corepack pnpm dev doctor --fix` from a source checkout).
+schema requires a one-shot migration. If commands fail with
+`Legacy workspace migration required`, run:
+
+```bash
+talon doctor --fix
+talon doctor
+```
+
+From a source checkout use `corepack pnpm dev doctor --fix`. The doctor output
+lists the current legacy tables/transcripts, the impact, and the exact fix
+command. Until migration completes, `talon tui` / `talon run` stay blocked.
 
 ## Common commands
 
