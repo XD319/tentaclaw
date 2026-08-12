@@ -56,13 +56,30 @@
 
 #### 两分钟试用（无需凭据）
 
+先确认 Node（`node -v` 需为 `>=22.13.0`；不支持 Node 20）。此路径不需要 API key。
+
 ```bash
 npm install -g auto-talon
 talon init --yes
 talon provider setup mock
 talon provider test
+talon run "say hello"
 talon tui
 ```
+
+`provider test` 与 `talon run` 应在无凭据时成功。随后打开 `talon tui` 发一条短消息——
+mock 回复是确定性演示，不是真实模型。
+
+若在进入 TUI 前失败：
+
+| 现象 | 处理 |
+| --- | --- |
+| `node:sqlite` / 不支持的 Node | 升级到 Node.js `>=22.13.0` |
+| 全局安装后提示 `talon: command not found` | 确认 npm 全局 bin 已在 `PATH`，然后重新打开终端 |
+| Provider / 缺少 key 报错 | 重新执行 `talon provider setup mock`（先不要配真实 provider） |
+| 之后代码搜索变慢或异常 | 可选安装 `rg`（见 [Windows 排查](docs/user/windows-troubleshooting.md)）；mock 首次试用不必安装 |
+
+更多说明见 [Quickstart](docs/user/quickstart.md#no-credentials-mock-walkthrough)。
 
 #### 使用真实 provider
 

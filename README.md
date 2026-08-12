@@ -69,13 +69,32 @@ Provider setup flags are the same on both paths; only the CLI entrypoint differs
 
 #### Try it in two minutes (no credentials)
 
+Confirm Node first (`node -v` must be `>=22.13.0`; Node 20 is not supported).
+No API key is required for this path.
+
 ```bash
 npm install -g auto-talon
 talon init --yes
 talon provider setup mock
 talon provider test
+talon run "say hello"
 talon tui
 ```
+
+`provider test` and `talon run` should succeed without credentials. Then open
+`talon tui` and send a short message — mock replies are deterministic demos, not
+a real model.
+
+If something fails before the TUI:
+
+| Symptom | What to do |
+| --- | --- |
+| `node:sqlite` / unsupported Node | Upgrade to Node.js `>=22.13.0` |
+| `talon: command not found` after global install | Ensure npm's global bin directory is on `PATH`, then reopen the shell |
+| Provider / missing-key errors | Re-run `talon provider setup mock` (do not set a real provider yet) |
+| Slow or odd code search later | Optional: install `rg` ([Windows tips](docs/user/windows-troubleshooting.md)); mock first-run does not require it |
+
+More detail: [Quickstart](docs/user/quickstart.md#no-credentials-mock-walkthrough).
 
 #### Use a real provider
 
