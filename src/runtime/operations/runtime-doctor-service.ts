@@ -8,6 +8,7 @@ import { listConfiguredApiSearchBackends } from "../../core/web-search-config.js
 import type { WebRuntimeConfig } from "../../core/web-search-config.js";
 import { configureSqliteConnection } from "../../storage/sqlite-connection.js";
 import { collectHttpAuthDoctorIssues } from "../../core/http-auth.js";
+import { formatRipgrepMissingDoctorIssue } from "../../core/ripgrep.js";
 import type { ExperienceRecord, ProviderHealthCheck } from "../../types/index.js";
 import type { ShellBackend, WorkflowCustomShell, WorkflowTestCommand } from "../runtime-config.js";
 import { resolveDefaultShellConfig } from "../../tools/shell/shell-executor.js";
@@ -203,12 +204,10 @@ export function collectPlatformToolIssues(
   const platform = options.platform ?? process.platform;
   const isAvailable = options.isCommandAvailable ?? isCommandAvailable;
   const issues: string[] = [];
+  if (!isAvailable("rg")) {
+    issues.push(formatRipgrepMissingDoctorIssue(platform));
+  }
   if (platform === "win32") {
-    if (!isAvailable("rg")) {
-      issues.push(
-        "ripgrep (rg) is not on PATH. Code search falls back to a slower Node walker; install with `winget install BurntSushi.ripgrep.MSVC` or `choco install ripgrep` (see docs/user/windows-troubleshooting.md)."
-      );
-    }
     if (!isAvailable("git")) {
       issues.push(
         "git is not on PATH. Workspace commands that rely on git status may fail; install with `winget install Git.Git` or from https://git-scm.com/download/win and ensure `git --version` works in your shell (see docs/user/windows-troubleshooting.md)."
