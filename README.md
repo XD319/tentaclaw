@@ -278,13 +278,13 @@ against sensitive project directories.
 | --- | --- |
 | Install and first run | [Install](docs/user/install.md), [Quickstart](docs/user/quickstart.md) |
 | Learn CLI/TUI commands | [Commands](docs/user/commands.md) |
-| Configure providers and runtime | [Config reference](docs/user/config-reference.md), [Provider troubleshooting](docs/troubleshooting/provider.md) |
+| Configure providers and runtime | [Config reference](docs/user/config-reference.md), [Provider troubleshooting](docs/troubleshooting/provider.md), [Provider routing and budget](docs/provider-routing-budget.md), [Prompt cache accounting](docs/dev/prompt-cache.md) |
 | Understand approvals and sandboxing | [Approvals](docs/user/approvals.md), [Sandbox troubleshooting](docs/troubleshooting/sandbox.md) |
 | Connect external entry points | [Gateway](docs/user/gateway.md), [Gateway troubleshooting](docs/troubleshooting/gateway.md) |
 | Use memory and skills | [Skills](docs/user/skills.md), [Memory troubleshooting](docs/troubleshooting/memory.md) |
 | Integrate MCP | [MCP](docs/user/mcp.md) |
 | Validate a release | [Replay and eval](docs/user/replay-and-eval.md), [Compatibility matrix](docs/compatibility-matrix.md) |
-| Develop AutoTalon | [Architecture](docs/dev/architecture.md), [Module boundaries](docs/dev/module-boundaries.md), [Testing](docs/dev/testing.md), [Desktop companion](docs/dev/desktop-companion.md) |
+| Develop AutoTalon | [Architecture](docs/dev/architecture.md), [Module boundaries](docs/dev/module-boundaries.md), [Testing](docs/dev/testing.md), [Context window](docs/dev/context-window.md), [Desktop companion](docs/dev/desktop-companion.md) |
 
 See the [Changelog](CHANGELOG.md) for release history.
 

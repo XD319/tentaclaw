@@ -46,6 +46,10 @@ Context usage percentage in the TUI is computed against the **usable** window:
 (inputLimit - reservedOutput)
 ```
 
+Prompt-cache hits are a separate spend signal (`cachedInputTokens` /
+`cachedInputPerMillion`), not a substitute for context-window limits. See
+[Prompt cache accounting](prompt-cache.md).
+
 ## Configuration (`.auto-talon/runtime.config.json`)
 
 ```json
