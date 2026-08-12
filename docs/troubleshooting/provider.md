@@ -23,10 +23,18 @@ Supported built-in providers include:
 Custom providers can be configured with `customProviders` when they expose either an
 `openai-compatible` or `anthropic-compatible` transport.
 
-- Missing key: set `AGENT_PROVIDER_API_KEY` or provider config file.
-- Endpoint unreachable: check `baseUrl` and network policy.
-- Model unavailable: run `talon provider test` and change `model`.
+- Missing key: set `AGENT_PROVIDER_API_KEY` or re-run
+  `talon provider setup <provider> --api-key <key>`, then `talon provider test`.
+- Endpoint unreachable: check `baseUrl` and network policy; update with
+  `talon provider setup <provider> --base-url <url>`.
+- Model unavailable: run `talon provider test` and change `model` with
+  `talon provider setup <provider> --model <model>`.
+- Unknown context window (`Context Window Tokens: -`): set
+  `talon provider setup <provider> --context-window-tokens <n>` when budget/compaction
+  behavior looks wrong.
 - Unsupported provider name: verify `currentProvider` / `customProviders`.
+- No provider configured: try `talon provider setup mock` for a no-credentials demo,
+  or configure a real provider with `--api-key`.
 
 Common configuration knobs:
 

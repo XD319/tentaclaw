@@ -20,6 +20,7 @@ import {
   toProviderError
 } from "./provider-runtime.js";
 import { composeAbortSignal, ensureTrailingSlash } from "./provider-http.js";
+import { missingApiKeyMessage } from "./provider-setup-guidance.js";
 import {
   StreamingFallbackState,
   classifyStreamingFallback,
@@ -266,7 +267,7 @@ export class AnthropicCompatibleProvider implements Provider {
       return {
         apiKeyConfigured,
         endpointReachable: null,
-        message: `Missing API key for ${this.describe().displayName}.`,
+        message: missingApiKeyMessage(this.describe().displayName, this.name),
         modelAvailable: null,
         modelConfigured,
         modelName: this.model,

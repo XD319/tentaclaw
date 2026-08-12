@@ -31,6 +31,7 @@ import {
   formatProviderStats
 } from "./formatters.js";
 import { parseNonNegativeIntegerOption, parsePositiveIntegerOption } from "./cli-helpers.js";
+import { formatProviderSetupNextSteps } from "../providers/provider-setup-guidance.js";
 
 interface ProviderSetupCommandOptions {
   apiKey?: string;
@@ -101,7 +102,18 @@ export function registerProviderCommands(program: Command): void {
         ...(commandOptions.timeoutMs !== undefined ? { timeoutMs: commandOptions.timeoutMs } : {}),
         ...resolveProviderConfigTarget(commandOptions.workspace === true)
       });
-      console.log(formatProviderConfigWrite("Configured", result));
+      console.log(
+        formatProviderConfigWrite("Configured", result, {
+          apiKeyProvided: commandOptions.apiKey !== undefined && commandOptions.apiKey.length > 0,
+          baseUrlProvided: commandOptions.baseUrl !== undefined && commandOptions.baseUrl.length > 0,
+          ...(commandOptions.contextWindowTokens !== undefined
+            ? { contextWindowTokens: commandOptions.contextWindowTokens }
+            : {}),
+          modelProvided:
+            (commandOptions.model !== undefined && commandOptions.model.length > 0) ||
+            provider.includes(":")
+        })
+      );
     });
 
   providerCommand
@@ -452,12 +464,30 @@ function resolveProviderConfigTarget(workspace: boolean): { cwd?: string; scope:
   };
 }
 
-function formatProviderConfigWrite(action: string, result: ProviderConfigWriteResult): string {
-  return [
+function formatProviderConfigWrite(
+  action: string,
+  result: ProviderConfigWriteResult,
+  setupHints?: {
+    apiKeyProvided: boolean;
+    baseUrlProvided: boolean;
+    contextWindowTokens?: number;
+    modelProvided: boolean;
+  }
+): string {
+  const lines = [
     `${action} ${result.scope} provider: ${result.providerName}`,
     `Model: ${result.model ?? "-"}`,
-    `Config Path: ${result.configPath}`,
-    "Check: talon provider status",
-    "Test: talon provider test"
-  ].join("\n");
+    `Config Path: ${result.configPath}`
+  ];
+  if (setupHints !== undefined) {
+    lines.push(
+      ...formatProviderSetupNextSteps({
+        ...setupHints,
+        providerName: result.providerName
+      })
+    );
+  } else {
+    lines.push("Check: talon provider status", "Test: talon provider test");
+  }
+  return lines.join("\n");
 }
