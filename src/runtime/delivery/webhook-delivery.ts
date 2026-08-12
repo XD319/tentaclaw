@@ -1,7 +1,7 @@
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 
-import { resolvePublicOutboundTarget } from "../../core/outbound-url.js";
+import { resolvePublicOutboundTarget, validateOutboundUrl } from "../../core/outbound-url.js";
 import { readScheduleWebhookUrl } from "../scheduler/schedule-delivery.js";
 import type { ScheduleRecord } from "../../types/index.js";
 
@@ -32,6 +32,7 @@ export class WebhookDeliveryService {
     }
     try {
       if (this.dependencies.fetchImpl !== undefined) {
+        validateOutboundUrl(webhookUrl);
         const response = await this.dependencies.fetchImpl(webhookUrl, {
           body: JSON.stringify(payload),
           headers: { "Content-Type": "application/json" },

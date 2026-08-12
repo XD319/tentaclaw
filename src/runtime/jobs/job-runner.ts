@@ -74,7 +74,9 @@ export class JobRunner {
       const next = this.dependencies.scheduleRunRepository.update(run.runId, {
         errorCode: result.task.errorCode ?? null,
         errorMessage: result.task.errorMessage ?? null,
-        finishedAt: result.task.finishedAt ?? new Date().toISOString(),
+        ...(isTerminalRunStatus(mappedStatus)
+          ? { finishedAt: result.task.finishedAt ?? new Date().toISOString() }
+          : {}),
         status: mappedStatus,
         taskId: result.task.taskId,
         sessionId: result.task.sessionId ?? null
@@ -98,8 +100,24 @@ export class JobRunner {
           summary: `Schedule run ${run.runId} failed`,
           taskId: next.taskId ?? `schedule:${schedule.scheduleId}`
         });
-      } else {
+      } else if (mappedStatus === "completed") {
         this.dependencies.onRunCompleted?.(schedule, "completed");
+        this.safeRecord({
+          actor: "scheduler",
+          eventType: "schedule_run_finished",
+          payload: {
+            attemptNumber: next.attemptNumber,
+            runId: next.runId,
+            scheduleId: next.scheduleId,
+            status: mappedStatus,
+            taskId: next.taskId,
+            sessionId: next.sessionId
+          },
+          stage: "completion",
+          summary: `Schedule run ${run.runId} ${mappedStatus}`,
+          taskId: next.taskId ?? `schedule:${schedule.scheduleId}`
+        });
+      } else {
         this.safeRecord({
           actor: "scheduler",
           eventType: "schedule_run_finished",
@@ -255,4 +273,8 @@ export class JobRunner {
     }
     return "blocked";
   }
+}
+
+function isTerminalRunStatus(status: ScheduleRunRecord["status"]): boolean {
+  return status === "completed" || status === "failed" || status === "cancelled";
 }

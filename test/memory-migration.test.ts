@@ -466,6 +466,106 @@ describe("storage migrations", () => {
       rmSync(workspace, { force: true, recursive: true });
     }
   });
+
+  it("cancels duplicate active schedule runs before creating the one-active index", () => {
+    const workspace = mkdtempSync(join(tmpdir(), "auto-talon-schedule-run-migration-"));
+    const databasePath = join(workspace, "runtime.db");
+    const db = new DatabaseSync(databasePath);
+    try {
+      db.exec(`
+        CREATE TABLE schedules (
+          schedule_id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          status TEXT NOT NULL,
+          session_id TEXT,
+          owner_user_id TEXT NOT NULL,
+          cwd TEXT NOT NULL,
+          agent_profile_id TEXT NOT NULL,
+          provider_name TEXT NOT NULL,
+          input TEXT NOT NULL,
+          cron TEXT,
+          interval_ms INTEGER,
+          run_at TEXT,
+          timezone TEXT,
+          next_fire_at TEXT,
+          last_fire_at TEXT,
+          max_attempts INTEGER NOT NULL,
+          backoff_base_ms INTEGER NOT NULL,
+          backoff_max_ms INTEGER NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          metadata_json TEXT NOT NULL
+        );
+        CREATE TABLE schedule_runs (
+          run_id TEXT PRIMARY KEY,
+          schedule_id TEXT NOT NULL,
+          attempt_number INTEGER NOT NULL,
+          status TEXT NOT NULL,
+          scheduled_at TEXT NOT NULL,
+          started_at TEXT,
+          finished_at TEXT,
+          task_id TEXT,
+          session_id TEXT,
+          error_code TEXT,
+          error_message TEXT,
+          trigger TEXT NOT NULL,
+          metadata_json TEXT NOT NULL
+        );
+        PRAGMA user_version = 25;
+      `);
+      const now = new Date().toISOString();
+      db.prepare(
+        `INSERT INTO schedules (
+          schedule_id, name, status, session_id, owner_user_id, cwd, agent_profile_id, provider_name,
+          input, cron, interval_ms, run_at, timezone, next_fire_at, last_fire_at, max_attempts,
+          backoff_base_ms, backoff_max_ms, created_at, updated_at, metadata_json
+        ) VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, 3, 1000, 5000, ?, ?, ?)`
+      ).run(
+        "sched-dup",
+        "dup",
+        "active",
+        "u1",
+        "/tmp/ws",
+        "executor",
+        "mock",
+        "work",
+        now,
+        now,
+        "{}"
+      );
+      db.prepare(
+        `INSERT INTO schedule_runs (
+          run_id, schedule_id, attempt_number, status, scheduled_at, started_at, finished_at,
+          task_id, session_id, error_code, error_message, trigger, metadata_json
+        ) VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?)`
+      ).run("run-old", "sched-dup", 1, "queued", "2026-01-01T00:00:00.000Z", "scheduled", "{}");
+      db.prepare(
+        `INSERT INTO schedule_runs (
+          run_id, schedule_id, attempt_number, status, scheduled_at, started_at, finished_at,
+          task_id, session_id, error_code, error_message, trigger, metadata_json
+        ) VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?)`
+      ).run("run-new", "sched-dup", 2, "running", "2026-01-02T00:00:00.000Z", "scheduled", "{}");
+
+      expect(() => runMigrations(db)).not.toThrow();
+
+      const rows = db
+        .prepare("SELECT run_id, status FROM schedule_runs WHERE schedule_id = 'sched-dup' ORDER BY run_id")
+        .all() as Array<{ run_id: string; status: string }>;
+      expect(rows).toEqual([
+        { run_id: "run-new", status: "running" },
+        { run_id: "run-old", status: "cancelled" }
+      ]);
+      const index = db
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_schedule_runs_one_active'")
+        .get() as { name?: string } | undefined;
+      expect(index?.name).toBe("idx_schedule_runs_one_active");
+      const userVersion = db.prepare("PRAGMA user_version").get() as { user_version: number };
+      expect(userVersion.user_version).toBe(RUNTIME_SCHEMA_VERSION);
+    } finally {
+      db.close();
+      rmSync(workspace, { force: true, recursive: true });
+    }
+  });
 });
 
 function tableNames(db: DatabaseSync): string[] {

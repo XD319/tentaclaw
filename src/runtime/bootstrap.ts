@@ -1115,7 +1115,6 @@ function buildApplicationRuntime(
           },
           userId: schedule.ownerUserId
         });
-        scheduleRunLifecycle.syncRunFromTask(runResult.task);
         return runResult;
       } catch (error) {
         const appError = toAppError(error);

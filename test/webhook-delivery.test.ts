@@ -28,9 +28,41 @@ describe("WebhookDeliveryService", () => {
       })
     );
   });
+
+  it("rejects private webhook targets before invoking fetchImpl", async () => {
+    const fetchImpl = vi.fn(() => Promise.resolve(new Response(null, { status: 200 })));
+    const onFailure = vi.fn();
+    const service = new WebhookDeliveryService({ fetchImpl, onFailure });
+    const schedule = createSchedule({
+      delivery: {
+        targets: ["webhook"],
+        webhookUrl: "http://127.0.0.1/hook"
+      }
+    });
+
+    await service.deliverScheduleOutcome(schedule, {
+      category: "task_completed",
+      errorCode: null,
+      errorMessage: null,
+      output: "done",
+      runId: "run-1",
+      scheduleId: schedule.scheduleId,
+      scheduleName: schedule.name,
+      status: "completed",
+      taskId: "task-1"
+    });
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(onFailure).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scheduleId: schedule.scheduleId,
+        webhookUrl: "http://127.0.0.1/hook"
+      })
+    );
+  });
 });
 
-function createSchedule(): ScheduleRecord {
+function createSchedule(metadata?: ScheduleRecord["metadata"]): ScheduleRecord {
   return {
     agentProfileId: "executor",
     backoffBaseMs: 5_000,
@@ -42,7 +74,7 @@ function createSchedule(): ScheduleRecord {
     intervalMs: null,
     lastFireAt: null,
     maxAttempts: 3,
-    metadata: {
+    metadata: metadata ?? {
       delivery: {
         targets: ["webhook"],
         webhookUrl: "https://example.com/hook"
