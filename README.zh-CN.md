@@ -251,13 +251,13 @@ AutoTalon 面向需要真实工具权限、同时也需要可见护栏的本地�
 | ---------------- | ---------------------------------------------------------------------------------------------- |
 | 安装和首次运行          | [安装](docs/user/install.md)、[快速开始](docs/user/quickstart.md)                                     |
 | 学习 CLI/TUI 命令    | [命令](docs/user/commands.md)                                                                    |
-| 配置 provider 和运行时 | [配置参考](docs/user/config-reference.md)、[Provider 排查](docs/troubleshooting/provider.md)          |
+| 配置 provider 和运行时 | [配置参考](docs/user/config-reference.md)、[Provider 排查](docs/troubleshooting/provider.md)、[Provider 路由与预算](docs/provider-routing-budget.md)、[Prompt cache 计量](docs/dev/prompt-cache.md) |
 | 理解审批和沙箱          | [审批](docs/user/approvals.md)、[Sandbox 排查](docs/troubleshooting/sandbox.md)                     |
 | 接入外部入口           | [Gateway](docs/user/gateway.md)、[Gateway 排查](docs/troubleshooting/gateway.md)                  |
 | 使用记忆和 skills     | [Skills](docs/user/skills.md)、[Memory 排查](docs/troubleshooting/memory.md)                      |
 | 集成 MCP           | [MCP](docs/user/mcp.md)                                                                        |
 | 验证发布             | [Replay 与 eval](docs/user/replay-and-eval.md)、[兼容矩阵](docs/compatibility-matrix.md)             |
-| 开发 AutoTalon     | [架构](docs/dev/architecture.md)、[模块边界](docs/dev/module-boundaries.md)、[测试](docs/dev/testing.md)、[桌面 companion](docs/dev/desktop-companion.md) |
+| 开发 AutoTalon     | [架构](docs/dev/architecture.md)、[模块边界](docs/dev/module-boundaries.md)、[测试](docs/dev/testing.md)、[上下文窗口](docs/dev/context-window.md)、[桌面 companion](docs/dev/desktop-companion.md) |
 
 
 发布历史见 [Changelog](CHANGELOG.md)。
