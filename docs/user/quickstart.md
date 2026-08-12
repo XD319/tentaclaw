@@ -39,7 +39,7 @@ and confirm `talon provider status` shows `mock` as active.
 | `talon: command not found` after `npm install -g` | Put npm's global bin directory on `PATH` (or use `npx auto-talon ...`), then reopen the shell |
 | Setup asks for an API key or fails on missing credentials | You selected a real provider; switch with `talon provider setup mock` |
 | Code search later is slow or warns about `rg` | Optional: install ripgrep; see [Windows troubleshooting](windows-troubleshooting.md). Mock first-run does not require `rg` |
-| Unclear workspace / migration state | Run `talon doctor` (use `talon doctor --fix` only when upgrading a legacy checkout) |
+| Unclear workspace / migration state | Run `talon doctor`. If it reports legacy thread/session tables or pending JSON transcripts, follow the printed fix (`talon doctor --fix`) and re-check with `talon doctor`. |
 
 ## Real provider path
 

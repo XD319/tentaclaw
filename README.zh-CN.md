@@ -169,8 +169,16 @@ ripgrep、Git 与 PowerShell 执行策略相关的排查见
 
 ### 升级
 
-从仍使用旧 thread→session schema 的预览检出升级时，需要先运行一次
-`talon doctor --fix`（源码检出则用 `corepack pnpm dev doctor --fix`）。
+从仍使用旧 thread→session schema 的预览检出升级时，需要一次性迁移。若命令失败并提示
+`Legacy workspace migration required`，在工作区根目录执行：
+
+```bash
+talon doctor --fix
+talon doctor
+```
+
+源码检出则用 `corepack pnpm dev doctor --fix`。doctor 输出会列出当前遗留表/转写文件、
+影响范围，以及确切修复命令。迁移完成前，`talon tui` / `talon run` 会保持阻塞。
 
 ## 常用命令
 

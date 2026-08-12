@@ -18,6 +18,7 @@ import {
   RUNTIME_VERSION,
 } from "../runtime/index.js";
 import { runGitReadOnly } from "../runtime/workspace/git-readonly.js";
+import { formatLegacyMigrationGuidance } from "../runtime/sessions/legacy-workspace.js";
 import { startDashboardTui, startTui } from "../tui/index.js";
 import {
   clearSessionModelSelection,
@@ -212,10 +213,9 @@ export async function main(argv = process.argv): Promise<void> {
             );
           }
           if (repair.remainingIssues.length > 0) {
-            console.log("Remaining legacy issues:");
-            for (const issue of repair.remainingIssues) {
-              console.log(`- ${issue}`);
-            }
+            console.log(formatLegacyMigrationGuidance(repair.remainingIssues));
+          } else {
+            console.log("Legacy workspace migration: complete.");
           }
         }
         console.log(formatDoctorReport(await handle.service.configDoctor()));
@@ -253,10 +253,9 @@ export async function main(argv = process.argv): Promise<void> {
             );
           }
           if (repair.remainingIssues.length > 0) {
-            console.log("Remaining legacy issues:");
-            for (const issue of repair.remainingIssues) {
-              console.log(`- ${issue}`);
-            }
+            console.log(formatLegacyMigrationGuidance(repair.remainingIssues));
+          } else {
+            console.log("Legacy workspace migration: complete.");
           }
         }
         console.log(formatDoctorReport(await handle.service.configDoctor()));
