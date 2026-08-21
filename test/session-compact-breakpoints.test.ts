@@ -74,6 +74,24 @@ describe("CompactTriggerPolicy breakpoints", () => {
     expect(decision.reason).toBeNull();
   });
 
+  it("allows count triggers when minTokenPressureRatio is 0", () => {
+    const policy = new CompactTriggerPolicy();
+    const decision = policy.shouldCompact({
+      maxMessagesBeforeCompact: 50,
+      messages: [{ content: "x", role: "user" }],
+      minTokenPressureRatio: 0,
+      sessionScopeKey: "s1",
+      taskId: "t1",
+      tokenEstimate: 0,
+      tokenThreshold: 999_999,
+      toolCallCount: 30,
+      toolCallThreshold: 20
+    });
+
+    expect(decision.triggered).toBe(true);
+    expect(decision.reason).toBe("tool_call_count");
+  });
+
   it("allows count triggers when token pressure meets minTokenPressureRatio", () => {
     const policy = new CompactTriggerPolicy();
     const decision = policy.shouldCompact({

@@ -142,7 +142,7 @@ const runtimeConfigFileSchema = z.object({
       compactCooldownIterations: z.number().int().nonnegative().optional(),
       iterationThreshold: z.number().int().positive().optional(),
       messageThreshold: z.number().int().positive().optional(),
-      minTokenPressureRatio: z.number().positive().max(1).optional(),
+      minTokenPressureRatio: z.number().min(0).max(1).optional(),
       protectFirstN: z.number().int().nonnegative().optional(),
       protectLastN: z.number().int().positive().optional(),
       resumeUserTailMessages: z.number().int().positive().optional(),

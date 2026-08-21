@@ -81,8 +81,11 @@ export class CompactTriggerPolicy {
 
 function hasTokenPressure(input: SessionCompactInput): boolean {
   const ratio = input.minTokenPressureRatio ?? 0.5;
+  if (ratio <= 0) {
+    return true;
+  }
   const threshold = input.tokenThreshold;
-  if (threshold === undefined || threshold === null) {
+  if (threshold === undefined || threshold === null || !Number.isFinite(threshold)) {
     return true;
   }
   return (input.tokenEstimate ?? 0) >= ratio * threshold;
