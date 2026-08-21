@@ -8,13 +8,14 @@ import { buildCapabilityDeclaration } from "../../memory/capability-declaration-
 import {
   computePromptTokens,
   createHybridTokenCounterState,
+  estimateConversationMessageTokens,
   recordApiUsage
 } from "../context/token-counter.js";
 import {
   dropOldestNonSystemMessages,
   isContextOverflowProviderError
 } from "../context/reactive-compact.js";
-import { pruneOldToolResults } from "../context/tool-result-pruner.js";
+import { pruneOldToolResults, DEFAULT_TOOL_RESULT_KEEP_GROUPS } from "../context/tool-result-pruner.js";
 import { syncPinnedRecentFilesMessage } from "../context/recent-file-reads.js";
 import type { ManualCompactRequest } from "../context/manual-compact-coordinator.js";
 import type { ContextCompactor, SessionSummaryService } from "../context/index.js";
@@ -41,6 +42,7 @@ import { buildParallelSafeLookup } from "../../tools/tool-parallel-policy.js";
 import type { ToolOrchestrator } from "../../tools/index.js";
 import type { TraceService } from "../../tracing/trace-service.js";
 import type { CompactTriggerPolicy } from "../../memory/compact-policy.js";
+import { resolveCompactCooldown } from "../../memory/compact-policy.js";
 import type { ManualCompactCoordinator } from "../context/manual-compact-coordinator.js";
 import type { RuntimeOutputService } from "../runtime-output-service.js";
 import type { TodoItem } from "../../tools/todo-session-store.js";
@@ -145,6 +147,8 @@ export interface ExecutionLoopRunnerDependencies {
   traceService: TraceService;
   workerDispatcher?: WorkerDispatcher;
   workspaceRoot: string;
+  toolResultKeepGroups?: number;
+  compactCooldownIterations?: number;
 }
 
 export function buildToolExposurePlannerInput(input: {
@@ -230,7 +234,8 @@ export class ExecutionLoopRunner {
         }
         this.callbacks.syncRecentFileCacheMode(state, pendingToolCalls, availableTools);
         sanitizeToolCallPairing(state.turnProviderMessages);
-        const pruneResult = pruneOldToolResults(state.turnProviderMessages);
+        const keepGroups = this.dependencies.toolResultKeepGroups ?? DEFAULT_TOOL_RESULT_KEEP_GROUPS;
+        const pruneResult = pruneOldToolResults(state.turnProviderMessages, keepGroups);
         if (pruneResult.prunedCount > 0) {
           state.microPrunedCount += pruneResult.prunedCount;
           this.dependencies.traceService.record({
@@ -1150,7 +1155,28 @@ export class ExecutionLoopRunner {
           (fragment) => fragment.scope === "skill_ref"
         );
         state.turnProviderMessages = rebuildTurnProviderMessages(messages, state.turnProviderMessages);
+        const postCompactTokens = messages.reduce(
+          (sum, message) => sum + estimateConversationMessageTokens(message),
+          0
+        );
+        state.compactCooldownRemaining = resolveCompactCooldown({
+          cooldownIterations: this.dependencies.compactCooldownIterations ?? 2,
+          postCompactTokens,
+          tokenThreshold: compactInputBase.tokenThreshold
+        });
+      } else if (state.compactCooldownRemaining > 0) {
+        state.compactCooldownRemaining -= 1;
       }
+    }
+
+    if (state.completionVerificationSatisfied) {
+      const lastAssistant = [...messages]
+        .reverse()
+        .find((message) => message.role === "assistant" && (message.content ?? "").trim().length > 0);
+      const finalOutput =
+        lastAssistant?.content.trim() ||
+        "Workspace changes were verified before the iteration limit was reached.";
+      return this.callbacks.completeTaskSuccess(state, messages, availableTools, task, finalOutput);
     }
 
     this.dependencies.traceService.record({

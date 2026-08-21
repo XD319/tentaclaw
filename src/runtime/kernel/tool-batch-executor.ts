@@ -401,6 +401,12 @@ export class ToolBatchExecutor {
     ) {
       state.writeToolSucceeded = true;
       state.completionVerificationSatisfied = false;
+      if (state.recentFileReadCache !== null) {
+        const keepPath = writeTargetPath(toolCall);
+        if (keepPath !== null) {
+          state.recentFileReadCache.retainMatching(keepPath);
+        }
+      }
     }
     if (outcome.result.success && outcome.result.replayed !== true && writeToolResult) {
       this.dependencies.traceService.record({ actor: "runtime.kernel", eventType: "completion_verification_pending", payload: { iteration, toolCallId: toolCall.toolCallId, toolName: toolCall.toolName }, stage: "completion", summary: "Workspace write requires subsequent verification", taskId: task.taskId });
@@ -697,4 +703,15 @@ export function isContentMutatingWrite(
     }
   }
   return true;
+}
+
+export function writeTargetPath(toolCall: ProviderToolCall): string | null {
+  const input = toolCall.input as { action?: unknown; path?: unknown; toPath?: unknown };
+  if (input.action === "rename_file" && typeof input.toPath === "string" && input.toPath.trim().length > 0) {
+    return input.toPath.trim();
+  }
+  if (typeof input.path === "string" && input.path.trim().length > 0) {
+    return input.path.trim();
+  }
+  return null;
 }

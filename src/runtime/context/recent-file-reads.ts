@@ -11,15 +11,17 @@ export interface ContextRetentionConfig {
   maxBytesPerFileUnderGuard: number;
   maxTotalBytesUnderGuard: number;
   toolOutputMaxTokens: number;
+  toolResultKeepGroups: number;
 }
 
 export const DEFAULT_CONTEXT_RETENTION: ContextRetentionConfig = {
-  maxFiles: 8,
   maxBytesPerFile: 24_000,
-  maxTotalBytes: 128_000,
   maxBytesPerFileUnderGuard: 24_000,
+  maxFiles: 8,
+  maxTotalBytes: 128_000,
   maxTotalBytesUnderGuard: 200_000,
-  toolOutputMaxTokens: 2_500
+  toolOutputMaxTokens: 2_500,
+  toolResultKeepGroups: 5
 };
 
 export type RecentFileReadCacheMode = "normal" | "write_required";
@@ -85,6 +87,25 @@ export class RecentFileReadCache {
 
   public evict(path: string): void {
     this.entries.delete(path.trim());
+  }
+
+  /**
+   * Keep only cache entries whose path matches `keepPath` (relative or absolute).
+   * Used after a successful write so filler reads do not stay pinned.
+   */
+  public retainMatching(keepPath: string): string[] {
+    const keep = keepPath.trim();
+    if (keep.length === 0) {
+      return [];
+    }
+    const evicted: string[] = [];
+    for (const path of [...this.entries.keys()]) {
+      if (!recentFilePathsMatch(path, keep)) {
+        this.entries.delete(path);
+        evicted.push(path);
+      }
+    }
+    return evicted;
   }
 
   public list(): RecentFileReadEntry[] {
@@ -198,7 +219,8 @@ export function buildPinnedRecentFilesMessage(entries: RecentFileReadEntry[]): C
     return null;
   }
 
-  const blocks = entries.map((entry) => {
+  const sortedEntries = [...entries].sort((left, right) => left.path.localeCompare(right.path));
+  const blocks = sortedEntries.map((entry) => {
     const truncationNote = entry.truncated ? " (truncated)" : "";
     return [`### ${entry.path}${truncationNote}`, "```", entry.content, "```"].join("\n");
   });
@@ -222,18 +244,34 @@ export function syncPinnedRecentFilesMessage(
   messages: ConversationMessage[],
   cache: RecentFileReadCache | null
 ): ConversationMessage | null {
-  const withoutPinned = messages.filter((message) => !isPinnedRecentFilesMessage(message));
-  messages.length = 0;
-  messages.push(...withoutPinned);
+  const existingPinned = messages.find((message) => isPinnedRecentFilesMessage(message)) ?? null;
 
   if (cache === null) {
+    if (existingPinned !== null) {
+      const withoutPinned = messages.filter((message) => !isPinnedRecentFilesMessage(message));
+      messages.length = 0;
+      messages.push(...withoutPinned);
+    }
     return null;
   }
 
   const pinned = buildPinnedRecentFilesMessage(cache.list());
   if (pinned === null) {
+    if (existingPinned !== null) {
+      const withoutPinned = messages.filter((message) => !isPinnedRecentFilesMessage(message));
+      messages.length = 0;
+      messages.push(...withoutPinned);
+    }
     return null;
   }
+
+  if (existingPinned !== null && existingPinned.content === pinned.content) {
+    return existingPinned;
+  }
+
+  const withoutPinned = messages.filter((message) => !isPinnedRecentFilesMessage(message));
+  messages.length = 0;
+  messages.push(...withoutPinned);
 
   const initialSystemIndex = messages.findIndex(
     (message) =>
@@ -273,6 +311,13 @@ function sliceUtf8ByBytes(value: string, startByte: number, maxBytes: number): s
   const buffer = Buffer.from(value, "utf8");
   const slice = buffer.subarray(startByte, startByte + maxBytes);
   return slice.toString("utf8");
+}
+
+export function recentFilePathsMatch(left: string, right: string): boolean {
+  const normalize = (value: string): string => value.replaceAll("\\", "/").replace(/\/+$/u, "").toLowerCase();
+  const a = normalize(left);
+  const b = normalize(right);
+  return a === b || a.endsWith(`/${b}`) || b.endsWith(`/${a}`);
 }
 
 export function formatRecentlyReadFilesSummary(entries: RecentFileReadEntry[]): string {

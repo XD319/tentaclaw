@@ -830,6 +830,67 @@ describe("coding workflow loop", () => {
     }
   });
 
+  it("completes successfully when verification already passed at the iteration limit", async () => {
+    const workspaceRoot = await createWorkflowWorkspace();
+    let noToolsSummaryRequested = false;
+    const handle = createApplication(workspaceRoot, {
+      config: { databasePath: join(workspaceRoot, "runtime.db") },
+      policyConfig: WORKFLOW_POLICY_CONFIG,
+      provider: new ScriptedProvider((input) => {
+        if (input.availableTools.length === 0) {
+          noToolsSummaryRequested = true;
+          return finalResponse("should not be required");
+        }
+        const toolMessages = input.messages.filter((message) => message.role === "tool");
+        if (toolMessages.length === 0) {
+          return toolCallResponse("Fix the check script.", [
+            {
+              input: { content: "process.exit(0);\n", overwrite: true, path: "check.js" },
+              reason: "Make verification pass.",
+              toolCallId: "write-check",
+              toolName: "write_file"
+            }
+          ]);
+        }
+        if (toolMessages.some((message) => (message.toolCallId ?? "").includes("write-check"))) {
+          const alreadyVerified = toolMessages.some((message) => (message.toolCallId ?? "").includes("verify-check"));
+          if (!alreadyVerified) {
+            return toolCallResponse("Verify the workspace change.", [
+              {
+                input: { command: "node check.js" },
+                reason: "Run configured verification.",
+                toolCallId: "verify-check",
+                toolName: "shell"
+              }
+            ]);
+          }
+        }
+        return toolCallResponse("Keep looking after verification.", [
+          {
+            input: { path: "package.json" },
+            reason: "Extra read after verification.",
+            toolCallId: `read-after-${input.iteration}`,
+            toolName: "read_file"
+          }
+        ]);
+      })
+    });
+
+    try {
+      const runOptions = createDefaultRunOptions("repair and verify then keep going", workspaceRoot, handle.config);
+      runOptions.maxIterations = 3;
+      const result = await handle.service.runTask(runOptions);
+      const details = handle.service.showTask(result.task.taskId);
+
+      expect(noToolsSummaryRequested).toBe(false);
+      expect(result.task.status).toBe("succeeded");
+      expect(details.trace.some((event) => event.eventType === "completion_verification_satisfied")).toBe(true);
+      expect(details.trace.some((event) => event.eventType === "iteration_exhausted")).toBe(false);
+    } finally {
+      handle.close();
+    }
+  });
+
 });
 
 async function createWorkflowWorkspace(): Promise<string> {

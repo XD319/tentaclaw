@@ -2,7 +2,22 @@ import type { SessionCompactInput, SessionCompactTriggerReason } from "../types/
 
 export interface CompactDecision {
   triggered: boolean;
-  reason: SessionCompactTriggerReason | "unsafe_breakpoint" | null;
+  reason: SessionCompactTriggerReason | "unsafe_breakpoint" | "cooldown" | null;
+}
+
+export function resolveCompactCooldown(input: {
+  cooldownIterations: number;
+  postCompactTokens: number;
+  tokenThreshold: number | null | undefined;
+}): number {
+  if (input.cooldownIterations <= 0) {
+    return 0;
+  }
+  const threshold = input.tokenThreshold;
+  if (threshold === undefined || threshold === null) {
+    return 0;
+  }
+  return input.postCompactTokens >= threshold ? input.cooldownIterations : 0;
 }
 
 export class CompactTriggerPolicy {
@@ -14,6 +29,13 @@ export class CompactTriggerPolicy {
       };
     }
 
+    if ((input.compactCooldownRemaining ?? 0) > 0) {
+      return {
+        reason: "cooldown",
+        triggered: false
+      };
+    }
+
     if ((input.tokenThreshold ?? Number.POSITIVE_INFINITY) <= (input.tokenEstimate ?? 0)) {
       return {
         reason: "token_budget",
@@ -21,21 +43,29 @@ export class CompactTriggerPolicy {
       };
     }
 
-    if ((input.toolCallThreshold ?? Number.POSITIVE_INFINITY) <= (input.toolCallCount ?? 0)) {
+    const tokenPressureMet = hasTokenPressure(input);
+
+    if (
+      tokenPressureMet &&
+      (input.toolCallThreshold ?? Number.POSITIVE_INFINITY) <= (input.toolCallCount ?? 0)
+    ) {
       return {
         reason: "tool_call_count",
         triggered: true
       };
     }
 
-    if ((input.iterationThreshold ?? Number.POSITIVE_INFINITY) <= (input.iteration ?? 0)) {
+    if (
+      tokenPressureMet &&
+      (input.iterationThreshold ?? Number.POSITIVE_INFINITY) <= (input.iteration ?? 0)
+    ) {
       return {
         reason: "iteration_count",
         triggered: true
       };
     }
 
-    if (input.messages.length >= input.maxMessagesBeforeCompact) {
+    if (tokenPressureMet && input.messages.length >= input.maxMessagesBeforeCompact) {
       return {
         reason: "message_count",
         triggered: true
@@ -47,6 +77,15 @@ export class CompactTriggerPolicy {
       triggered: false
     };
   }
+}
+
+function hasTokenPressure(input: SessionCompactInput): boolean {
+  const ratio = input.minTokenPressureRatio ?? 0.5;
+  const threshold = input.tokenThreshold;
+  if (threshold === undefined || threshold === null) {
+    return true;
+  }
+  return (input.tokenEstimate ?? 0) >= ratio * threshold;
 }
 
 function isSafeCompactPoint(input: SessionCompactInput): boolean {
