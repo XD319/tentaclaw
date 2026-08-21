@@ -12,9 +12,13 @@ import type {
   TuiInteractionMode
 } from "../types/index.js";
 import type { WebSearchBackend, WebRuntimeConfig } from "../core/web-search-config.js";
+import {
+  MEMORY_CONTEXT_SOURCE_TYPE,
+  stabilizeLeadingSystemPrefix
+} from "../core/prompt-prefix.js";
 import { estimateMessagesTokens } from "./context/token-counter.js";
 
-export const MEMORY_CONTEXT_SOURCE_TYPE = "memory_context_recall";
+export { MEMORY_CONTEXT_SOURCE_TYPE };
 
 export interface ContextAssemblerInput {
   activeContextFragments?: ContextDebugFragment[];
@@ -41,10 +45,11 @@ export interface MemoryContextInjection {
 
 export class ExecutionContextAssembler {
   public assemble(input: ContextAssemblerInput): AssembledProviderContext {
-    const { injection, messages } = mergeMemoryContextIntoMessages(
+    const { injection, messages: withMemory } = mergeMemoryContextIntoMessages(
       input.messages,
       input.memoryContext
     );
+    const messages = stabilizeLeadingSystemPrefix(withMemory);
     const providerInput = {
       availableTools: input.availableTools,
       agentProfileId: input.task.agentProfileId,

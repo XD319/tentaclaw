@@ -25,7 +25,7 @@
 
 `v0.1.0` 已经是一套较成熟的 local-first agent（sandbox、审批、trace、audit、rollback、memory、experience、调度、gateway、MCP）。本版本主要补两处缺口：
 
-1. **成本：缓存已计量，但从未主动触发。** 运行时已端到端记账 `cachedInputTokens`（成本计算器、budget、telemetry、replay、eval），但 Anthropic-compatible provider 并未发送 `cache_control` 断点 —— 因此缓存命中只在「碰巧发生」时被记录，从未被主动创建。补上这一步风险低、ROI 高。
+1. **成本：缓存已计量，Anthropic 断点现在会主动创建命中。** 运行时已端到端记账 `cachedInputTokens`（成本计算器、budget、telemetry、replay、eval）。Anthropic-compatible provider 会在稳定前缀上发送 `cache_control` 断点，因此缓存不仅会被记录，也可以被主动创建。
 2. **质量：自进化闭环未被验证。** `ExperiencePlane` 与 `PromotionAdvisor`（从重复成功模式自动晋升 skill）已存在，但 eval 套件只测盲测能力。没有任何评测去衡量复利闭环：*经验被捕获 → 被晋升 → 性能真的提升*。
 
 其余工作都建立在：先让这个闭环可测，再用同一套测量去证明成本与质量收益。
@@ -54,8 +54,8 @@ M5 桌面 companion = 并行赛道（Tauri + session-api；不取代 TUI）
 | 工作项 | Ownership | Difficulty | Paid model | 说明 |
 | --- | --- | --- | --- | --- |
 | 将「性能」定义为固定 eval 指标（成功率 / 平均回合数 / 每次成功的 token 数），并接入 gate 阈值 | `maintainer` | — | 否 | 设计决策；之后所有改进都相对该 baseline 报告。 |
-| 自进化 **compounding eval** runner：同一任务集在「经验/skill 为空」与「已积累」下各跑一遍，并 diff 指标 | `maintainer` | advanced | 是 | 整合 eval core + experience plane；gate 增加「自进化不得回退」。 |
-| 扩充 compounding eval **任务数据集**（runner 落地后） | `community` | intermediate | 否 | 在现有 `EvalSuiteManifest` 契约下的数据工作；每个任务至少一个必需确定性 scorer。 |
+| 自进化 **compounding eval** runner：同一任务集在「经验/skill 为空」与「已积累」下各跑一遍，并 diff 指标 | `maintainer` | advanced | 是 | 已落地：`talon eval compounding` 与 `src/evaluation/compounding.ts`。gate：自进化不得回退。 |
+| 扩充 compounding eval **任务数据集**（runner 落地后） | `community` | intermediate | 否 | 已落地：`fixtures/eval-suites/compounding-self-evolution.v1.json`（6 个 skill 复用任务）。 |
 
 参考：`src/evaluation/`、`fixtures/eval-baselines/`、
 [docs/dev/evaluation.md](docs/dev/evaluation.md)、
@@ -67,8 +67,8 @@ M5 桌面 companion = 并行赛道（Tauri + session-api；不取代 TUI）
 
 | 工作项 | Ownership | Difficulty | Paid model | 说明 |
 | --- | --- | --- | --- | --- |
-| 在 Anthropic-compatible provider 的稳定前缀（system prompt、tool schema、稳定 memory 前缀）上发送 `cache_control: { type: "ephemeral" }` 断点 | `mixed` | advanced | 部分 | 维护者确认断点策略与 `anthropic-beta` header 要求；实现可认领。 |
-| Prompt **前缀稳定化** —— 将 prompt 排成「稳定 → 可变」以最大化缓存命中 | `mixed` | intermediate | 否 | 不得破坏现有 compaction / 尾部保护。 |
+| 在 Anthropic-compatible provider 的稳定前缀（system prompt、tool schema、稳定 memory 前缀）上发送 `cache_control: { type: "ephemeral" }` 断点 | `mixed` | advanced | 部分 | 已落地。断点：最后一个 tool、稳定 system prompt、memory recall。Header：`anthropic-beta: prompt-caching-2024-07-31`。 |
+| Prompt **前缀稳定化** —— 将 prompt 排成「稳定 → 可变」以最大化缓存命中 | `mixed` | intermediate | 否 | 已对 leading system 前缀落地；后续 system nudge 保持原位，不破坏 compaction / 尾部保护。 |
 | OpenAI-compatible **缓存 token 计量核对** —— 确认 usage 解析把缓存命中字段映射进 `cachedInputTokens` | `community` | intermediate | 否 | telemetry 层、自包含、可用单测。 |
 | 缓存配置与预期节省的文档 | `community` | good-first-issue | 否 | 纯文档。 |
 
@@ -143,13 +143,13 @@ M5 桌面 companion = 并行赛道（Tauri + session-api；不取代 TUI）
 6. `doctor --fix` 迁移体验（M4）—— `intermediate`。
 7. 桌面只读会话浏览器（M5b，API 就绪后）—— `intermediate`。
 8. 桌面聊天（经 `continue`，M5d）—— `intermediate`。
-9. Compounding eval 数据集扩充（M1，runner 落地后）—— `intermediate`。
-10. Anthropic `cache_control` 发火（M2）—— `advanced`，需维护者先确认规格。
+9. Compounding eval 数据集扩充（M1）—— 已落地；可在同一契约下继续加 skill 复用任务。
+10. Anthropic `cache_control` 发火（M2）—— 已落地。
 11. 桌面 Tauri 脚手架 / 打包（M5a/M5e）—— `advanced`，ADR 确认后。
 
 维护者主导（请勿开成会削弱这些边界的社区认领 issue）：
 
 - 性能指标定义与 gate 阈值（M1）。
-- Compounding eval runner 架构（M1）。
+- Compounding eval runner 架构（M1）—— 已落地为 `talon eval compounding`。
 - 任何绕过治理的 sandbox / approval / policy 改动（M3 / M5）。
 - 公网 HTTP 绑定、取消鉴权，或在 companion 内另起第二套执行内核。

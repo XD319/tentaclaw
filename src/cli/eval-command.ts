@@ -13,8 +13,12 @@ import type { SupportedProviderName } from "../providers/index.js";
 import {
   compareEvalReports,
   createEvalJudge,
+  DEFAULT_COMPOUNDING_ACCUMULATED_ROOT,
+  DEFAULT_COMPOUNDING_SUITE,
   runCapabilityEval,
+  runCompoundingEval,
   writeEvalArtifacts,
+  type CompoundingEvalReport,
   type EvalRunReport
 } from "../evaluation/public.js";
 
@@ -106,6 +110,54 @@ export function registerEvalCommands(program: Command): void {
         console.error(`Eval artifacts: ${artifacts.jsonPath}, ${artifacts.junitPath}`);
       }
       console.log(commandOptions.json === true ? JSON.stringify(report, null, 2) : formatCapabilityEvalReport(report));
+      if (!report.gate.passed) process.exitCode = 1;
+    });
+
+  evalCommand
+    .command("compounding")
+    .description("Run the same suite with empty vs accumulated skills and gate self-evolution regressions")
+    .requiredOption("--provider <provider>", "Configured real provider to evaluate")
+    .option("--suite <path>", "Compounding eval suite", DEFAULT_COMPOUNDING_SUITE)
+    .option("--accumulated <path>", "Workspace overlay with accumulated skills", DEFAULT_COMPOUNDING_ACCUMULATED_ROOT)
+    .option("--tasks <taskIds>", "Comma-separated task ids")
+    .option("--repetitions <number>", "Trials per task per phase", parsePositiveIntegerOption("--repetitions"), 1)
+    .option("--max-success-drop <number>", "Maximum allowed success-rate drop", parseRatioOption("--max-success-drop"), 0.05)
+    .option("--max-passk-drop <number>", "Maximum allowed pass^k drop", parseRatioOption("--max-passk-drop"), 0.1)
+    .option("--judge-provider <provider>", "Optional non-blocking LLM judge provider")
+    .option("--json", "Print JSON instead of text")
+    .option("--output <directory>", "Write empty and accumulated JSON artifacts")
+    .action(async (commandOptions: {
+      accumulated: string;
+      judgeProvider?: string;
+      json?: boolean;
+      maxPasskDrop: number;
+      maxSuccessDrop: number;
+      output?: string;
+      provider: string;
+      repetitions: number;
+      suite: string;
+      tasks?: string;
+    }) => {
+      const report = await runCompoundingEval({
+        accumulatedRoot: commandOptions.accumulated,
+        compoundingThresholds: {
+          maxPassPowerKDrop: commandOptions.maxPasskDrop,
+          maxSuccessRateDrop: commandOptions.maxSuccessDrop
+        },
+        ...(commandOptions.judgeProvider !== undefined
+          ? { judge: createEvalJudge(process.cwd(), commandOptions.judgeProvider) }
+          : {}),
+        providerName: commandOptions.provider,
+        repetitions: commandOptions.repetitions,
+        suitePath: commandOptions.suite,
+        taskIds: commandOptions.tasks?.split(",").map((value) => value.trim()).filter(Boolean) ?? []
+      });
+      if (commandOptions.output !== undefined) {
+        const emptyArtifacts = await writeEvalArtifacts(report.empty, `${commandOptions.output}/empty`);
+        const accumulatedArtifacts = await writeEvalArtifacts(report.accumulated, `${commandOptions.output}/accumulated`);
+        console.error(`Compounding artifacts: ${emptyArtifacts.jsonPath}, ${accumulatedArtifacts.jsonPath}`);
+      }
+      console.log(commandOptions.json === true ? JSON.stringify(report, null, 2) : formatCompoundingEvalReport(report));
       if (!report.gate.passed) process.exitCode = 1;
     });
 
@@ -334,6 +386,23 @@ function formatCapabilityEvalReport(report: EvalRunReport): string {
     report.metrics.tokenUsage.available ? `Tokens: ${report.metrics.tokenUsage.totalTokens}` : "Tokens: unavailable",
     report.metrics.costUsd.available ? `Average cost: $${report.metrics.costUsd.average?.toFixed(6)}` : "Cost: unavailable",
     `Gate: ${report.gate.passed ? "passed" : "failed"}`,
+    ...report.gate.reasons.map((reason) => `- ${reason}`)
+  ].join("\n");
+}
+
+function formatCompoundingEvalReport(report: CompoundingEvalReport): string {
+  return [
+    `Empty ${formatCapabilityEvalReport(report.empty)}`,
+    "",
+    `Accumulated ${formatCapabilityEvalReport(report.accumulated)}`,
+    "",
+    `Success-rate delta: ${(report.deltas.successRate * 100).toFixed(1)}pp`,
+    `Pass^k delta: ${(report.deltas.passPowerK * 100).toFixed(1)}pp`,
+    `Average-rounds delta: ${report.deltas.averageRounds.toFixed(2)}`,
+    report.deltas.tokensPerSuccess === null
+      ? "Tokens-per-success delta: unavailable"
+      : `Tokens-per-success delta: ${report.deltas.tokensPerSuccess.toFixed(1)}`,
+    `Self-evolution gate: ${report.gate.passed ? "passed" : "failed"}`,
     ...report.gate.reasons.map((reason) => `- ${reason}`)
   ].join("\n");
 }

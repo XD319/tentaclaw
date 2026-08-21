@@ -202,6 +202,61 @@ describe("ExecutionContextAssembler", () => {
     expect(recalledMessages).toHaveLength(1);
     expect(recalledMessages[0]?.content).toContain("Updated recall text");
   });
+
+  it("orders the leading system prefix stable then variable without moving later turns", () => {
+    const assembler = new ExecutionContextAssembler();
+    const assembled = assembler.assemble({
+      availableTools: [],
+      iteration: 1,
+      memoryContext: [createMemoryFragment()],
+      messages: [
+        {
+          content: "You are a coding agent.",
+          metadata: { privacyLevel: "internal", retentionKind: "working", sourceType: "system_prompt" },
+          role: "system"
+        },
+        {
+          content: "- [pending] 1: finish tests",
+          metadata: { pinned: true, privacyLevel: "internal", retentionKind: "session", sourceType: "session_todos" },
+          role: "system"
+        },
+        {
+          content: "Repo map: src/app.ts",
+          metadata: { privacyLevel: "internal", retentionKind: "working", sourceType: "system_prompt" },
+          role: "system"
+        },
+        {
+          content: "implement slugify",
+          metadata: { privacyLevel: "internal", retentionKind: "working", sourceType: "user_input" },
+          role: "user"
+        },
+        {
+          content: "Recovery attempt: continue.",
+          metadata: { privacyLevel: "internal", retentionKind: "session", sourceType: "system_prompt" },
+          role: "system"
+        }
+      ],
+      signal: new AbortController().signal,
+      task: createTask(),
+      tokenBudget: createTask().tokenBudget
+    });
+
+    const rolesAndSources = assembled.providerInput.messages.map((message) => [
+      message.role,
+      message.metadata?.sourceType ?? null
+    ]);
+    expect(rolesAndSources).toEqual([
+      ["system", "system_prompt"],
+      ["system", "system_prompt"],
+      ["system", MEMORY_CONTEXT_SOURCE_TYPE],
+      ["system", "session_todos"],
+      ["user", "user_input"],
+      ["system", "system_prompt"]
+    ]);
+    expect(assembled.providerInput.messages[0]?.content).toContain("You are a coding agent.");
+    expect(assembled.providerInput.messages[1]?.content).toContain("Repo map");
+    expect(assembled.providerInput.messages[5]?.content).toContain("Recovery attempt");
+  });
 });
 
 function createProfile(): AgentProfile {

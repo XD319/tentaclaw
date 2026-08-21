@@ -1,5 +1,6 @@
 export * from "./auxiliary-resolver.js";
 export * from "./anthropic-compatible-provider.js";
+export * from "./anthropic-request.js";
 export * from "./anthropic-provider.js";
 export * from "./config.js";
 export * from "./context-window-enrichment.js";

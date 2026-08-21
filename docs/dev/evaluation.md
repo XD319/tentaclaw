@@ -6,6 +6,7 @@ Auto-talon separates deterministic runtime checks from model capability evaluati
 
 - `talon smoke run` executes the 15 scripted fixtures. It is fast, deterministic, and belongs in pull-request CI. Its result is a runtime regression signal, not an agent capability score.
 - `talon eval run` executes a versioned blind suite with a configured real provider. The runner creates a fresh workspace for each trial and does not expose task IDs, scorer definitions, reference material, or hidden test files to the model.
+- `talon eval compounding` runs the same suite twice: once with an empty experience/skill overlay, then with accumulated project skills. It diffs success rate, pass^k, rounds, and tokens-per-success, and fails when self-evolution regresses.
 
 The first-party evaluation core is implemented in TypeScript under `src/evaluation`. It has no hosted evaluation-service dependency.
 
@@ -28,6 +29,25 @@ Baseline comparison uses these defaults:
 - P95 latency or average-cost growth greater than 25% warns but does not block.
 
 The LLM judge is report-only. It must not affect the deterministic gate.
+
+## Compounding self-evolution
+
+`talon eval compounding` measures whether accumulated skills help rather than
+hurt. Both phases use the same `EvalSuiteManifest` tasks and scorers.
+
+- **Empty:** isolated eval workspace with no extra project skills.
+- **Accumulated:** the same workspace seed plus files from
+  `fixtures/eval-compounding/accumulated`. Tracked skill fixtures live under
+  `skills/` and are mapped into `.auto-talon/skills` at runtime so they are not
+  gitignored.
+- **Gate:** accumulated success rate and pass^k must not drop more than the
+  configured thresholds (defaults match baseline comparison: 5pp / 10pp).
+
+The compounding dataset lives at
+`fixtures/eval-suites/compounding-self-evolution.v1.json`. Tasks prefer
+categories that can benefit from skill reuse and each includes at least one
+required deterministic scorer. Schema validation and overlay loading do not
+require a paid model; a real-provider run is needed to score capability.
 
 ## CI policy
 

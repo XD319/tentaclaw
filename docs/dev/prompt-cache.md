@@ -2,7 +2,8 @@
 
 AutoTalon already has an end-to-end path for **measuring** cached prompt tokens.
 Creating cache hits (especially Anthropic `cache_control` breakpoints) is tracked
-separately and is not fully enabled yet.
+separately; the Anthropic-compatible provider now emits those breakpoints on the
+stable prefix.
 
 ## What is measured today
 
@@ -76,17 +77,35 @@ OpenAI-compatible responses map `prompt_tokens_details.cached_tokens`,
 | --- | --- |
 | Record `cachedInputTokens` when present on usage | Implemented |
 | Price cached tokens via `cachedInputPerMillion` | Implemented |
-| Emit Anthropic `cache_control` breakpoints on stable prefixes | Not yet — tracked in [#9](https://github.com/XD319/auto-talon/issues/9) |
+| Emit Anthropic `cache_control` breakpoints on stable prefixes | Implemented — see [#9](https://github.com/XD319/auto-talon/issues/9) |
 | Guarantee OpenAI-compatible cache-hit field mapping | Implemented for common OpenAI-compatible fields (`prompt_tokens_details.cached_tokens`, `prompt_cache_hit_tokens`, `cached_tokens`) |
-| Prompt prefix “stable → variable” ordering for hit rate | Roadmap M2 (pairs with `#9`) |
+| Prompt prefix “stable → variable” ordering for hit rate | Implemented for the leading system prefix (pairs with `#9`) |
 
-Today, cache hits are recorded when they **happen to appear** in provider usage.
-AutoTalon does not yet proactively create Anthropic prompt-cache breakpoints.
+Today, AutoTalon emits Anthropic prompt-cache breakpoints on the stable prefix
+and records cache hits when the upstream reports them.
 
-## Expected configuration once Anthropic `cache_control` lands
+## Anthropic `cache_control` breakpoints
 
-After [#9](https://github.com/XD319/auto-talon/issues/9) (and any required
-maintainer spec for breakpoints / `anthropic-beta` headers):
+The Anthropic-compatible provider sends `cache_control: { type: "ephemeral" }` on:
+
+1. The last tool definition (stable tool schema)
+2. Concatenated stable system prompt blocks (`system_prompt` with working/profile
+   retention, including untagged system messages)
+3. The stable memory prefix (`memory_context_recall`) when present
+
+Turn-variable system content (session todos, recent file reads, recovery nudges)
+is a suffix after those breakpoints so it does not invalidate the cached prefix.
+Requests that include a breakpoint also send
+`anthropic-beta: prompt-caching-2024-07-31`. Official Messages API accepts this
+header; Anthropic-compatible gateways typically ignore unknown headers.
+
+Usage mapping: `cache_read_input_tokens` becomes `cachedInputTokens`.
+
+The leading run of system messages (before the first non-system turn) is ordered
+**stable → variable**. Later system nudges stay in place so compaction and tail
+protection are unchanged.
+
+## Using Anthropic prompt cache
 
 1. Keep pricing `cachedInputPerMillion` set for Anthropic-compatible providers so
    `cost_report` USD reflects cheaper cached reads.

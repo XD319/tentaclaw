@@ -1,5 +1,6 @@
 export * from "./artifacts.js";
 export * from "./baseline.js";
+export * from "./compounding.js";
 export * from "./judge.js";
 export * from "./runner.js";
 export * from "./schema.js";
