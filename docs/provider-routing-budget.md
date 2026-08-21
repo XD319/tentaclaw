@@ -35,8 +35,8 @@ If pricing for a provider is missing, token accounting still works and USD is sk
 When the provider reports cache-hit usage, the runtime records `cachedInputTokens`
 and can price them with `cachedInputPerMillion`. See
 [Prompt cache accounting](dev/prompt-cache.md) for what is measured today, where
-to inspect `cost_report`, and what still depends on Anthropic `cache_control`
-([#9](https://github.com/XD319/auto-talon/issues/9)).
+to inspect `cost_report`, and how Anthropic `cache_control` breakpoints are
+emitted on the stable prefix.
 
 ## Trace and Audit Visibility
 

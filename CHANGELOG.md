@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Anthropic-compatible providers emit `cache_control: { type: "ephemeral" }`
+  breakpoints on the stable prefix (last tool schema, system prompt, memory
+  recall) and map `cache_read_input_tokens` into `cachedInputTokens`.
+- Leading system messages are ordered stable → variable so prompt-cache
+  prefixes stay reusable without moving later compaction/tail nudges.
+- Added `talon eval compounding` to run the same suite with empty vs accumulated
+  project skills, plus the `compounding-self-evolution.v1` task dataset.
+
 ## v0.1.1
 
 - Added layered skills with configurable precedence across team, project, user

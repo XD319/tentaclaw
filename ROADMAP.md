@@ -32,11 +32,10 @@ starting, and read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 rollback, memory, experience, scheduler, gateways, MCP). Two concrete gaps shape
 this release:
 
-1. **Cost: caching is measured but never triggered.** The runtime accounts for
+1. **Cost: caching is measured, and Anthropic breakpoints now create hits.** The runtime accounts for
    `cachedInputTokens` end to end (cost calculator, budget, telemetry, replay,
-   eval), but the Anthropic-compatible provider does not emit `cache_control`
-   breakpoints — so caches are recorded when they happen but never proactively
-   created. Closing this is low-risk and high-ROI.
+   eval). The Anthropic-compatible provider emits `cache_control` breakpoints on
+   the stable prefix so caches can be created, not only recorded when they happen.
 2. **Quality: the self-improvement loop is unverified.** `ExperiencePlane` and
    `PromotionAdvisor` (auto-promoting skills from repeated successful patterns)
    exist, but the eval suite only measures blind capability. Nothing measures the
@@ -76,8 +75,8 @@ asserted.
 | Item | Ownership | Difficulty | Paid model | Notes |
 | --- | --- | --- | --- | --- |
 | Define "performance" as fixed eval metrics (success rate / avg rounds / tokens-per-success) and wire gate thresholds | `maintainer` | — | no | Design decision; sets the baseline everyone reports against. |
-| Self-evolution **compounding eval** runner: run the same task set with an empty vs. accumulated experience/skill state and diff the metrics | `maintainer` | advanced | yes | Integrates eval core + experience plane; add a gate rule "self-evolution must not regress". |
-| Expand the compounding eval **task dataset** (once the runner lands) | `community` | intermediate | no | Pure data work under the existing `EvalSuiteManifest` contract; each task needs at least one required deterministic scorer. |
+| Self-evolution **compounding eval** runner: run the same task set with an empty vs. accumulated experience/skill state and diff the metrics | `maintainer` | advanced | yes | Landed: `talon eval compounding` plus `src/evaluation/compounding.ts`. Gate: self-evolution must not regress. |
+| Expand the compounding eval **task dataset** (once the runner lands) | `community` | intermediate | no | Landed: `fixtures/eval-suites/compounding-self-evolution.v1.json` (six skill-reuse tasks). |
 
 References: `src/evaluation/`, `fixtures/eval-baselines/`,
 [docs/dev/evaluation.md](docs/dev/evaluation.md),
@@ -90,8 +89,8 @@ Goal: cut token spend with prompt caching, and prove the reduction with numbers
 
 | Item | Ownership | Difficulty | Paid model | Notes |
 | --- | --- | --- | --- | --- |
-| Emit `cache_control: { type: "ephemeral" }` breakpoints on the stable prefix (system prompt, tool schema, stable memory prefix) in the Anthropic-compatible provider | `mixed` | advanced | partial | Maintainer confirms breakpoint strategy and `anthropic-beta` header requirements; implementation is claimable. |
-| Prompt **prefix stabilization** — order the prompt "stable → variable" to maximize cache hits | `mixed` | intermediate | no | Must not break existing compaction/tail protection. |
+| Emit `cache_control: { type: "ephemeral" }` breakpoints on the stable prefix (system prompt, tool schema, stable memory prefix) in the Anthropic-compatible provider | `mixed` | advanced | partial | Landed. Breakpoints: last tool, stable system prompt, memory recall. Header: `anthropic-beta: prompt-caching-2024-07-31`. |
+| Prompt **prefix stabilization** — order the prompt "stable → variable" to maximize cache hits | `mixed` | intermediate | no | Landed for the leading system prefix; later system nudges stay in place so compaction/tail protection is unchanged. |
 | OpenAI-compatible **cached-token accounting** audit — confirm the usage parser maps cache-hit fields into `cachedInputTokens` | `community` | intermediate | no | Telemetry-layer, self-contained, unit-testable. |
 | Documentation for cache configuration and expected savings | `community` | good-first-issue | no | Docs only. |
 
@@ -172,14 +171,14 @@ Good places to start, roughly by increasing difficulty:
 6. `doctor --fix` migration experience (M4) — `intermediate`.
 7. Desktop read-only session browser (M5b, after API) — `intermediate`.
 8. Desktop chat compose via `continue` (M5d) — `intermediate`.
-9. Compounding eval dataset expansion (M1, after the runner lands) — `intermediate`.
-10. Anthropic `cache_control` emission (M2) — `advanced`, spec confirmed by a maintainer first.
+9. Compounding eval dataset expansion (M1) — landed; add more skill-reuse tasks under the same suite contract.
+10. Anthropic `cache_control` emission (M2) — landed.
 11. Desktop Tauri scaffold / packaging (M5a/M5e) — `advanced`, after ADR confirmation.
 
 Maintainer-led (please do not open as claimable community issues that weaken
 these boundaries):
 
 - Performance-metric definition and gate thresholds (M1).
-- Compounding eval runner architecture (M1).
+- Compounding eval runner architecture (M1) — landed as `talon eval compounding`.
 - Any sandbox / approval / policy change that bypasses governance (M3 / M5).
 - Public HTTP binds, auth removal, or a second execution kernel in the companion.

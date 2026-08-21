@@ -28,6 +28,8 @@ export interface CapabilityEvalOptions {
   repetitions?: number;
   suitePath: string;
   taskIds?: string[];
+  /** Extra workspace files seeded for every trial (not part of the task fixture). */
+  workspaceOverlay?: Record<string, string>;
 }
 
 export async function runCapabilityEval(options: CapabilityEvalOptions): Promise<EvalRunReport> {
@@ -146,7 +148,10 @@ async function runTrial(
   options: CapabilityEvalOptions
 ): Promise<EvalTrialResult> {
   const workspaceRoot = await fs.mkdtemp(join(tmpdir(), "auto-talon-eval-"));
-  await seedWorkspace(workspaceRoot, task.workspace.files);
+  await seedWorkspace(workspaceRoot, {
+    ...task.workspace.files,
+    ...(options.workspaceOverlay ?? {})
+  });
   const beforeFiles = await snapshotWorkspace(workspaceRoot);
   const handle = createApplication(workspaceRoot, {
     config: { databasePath: ":memory:", provider: providerConfig, workspaceRoot },

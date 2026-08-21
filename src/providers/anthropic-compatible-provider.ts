@@ -1,5 +1,4 @@
 import type {
-  ConversationMessage,
   JsonObject,
   Provider,
   ProviderConfig,
@@ -8,9 +7,13 @@ import type {
   ProviderRequest,
   ProviderResponse,
   ProviderToolCall,
-  ProviderToolDescriptor,
   ProviderUsage
 } from "../types/index.js";
+import {
+  ANTHROPIC_PROMPT_CACHING_BETA,
+  anthropicRequestUsesPromptCache,
+  buildAnthropicCompatibleRequestBody
+} from "./anthropic-request.js";
 
 import type { ProviderError } from "./provider-error.js";
 import {
@@ -27,30 +30,6 @@ import {
   describeStreamingFallbackReason,
   shouldFallbackFromEmptyStream
 } from "./streaming-fallback.js";
-
-type AnthropicCompatibleContentBlock =
-  | {
-      text: string;
-      type: "text";
-    }
-  | {
-      content: string;
-      tool_use_id: string;
-      type: "tool_result";
-    }
-  | {
-      id: string;
-      input: JsonObject;
-      name: string;
-      type: "tool_use";
-    };
-
-interface AnthropicCompatibleMessage extends JsonObject {
-  content:
-    | string
-    | AnthropicCompatibleContentBlock[];
-  role: "assistant" | "user";
-}
 
 interface AnthropicCompatibleResponse {
   content?: Array<
@@ -73,10 +52,14 @@ interface AnthropicCompatibleResponse {
   model?: string;
   stop_reason?: string | null;
   type?: string;
-  usage?: {
-    input_tokens?: number;
-    output_tokens?: number;
-  };
+  usage?: AnthropicUsageFields;
+}
+
+interface AnthropicUsageFields {
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
+  input_tokens?: number;
+  output_tokens?: number;
 }
 
 interface AnthropicModelsResponse {
@@ -107,15 +90,10 @@ interface AnthropicStreamEvent {
   message?: {
     id?: string;
     model?: string;
-    usage?: {
-      input_tokens?: number;
-      output_tokens?: number;
-    };
+    usage?: AnthropicUsageFields;
   };
   type?: string;
-  usage?: {
-    output_tokens?: number;
-  };
+  usage?: AnthropicUsageFields;
 }
 
 export class AnthropicCompatibleProvider implements Provider {
@@ -170,13 +148,7 @@ export class AnthropicCompatibleProvider implements Provider {
   private async generateComplete(input: ProviderRequest): Promise<ProviderResponse> {
     const response = await this.requestJson<AnthropicCompatibleResponse>(
       "v1/messages",
-      {
-        max_tokens: Math.max(1, input.tokenBudget.outputLimit),
-        messages: toAnthropicMessages(input.messages),
-        model: this.model,
-        system: readSystemPrompt(input.messages),
-        tools: input.availableTools.map((tool) => toAnthropicTool(tool))
-      },
+      this.buildRequestBody(input),
       input.signal
     );
 
@@ -330,19 +302,13 @@ export class AnthropicCompatibleProvider implements Provider {
   ): Promise<ProviderResponse> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
+    const body = this.buildRequestBody(input, { stream: true });
     try {
       const response = await fetch(
         new URL("v1/messages", ensureTrailingSlash(this.resolveBaseUrl())).toString(),
         {
-          body: JSON.stringify({
-            max_tokens: Math.max(1, input.tokenBudget.outputLimit),
-            messages: toAnthropicMessages(input.messages),
-            model: this.model,
-            stream: true,
-            system: readSystemPrompt(input.messages),
-            tools: input.availableTools.map((tool) => toAnthropicTool(tool))
-          }),
-          headers: this.buildHeaders(),
+          body: JSON.stringify(body),
+          headers: this.buildHeaders(anthropicRequestUsesPromptCache(body)),
           method: "POST",
           signal: composeAbortSignal(input.signal, controller.signal)
         }
@@ -463,10 +429,16 @@ export class AnthropicCompatibleProvider implements Provider {
         }
         if (event.type === "message_delta") {
           stopReason = event.delta?.stop_reason ?? stopReason;
+          const outputTokens = event.usage?.output_tokens ?? usage.outputTokens;
           usage = {
             ...usage,
-            outputTokens: event.usage?.output_tokens ?? usage.outputTokens,
-            totalTokens: usage.inputTokens + (event.usage?.output_tokens ?? usage.outputTokens)
+            ...toUsage({
+              input_tokens: usage.inputTokens,
+              output_tokens: outputTokens,
+              ...(usage.cachedInputTokens !== undefined
+                ? { cache_read_input_tokens: usage.cachedInputTokens }
+                : {})
+            })
           };
         }
       };
@@ -568,7 +540,7 @@ export class AnthropicCompatibleProvider implements Provider {
 
     try {
       const init: RequestInit = {
-        headers: this.buildHeaders(),
+        headers: this.buildHeaders(anthropicRequestUsesPromptCache(body)),
         method,
         signal: composeAbortSignal(signal, controller.signal)
       };
@@ -613,13 +585,20 @@ export class AnthropicCompatibleProvider implements Provider {
     }
   }
 
-  private buildHeaders(): Record<string, string> {
+  private buildRequestBody(input: ProviderRequest, extras: { stream?: boolean } = {}) {
+    return buildAnthropicCompatibleRequestBody(input, this.model, extras);
+  }
+
+  private buildHeaders(promptCache = false): Record<string, string> {
     const headers: Record<string, string> = {
       "anthropic-version": this.options.anthropicVersion ?? "2023-06-01",
       "Content-Type": "application/json"
     };
     if (this.config.apiKey !== null) {
       headers["x-api-key"] = this.config.apiKey;
+    }
+    if (promptCache) {
+      headers["anthropic-beta"] = ANTHROPIC_PROMPT_CACHING_BETA;
     }
     return headers;
   }
@@ -633,71 +612,6 @@ export class AnthropicCompatibleProvider implements Provider {
       reason
     });
   }
-}
-
-function toAnthropicMessages(messages: ConversationMessage[]): AnthropicCompatibleMessage[] {
-  return messages
-    .filter((message) => message.role !== "system")
-    .map((message) => {
-      const content = typeof message.content === "string" ? message.content : "";
-      if (message.role === "tool") {
-        return {
-          content: [
-            {
-              content,
-              tool_use_id: message.toolCallId ?? "tool-result",
-              type: "tool_result"
-            }
-          ],
-          role: "user"
-        } satisfies AnthropicCompatibleMessage;
-      }
-
-      if (message.role === "assistant" && message.toolCalls !== undefined && message.toolCalls.length > 0) {
-        const contentBlocks: AnthropicCompatibleContentBlock[] = [];
-        if (content.trim().length > 0) {
-          contentBlocks.push({
-            text: content,
-            type: "text"
-          });
-        }
-
-        for (const toolCall of message.toolCalls) {
-          contentBlocks.push({
-            id: toolCall.toolCallId,
-            input: toolCall.input,
-            name: toolCall.toolName,
-            type: "tool_use"
-          });
-        }
-
-        return {
-          content: contentBlocks,
-          role: "assistant"
-        };
-      }
-
-      return {
-        content,
-        role: message.role === "assistant" ? "assistant" : "user"
-      };
-    });
-}
-
-function readSystemPrompt(messages: ConversationMessage[]): string {
-  return messages
-    .filter((message) => message.role === "system")
-    .map((message) => message.content.trim())
-    .filter((message) => message.length > 0)
-    .join("\n\n");
-}
-
-function toAnthropicTool(tool: ProviderToolDescriptor): JsonObject {
-  return {
-    description: tool.description,
-    input_schema: tool.inputSchema,
-    name: tool.name
-  };
 }
 
 function parseToolCall(
@@ -771,19 +685,17 @@ function parseStreamToolCall(
   };
 }
 
-function toUsage(
-  usage:
-    | {
-        input_tokens?: number;
-        output_tokens?: number;
-      }
-    | undefined
-): ProviderUsage {
-  return {
+function toUsage(usage: AnthropicUsageFields | undefined): ProviderUsage {
+  const mapped: ProviderUsage = {
     inputTokens: usage?.input_tokens ?? 0,
     outputTokens: usage?.output_tokens ?? 0,
     totalTokens: (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0)
   };
+  const cachedInputTokens = usage?.cache_read_input_tokens;
+  if (typeof cachedInputTokens === "number" && Number.isFinite(cachedInputTokens) && cachedInputTokens >= 0) {
+    mapped.cachedInputTokens = cachedInputTokens;
+  }
+  return mapped;
 }
 
 function sanitizeRawMetadata(response: AnthropicCompatibleResponse): JsonObject {
