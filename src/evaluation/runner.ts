@@ -166,14 +166,13 @@ async function runTrial(
   };
   if (options.configOverride !== undefined) {
     if (options.configOverride.compact !== undefined) {
-      applicationConfig.compact = options.configOverride.compact as AppConfig["compact"];
+      applicationConfig.compact = options.configOverride.compact;
     }
     if (options.configOverride.contextRetention !== undefined) {
-      applicationConfig.contextRetention =
-        options.configOverride.contextRetention as AppConfig["contextRetention"];
+      applicationConfig.contextRetention = options.configOverride.contextRetention;
     }
     if (options.configOverride.tokenBudget !== undefined) {
-      applicationConfig.tokenBudget = options.configOverride.tokenBudget as AppConfig["tokenBudget"];
+      applicationConfig.tokenBudget = options.configOverride.tokenBudget;
     }
     if (options.configOverride.tokenBudgetInputLimitExplicit !== undefined) {
       applicationConfig.tokenBudgetInputLimitExplicit =

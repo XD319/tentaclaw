@@ -183,42 +183,47 @@ function createLongContextScriptedProvider(task: EvalTask): Provider {
   return {
     model: "offline-scripted",
     name: "long-context-scripted",
-    async generate(_input: ProviderInput): Promise<ProviderResponse> {
+    generate: (input: ProviderInput): Promise<ProviderResponse> => {
+      void input;
       step += 1;
 
       if (step <= readPaths.length * 3) {
         const path = readPaths[(step - 1) % readPaths.length]!;
-        return toolCall("read_file", { path }, step, `Inspect ${path}`);
+        return Promise.resolve(toolCall("read_file", { path }, step, `Inspect ${path}`));
       }
 
       if (step === readPaths.length * 3 + 1) {
-        return toolCall(
-          "write_file",
-          { content: writeContent, overwrite: true, path: writeTarget },
-          step,
-          `Create ${writeTarget}`
+        return Promise.resolve(
+          toolCall(
+            "write_file",
+            { content: writeContent, overwrite: true, path: writeTarget },
+            step,
+            `Create ${writeTarget}`
+          )
         );
       }
 
       if (step === readPaths.length * 3 + 2) {
-        return toolCall(
-          "shell",
-          { command: `node -e "console.log('ok')"` },
-          step,
-          "Quick verification"
+        return Promise.resolve(
+          toolCall(
+            "shell",
+            { command: `node -e "console.log('ok')"` },
+            step,
+            "Quick verification"
+          )
         );
       }
 
       if (step <= readPaths.length * 3 + 18) {
         const path = readPaths[(step - 3) % readPaths.length]!;
-        return toolCall("read_file", { path }, step, `Re-read ${path}`);
+        return Promise.resolve(toolCall("read_file", { path }, step, `Re-read ${path}`));
       }
 
-      return {
+      return Promise.resolve({
         kind: "final",
         message: "Completed scripted long-context trajectory.",
         usage: { inputTokens: 8, outputTokens: 6 }
-      };
+      });
     }
   };
 }

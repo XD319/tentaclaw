@@ -233,9 +233,17 @@ async function main(): Promise<void> {
     summaries[arm.label] = summarizeArm(arm.label, report);
   }
 
-  const [leftKey, rightKey] = Object.keys(summaries);
-  const left = summaries[leftKey!]!;
-  const right = rightKey === undefined ? null : summaries[rightKey!]!;
+  const labels = Object.keys(summaries);
+  const leftLabel = labels[0];
+  if (leftLabel === undefined) {
+    throw new Error("No eval arms ran");
+  }
+  const left = summaries[leftLabel];
+  if (left === undefined) {
+    throw new Error(`Missing summary for arm "${leftLabel}"`);
+  }
+  const rightLabel = labels[1];
+  const right = rightLabel === undefined ? null : summaries[rightLabel] ?? null;
   const comparison = {
     arms: options.arms,
     compact: Object.fromEntries(
