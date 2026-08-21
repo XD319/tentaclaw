@@ -1,0 +1,349 @@
+{
+  "schemaVersion": 1,
+  "id": "auto-talon-long-context",
+  "version": "1.0.0",
+  "description": "Eight long-context coding tasks with multi-file padded workspaces that require cross-file reading before edits. Used by the compaction ON/OFF A/B harness.",
+  "promptVersion": "runtime-0.1",
+  "toolSchemaVersion": "runtime-0.1",
+  "tasks": [
+    {
+      "id": "lc_math_util_export",
+      "title": "Export add from a padded util module",
+      "input": "Read src/util/numbers.mjs and src/util/strings.mjs fully, then create src/math.mjs that exports add(a, b) returning a+b. Verify with a quick node check and summarize which util files you inspected.",
+      "category": "coding",
+      "difficulty": "medium",
+      "risk": "low",
+      "timeoutMs": 180000,
+      "capabilities": [
+        "long_context",
+        "coding",
+        "verification"
+      ],
+      "workspace": {
+        "files": {
+          "package.json": "{\"type\":\"module\"}\n",
+          "src/util/numbers.mjs": "export const notes = [\n  \"num-0000 note\",\n  \"num-0001 note\",\n  \"num-0002 note\",\n  \"num-0003 note\",\n  \"num-0004 note\",\n  \"num-0005 note\",\n  \"num-0006 note\",\n  \"num-0007 note\",\n  \"num-0008 note\",\n  \"num-0009 note\",\n  \"num-0010 note\",\n  \"num-0011 note\",\n  \"num-0012 note\",\n  \"num-0013 note\",\n  \"num-0014 note\",\n  \"num-0015 note\",\n  \"num-0016 note\",\n  \"num-0017 note\",\n  \"num-0018 note\",\n  \"num-0019 note\",\n  \"num-0020 note\",\n  \"num-0021 note\",\n  \"num-0022 note\",\n  \"num-0023 note\",\n  \"num-0024 note\",\n  \"num-0025 note\",\n  \"num-0026 note\",\n  \"num-0027 note\",\n  \"num-0028 note\",\n  \"num-0029 note\",\n  \"num-0030 note\",\n  \"num-0031 note\",\n  \"num-0032 note\",\n  \"num-0033 note\",\n  \"num-0034 note\",\n  \"num-0035 note\",\n  \"num-0036 note\",\n  \"num-0037 note\",\n  \"num-0038 note\",\n  \"num-0039 note\",\n  \"num-0040 note\",\n  \"num-0041 note\",\n  \"num-0042 note\",\n  \"num-0043 note\",\n  \"num-0044 note\",\n  \"num-0045 note\",\n  \"num-0046 note\",\n  \"num-0047 note\",\n  \"num-0048 note\",\n  \"num-0049 note\",\n  \"num-0050 note\",\n  \"num-0051 note\",\n  \"num-0052 note\",\n  \"num-0053 note\",\n  \"num-0054 note\",\n  \"num-0055 note\",\n  \"num-0056 note\",\n  \"num-0057 note\",\n  \"num-0058 note\",\n  \"num-0059 note\",\n  \"num-0060 note\",\n  \"num-0061 note\",\n  \"num-0062 note\",\n  \"num-0063 note\",\n  \"num-0064 note\",\n  \"num-0065 note\",\n  \"num-0066 note\",\n  \"num-0067 note\",\n  \"num-0068 note\",\n  \"num-0069 note\",\n  \"num-0070 note\",\n  \"num-0071 note\",\n  \"num-0072 note\",\n  \"num-0073 note\",\n  \"num-0074 note\",\n  \"num-0075 note\",\n  \"num-0076 note\",\n  \"num-0077 note\",\n  \"num-0078 note\",\n  \"num-0079 note\"\n];\nexport function identity(n) { return n; }\n",
+          "src/util/strings.mjs": "export const notes = [\n  \"str-0000 note\",\n  \"str-0001 note\",\n  \"str-0002 note\",\n  \"str-0003 note\",\n  \"str-0004 note\",\n  \"str-0005 note\",\n  \"str-0006 note\",\n  \"str-0007 note\",\n  \"str-0008 note\",\n  \"str-0009 note\",\n  \"str-0010 note\",\n  \"str-0011 note\",\n  \"str-0012 note\",\n  \"str-0013 note\",\n  \"str-0014 note\",\n  \"str-0015 note\",\n  \"str-0016 note\",\n  \"str-0017 note\",\n  \"str-0018 note\",\n  \"str-0019 note\",\n  \"str-0020 note\",\n  \"str-0021 note\",\n  \"str-0022 note\",\n  \"str-0023 note\",\n  \"str-0024 note\",\n  \"str-0025 note\",\n  \"str-0026 note\",\n  \"str-0027 note\",\n  \"str-0028 note\",\n  \"str-0029 note\",\n  \"str-0030 note\",\n  \"str-0031 note\",\n  \"str-0032 note\",\n  \"str-0033 note\",\n  \"str-0034 note\",\n  \"str-0035 note\",\n  \"str-0036 note\",\n  \"str-0037 note\",\n  \"str-0038 note\",\n  \"str-0039 note\",\n  \"str-0040 note\",\n  \"str-0041 note\",\n  \"str-0042 note\",\n  \"str-0043 note\",\n  \"str-0044 note\",\n  \"str-0045 note\",\n  \"str-0046 note\",\n  \"str-0047 note\",\n  \"str-0048 note\",\n  \"str-0049 note\",\n  \"str-0050 note\",\n  \"str-0051 note\",\n  \"str-0052 note\",\n  \"str-0053 note\",\n  \"str-0054 note\",\n  \"str-0055 note\",\n  \"str-0056 note\",\n  \"str-0057 note\",\n  \"str-0058 note\",\n  \"str-0059 note\",\n  \"str-0060 note\",\n  \"str-0061 note\",\n  \"str-0062 note\",\n  \"str-0063 note\",\n  \"str-0064 note\",\n  \"str-0065 note\",\n  \"str-0066 note\",\n  \"str-0067 note\",\n  \"str-0068 note\",\n  \"str-0069 note\",\n  \"str-0070 note\",\n  \"str-0071 note\",\n  \"str-0072 note\",\n  \"str-0073 note\",\n  \"str-0074 note\",\n  \"str-0075 note\",\n  \"str-0076 note\",\n  \"str-0077 note\",\n  \"str-0078 note\",\n  \"str-0079 note\"\n];\nexport function echo(s) { return s; }\n",
+          "docs/util-overview.md": "# Util Overview\n\nutil_overview-0000 long context filler\nutil_overview-0001 long context filler\nutil_overview-0002 long context filler\nutil_overview-0003 long context filler\nutil_overview-0004 long context filler\nutil_overview-0005 long context filler\nutil_overview-0006 long context filler\nutil_overview-0007 long context filler\nutil_overview-0008 long context filler\nutil_overview-0009 long context filler\nutil_overview-0010 long context filler\nutil_overview-0011 long context filler\nutil_overview-0012 long context filler\nutil_overview-0013 long context filler\nutil_overview-0014 long context filler\nutil_overview-0015 long context filler\nutil_overview-0016 long context filler\nutil_overview-0017 long context filler\nutil_overview-0018 long context filler\nutil_overview-0019 long context filler\nutil_overview-0020 long context filler\nutil_overview-0021 long context filler\nutil_overview-0022 long context filler\nutil_overview-0023 long context filler\nutil_overview-0024 long context filler\nutil_overview-0025 long context filler\nutil_overview-0026 long context filler\nutil_overview-0027 long context filler\nutil_overview-0028 long context filler\nutil_overview-0029 long context filler\nutil_overview-0030 long context filler\nutil_overview-0031 long context filler\nutil_overview-0032 long context filler\nutil_overview-0033 long context filler\nutil_overview-0034 long context filler\nutil_overview-0035 long context filler\nutil_overview-0036 long context filler\nutil_overview-0037 long context filler\nutil_overview-0038 long context filler\nutil_overview-0039 long context filler\nutil_overview-0040 long context filler\nutil_overview-0041 long context filler\nutil_overview-0042 long context filler\nutil_overview-0043 long context filler\nutil_overview-0044 long context filler\nutil_overview-0045 long context filler\nutil_overview-0046 long context filler\nutil_overview-0047 long context filler\nutil_overview-0048 long context filler\nutil_overview-0049 long context filler\nutil_overview-0050 long context filler\nutil_overview-0051 long context filler\nutil_overview-0052 long context filler\nutil_overview-0053 long context filler\nutil_overview-0054 long context filler\nutil_overview-0055 long context filler\nutil_overview-0056 long context filler\nutil_overview-0057 long context filler\nutil_overview-0058 long context filler\nutil_overview-0059 long context filler\n"
+        }
+      },
+      "scorers": [
+        {
+          "id": "diff",
+          "type": "workspace_diff",
+          "allowedPaths": [
+            "src/math.mjs"
+          ],
+          "requiredPaths": [
+            "src/math.mjs"
+          ]
+        },
+        {
+          "id": "hidden_test",
+          "type": "command",
+          "command": "node --test .eval-hidden/math.test.mjs",
+          "hiddenFiles": {
+            ".eval-hidden/math.test.mjs": "import test from 'node:test'; import assert from 'node:assert/strict'; import { add } from '../src/math.mjs'; test('adds', () => assert.equal(add(2, 3), 5));\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "lc_slug_cross_file_fix",
+      "title": "Fix slugify using padded docs and module",
+      "input": "Read docs/slug-rules.md and src/slug.mjs. Fix slugify so it trims, lowercases, and replaces runs of spaces with one dash. Do not edit docs.",
+      "category": "coding",
+      "difficulty": "medium",
+      "risk": "low",
+      "timeoutMs": 180000,
+      "capabilities": [
+        "long_context",
+        "coding",
+        "debugging"
+      ],
+      "workspace": {
+        "files": {
+          "package.json": "{\"type\":\"module\"}\n",
+          "docs/slug-rules.md": "# Slug Rules\n\nslug_rules-0000 long context filler\nslug_rules-0001 long context filler\nslug_rules-0002 long context filler\nslug_rules-0003 long context filler\nslug_rules-0004 long context filler\nslug_rules-0005 long context filler\nslug_rules-0006 long context filler\nslug_rules-0007 long context filler\nslug_rules-0008 long context filler\nslug_rules-0009 long context filler\nslug_rules-0010 long context filler\nslug_rules-0011 long context filler\nslug_rules-0012 long context filler\nslug_rules-0013 long context filler\nslug_rules-0014 long context filler\nslug_rules-0015 long context filler\nslug_rules-0016 long context filler\nslug_rules-0017 long context filler\nslug_rules-0018 long context filler\nslug_rules-0019 long context filler\nslug_rules-0020 long context filler\nslug_rules-0021 long context filler\nslug_rules-0022 long context filler\nslug_rules-0023 long context filler\nslug_rules-0024 long context filler\nslug_rules-0025 long context filler\nslug_rules-0026 long context filler\nslug_rules-0027 long context filler\nslug_rules-0028 long context filler\nslug_rules-0029 long context filler\nslug_rules-0030 long context filler\nslug_rules-0031 long context filler\nslug_rules-0032 long context filler\nslug_rules-0033 long context filler\nslug_rules-0034 long context filler\nslug_rules-0035 long context filler\nslug_rules-0036 long context filler\nslug_rules-0037 long context filler\nslug_rules-0038 long context filler\nslug_rules-0039 long context filler\nslug_rules-0040 long context filler\nslug_rules-0041 long context filler\nslug_rules-0042 long context filler\nslug_rules-0043 long context filler\nslug_rules-0044 long context filler\nslug_rules-0045 long context filler\nslug_rules-0046 long context filler\nslug_rules-0047 long context filler\nslug_rules-0048 long context filler\nslug_rules-0049 long context filler\nslug_rules-0050 long context filler\nslug_rules-0051 long context filler\nslug_rules-0052 long context filler\nslug_rules-0053 long context filler\nslug_rules-0054 long context filler\nslug_rules-0055 long context filler\nslug_rules-0056 long context filler\nslug_rules-0057 long context filler\nslug_rules-0058 long context filler\nslug_rules-0059 long context filler\nslug_rules-0060 long context filler\nslug_rules-0061 long context filler\nslug_rules-0062 long context filler\nslug_rules-0063 long context filler\nslug_rules-0064 long context filler\nslug_rules-0065 long context filler\nslug_rules-0066 long context filler\nslug_rules-0067 long context filler\nslug_rules-0068 long context filler\nslug_rules-0069 long context filler\n\n\n## Required behavior\n- trim leading/trailing whitespace\n- lowercase\n- replace runs of spaces with a single dash\n",
+          "src/slug.mjs": "export const notes = [\n  \"slug_pad-0000 note\",\n  \"slug_pad-0001 note\",\n  \"slug_pad-0002 note\",\n  \"slug_pad-0003 note\",\n  \"slug_pad-0004 note\",\n  \"slug_pad-0005 note\",\n  \"slug_pad-0006 note\",\n  \"slug_pad-0007 note\",\n  \"slug_pad-0008 note\",\n  \"slug_pad-0009 note\",\n  \"slug_pad-0010 note\",\n  \"slug_pad-0011 note\",\n  \"slug_pad-0012 note\",\n  \"slug_pad-0013 note\",\n  \"slug_pad-0014 note\",\n  \"slug_pad-0015 note\",\n  \"slug_pad-0016 note\",\n  \"slug_pad-0017 note\",\n  \"slug_pad-0018 note\",\n  \"slug_pad-0019 note\",\n  \"slug_pad-0020 note\",\n  \"slug_pad-0021 note\",\n  \"slug_pad-0022 note\",\n  \"slug_pad-0023 note\",\n  \"slug_pad-0024 note\",\n  \"slug_pad-0025 note\",\n  \"slug_pad-0026 note\",\n  \"slug_pad-0027 note\",\n  \"slug_pad-0028 note\",\n  \"slug_pad-0029 note\",\n  \"slug_pad-0030 note\",\n  \"slug_pad-0031 note\",\n  \"slug_pad-0032 note\",\n  \"slug_pad-0033 note\",\n  \"slug_pad-0034 note\",\n  \"slug_pad-0035 note\",\n  \"slug_pad-0036 note\",\n  \"slug_pad-0037 note\",\n  \"slug_pad-0038 note\",\n  \"slug_pad-0039 note\",\n  \"slug_pad-0040 note\",\n  \"slug_pad-0041 note\",\n  \"slug_pad-0042 note\",\n  \"slug_pad-0043 note\",\n  \"slug_pad-0044 note\",\n  \"slug_pad-0045 note\",\n  \"slug_pad-0046 note\",\n  \"slug_pad-0047 note\",\n  \"slug_pad-0048 note\",\n  \"slug_pad-0049 note\",\n  \"slug_pad-0050 note\",\n  \"slug_pad-0051 note\",\n  \"slug_pad-0052 note\",\n  \"slug_pad-0053 note\",\n  \"slug_pad-0054 note\",\n  \"slug_pad-0055 note\",\n  \"slug_pad-0056 note\",\n  \"slug_pad-0057 note\",\n  \"slug_pad-0058 note\",\n  \"slug_pad-0059 note\",\n  \"slug_pad-0060 note\",\n  \"slug_pad-0061 note\",\n  \"slug_pad-0062 note\",\n  \"slug_pad-0063 note\",\n  \"slug_pad-0064 note\",\n  \"slug_pad-0065 note\",\n  \"slug_pad-0066 note\",\n  \"slug_pad-0067 note\",\n  \"slug_pad-0068 note\",\n  \"slug_pad-0069 note\"\n];\nexport const slugify = (value) => value;\n",
+          "src/unused-helpers.mjs": "export const notes = [\n  \"helper-0000 note\",\n  \"helper-0001 note\",\n  \"helper-0002 note\",\n  \"helper-0003 note\",\n  \"helper-0004 note\",\n  \"helper-0005 note\",\n  \"helper-0006 note\",\n  \"helper-0007 note\",\n  \"helper-0008 note\",\n  \"helper-0009 note\",\n  \"helper-0010 note\",\n  \"helper-0011 note\",\n  \"helper-0012 note\",\n  \"helper-0013 note\",\n  \"helper-0014 note\",\n  \"helper-0015 note\",\n  \"helper-0016 note\",\n  \"helper-0017 note\",\n  \"helper-0018 note\",\n  \"helper-0019 note\",\n  \"helper-0020 note\",\n  \"helper-0021 note\",\n  \"helper-0022 note\",\n  \"helper-0023 note\",\n  \"helper-0024 note\",\n  \"helper-0025 note\",\n  \"helper-0026 note\",\n  \"helper-0027 note\",\n  \"helper-0028 note\",\n  \"helper-0029 note\",\n  \"helper-0030 note\",\n  \"helper-0031 note\",\n  \"helper-0032 note\",\n  \"helper-0033 note\",\n  \"helper-0034 note\",\n  \"helper-0035 note\",\n  \"helper-0036 note\",\n  \"helper-0037 note\",\n  \"helper-0038 note\",\n  \"helper-0039 note\",\n  \"helper-0040 note\",\n  \"helper-0041 note\",\n  \"helper-0042 note\",\n  \"helper-0043 note\",\n  \"helper-0044 note\",\n  \"helper-0045 note\",\n  \"helper-0046 note\",\n  \"helper-0047 note\",\n  \"helper-0048 note\",\n  \"helper-0049 note\"\n];\n"
+        }
+      },
+      "scorers": [
+        {
+          "id": "diff",
+          "type": "workspace_diff",
+          "allowedPaths": [
+            "src/slug.mjs"
+          ],
+          "requiredPaths": [
+            "src/slug.mjs"
+          ]
+        },
+        {
+          "id": "hidden_test",
+          "type": "command",
+          "command": "node --test .eval-hidden/slug.test.mjs",
+          "hiddenFiles": {
+            ".eval-hidden/slug.test.mjs": "import test from 'node:test'; import assert from 'node:assert/strict'; import { slugify } from '../src/slug.mjs'; test('slug', () => assert.equal(slugify('  Hello   Agent  '), 'hello-agent'));\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "lc_config_flag_from_notes",
+      "title": "Enable feature flag from padded notes",
+      "input": "Read notes/release.md and config/app.json. Enable featureFlag while keeping mode \"safe\" and valid JSON. Do not edit notes.",
+      "category": "coding",
+      "difficulty": "easy",
+      "risk": "low",
+      "timeoutMs": 180000,
+      "capabilities": [
+        "long_context",
+        "coding",
+        "configuration"
+      ],
+      "workspace": {
+        "files": {
+          "notes/release.md": "# Release Notes\n\nrelease_notes-0000 long context filler\nrelease_notes-0001 long context filler\nrelease_notes-0002 long context filler\nrelease_notes-0003 long context filler\nrelease_notes-0004 long context filler\nrelease_notes-0005 long context filler\nrelease_notes-0006 long context filler\nrelease_notes-0007 long context filler\nrelease_notes-0008 long context filler\nrelease_notes-0009 long context filler\nrelease_notes-0010 long context filler\nrelease_notes-0011 long context filler\nrelease_notes-0012 long context filler\nrelease_notes-0013 long context filler\nrelease_notes-0014 long context filler\nrelease_notes-0015 long context filler\nrelease_notes-0016 long context filler\nrelease_notes-0017 long context filler\nrelease_notes-0018 long context filler\nrelease_notes-0019 long context filler\nrelease_notes-0020 long context filler\nrelease_notes-0021 long context filler\nrelease_notes-0022 long context filler\nrelease_notes-0023 long context filler\nrelease_notes-0024 long context filler\nrelease_notes-0025 long context filler\nrelease_notes-0026 long context filler\nrelease_notes-0027 long context filler\nrelease_notes-0028 long context filler\nrelease_notes-0029 long context filler\nrelease_notes-0030 long context filler\nrelease_notes-0031 long context filler\nrelease_notes-0032 long context filler\nrelease_notes-0033 long context filler\nrelease_notes-0034 long context filler\nrelease_notes-0035 long context filler\nrelease_notes-0036 long context filler\nrelease_notes-0037 long context filler\nrelease_notes-0038 long context filler\nrelease_notes-0039 long context filler\nrelease_notes-0040 long context filler\nrelease_notes-0041 long context filler\nrelease_notes-0042 long context filler\nrelease_notes-0043 long context filler\nrelease_notes-0044 long context filler\nrelease_notes-0045 long context filler\nrelease_notes-0046 long context filler\nrelease_notes-0047 long context filler\nrelease_notes-0048 long context filler\nrelease_notes-0049 long context filler\nrelease_notes-0050 long context filler\nrelease_notes-0051 long context filler\nrelease_notes-0052 long context filler\nrelease_notes-0053 long context filler\nrelease_notes-0054 long context filler\nrelease_notes-0055 long context filler\nrelease_notes-0056 long context filler\nrelease_notes-0057 long context filler\nrelease_notes-0058 long context filler\nrelease_notes-0059 long context filler\nrelease_notes-0060 long context filler\nrelease_notes-0061 long context filler\nrelease_notes-0062 long context filler\nrelease_notes-0063 long context filler\nrelease_notes-0064 long context filler\nrelease_notes-0065 long context filler\nrelease_notes-0066 long context filler\nrelease_notes-0067 long context filler\nrelease_notes-0068 long context filler\nrelease_notes-0069 long context filler\nrelease_notes-0070 long context filler\nrelease_notes-0071 long context filler\nrelease_notes-0072 long context filler\nrelease_notes-0073 long context filler\nrelease_notes-0074 long context filler\nrelease_notes-0075 long context filler\nrelease_notes-0076 long context filler\nrelease_notes-0077 long context filler\nrelease_notes-0078 long context filler\nrelease_notes-0079 long context filler\nrelease_notes-0080 long context filler\nrelease_notes-0081 long context filler\nrelease_notes-0082 long context filler\nrelease_notes-0083 long context filler\nrelease_notes-0084 long context filler\nrelease_notes-0085 long context filler\nrelease_notes-0086 long context filler\nrelease_notes-0087 long context filler\nrelease_notes-0088 long context filler\nrelease_notes-0089 long context filler\n\n\n## Action required\nSet featureFlag to true in config/app.json. Keep mode safe.\n",
+          "config/app.json": "{\n  \"featureFlag\": false,\n  \"mode\": \"safe\"\n}\n",
+          "config/legacy.json": "{\n  \"notes\": [\"legacy-0000 long context filler\",\"legacy-0001 long context filler\",\"legacy-0002 long context filler\",\"legacy-0003 long context filler\",\"legacy-0004 long context filler\",\"legacy-0005 long context filler\",\"legacy-0006 long context filler\",\"legacy-0007 long context filler\",\"legacy-0008 long context filler\",\"legacy-0009 long context filler\",\"legacy-0010 long context filler\",\"legacy-0011 long context filler\",\"legacy-0012 long context filler\",\"legacy-0013 long context filler\",\"legacy-0014 long context filler\",\"legacy-0015 long context filler\",\"legacy-0016 long context filler\",\"legacy-0017 long context filler\",\"legacy-0018 long context filler\",\"legacy-0019 long context filler\",\"legacy-0020 long context filler\",\"legacy-0021 long context filler\",\"legacy-0022 long context filler\",\"legacy-0023 long context filler\",\"legacy-0024 long context filler\",\"legacy-0025 long context filler\",\"legacy-0026 long context filler\",\"legacy-0027 long context filler\",\"legacy-0028 long context filler\",\"legacy-0029 long context filler\",\"legacy-0030 long context filler\",\"legacy-0031 long context filler\",\"legacy-0032 long context filler\",\"legacy-0033 long context filler\",\"legacy-0034 long context filler\",\"legacy-0035 long context filler\",\"legacy-0036 long context filler\",\"legacy-0037 long context filler\",\"legacy-0038 long context filler\",\"legacy-0039 long context filler\"]\n}\n"
+        }
+      },
+      "scorers": [
+        {
+          "id": "diff",
+          "type": "workspace_diff",
+          "allowedPaths": [
+            "config/app.json"
+          ],
+          "requiredPaths": [
+            "config/app.json"
+          ]
+        },
+        {
+          "id": "state",
+          "type": "file_state",
+          "path": "config/app.json",
+          "contains": [
+            "\"featureFlag\": true",
+            "\"mode\": \"safe\""
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lc_parse_port_from_limits",
+      "title": "Repair parsePort using limits module",
+      "input": "Read src/limits.mjs and src/parse.mjs. Fix parsePort to accept integers from MIN_PORT through MAX_PORT and throw for invalid values. Only edit src/parse.mjs.",
+      "category": "coding",
+      "difficulty": "medium",
+      "risk": "low",
+      "timeoutMs": 180000,
+      "capabilities": [
+        "long_context",
+        "coding",
+        "boundary_conditions"
+      ],
+      "workspace": {
+        "files": {
+          "package.json": "{\"type\":\"module\"}\n",
+          "src/limits.mjs": "export const notes = [\n  \"limit-0000 note\",\n  \"limit-0001 note\",\n  \"limit-0002 note\",\n  \"limit-0003 note\",\n  \"limit-0004 note\",\n  \"limit-0005 note\",\n  \"limit-0006 note\",\n  \"limit-0007 note\",\n  \"limit-0008 note\",\n  \"limit-0009 note\",\n  \"limit-0010 note\",\n  \"limit-0011 note\",\n  \"limit-0012 note\",\n  \"limit-0013 note\",\n  \"limit-0014 note\",\n  \"limit-0015 note\",\n  \"limit-0016 note\",\n  \"limit-0017 note\",\n  \"limit-0018 note\",\n  \"limit-0019 note\",\n  \"limit-0020 note\",\n  \"limit-0021 note\",\n  \"limit-0022 note\",\n  \"limit-0023 note\",\n  \"limit-0024 note\",\n  \"limit-0025 note\",\n  \"limit-0026 note\",\n  \"limit-0027 note\",\n  \"limit-0028 note\",\n  \"limit-0029 note\",\n  \"limit-0030 note\",\n  \"limit-0031 note\",\n  \"limit-0032 note\",\n  \"limit-0033 note\",\n  \"limit-0034 note\",\n  \"limit-0035 note\",\n  \"limit-0036 note\",\n  \"limit-0037 note\",\n  \"limit-0038 note\",\n  \"limit-0039 note\",\n  \"limit-0040 note\",\n  \"limit-0041 note\",\n  \"limit-0042 note\",\n  \"limit-0043 note\",\n  \"limit-0044 note\",\n  \"limit-0045 note\",\n  \"limit-0046 note\",\n  \"limit-0047 note\",\n  \"limit-0048 note\",\n  \"limit-0049 note\",\n  \"limit-0050 note\",\n  \"limit-0051 note\",\n  \"limit-0052 note\",\n  \"limit-0053 note\",\n  \"limit-0054 note\",\n  \"limit-0055 note\",\n  \"limit-0056 note\",\n  \"limit-0057 note\",\n  \"limit-0058 note\",\n  \"limit-0059 note\",\n  \"limit-0060 note\",\n  \"limit-0061 note\",\n  \"limit-0062 note\",\n  \"limit-0063 note\",\n  \"limit-0064 note\",\n  \"limit-0065 note\",\n  \"limit-0066 note\",\n  \"limit-0067 note\",\n  \"limit-0068 note\",\n  \"limit-0069 note\",\n  \"limit-0070 note\",\n  \"limit-0071 note\",\n  \"limit-0072 note\",\n  \"limit-0073 note\",\n  \"limit-0074 note\"\n];\nexport const MIN_PORT = 1;\nexport const MAX_PORT = 65535;\n",
+          "src/parse.mjs": "export const notes = [\n  \"parse_pad-0000 note\",\n  \"parse_pad-0001 note\",\n  \"parse_pad-0002 note\",\n  \"parse_pad-0003 note\",\n  \"parse_pad-0004 note\",\n  \"parse_pad-0005 note\",\n  \"parse_pad-0006 note\",\n  \"parse_pad-0007 note\",\n  \"parse_pad-0008 note\",\n  \"parse_pad-0009 note\",\n  \"parse_pad-0010 note\",\n  \"parse_pad-0011 note\",\n  \"parse_pad-0012 note\",\n  \"parse_pad-0013 note\",\n  \"parse_pad-0014 note\",\n  \"parse_pad-0015 note\",\n  \"parse_pad-0016 note\",\n  \"parse_pad-0017 note\",\n  \"parse_pad-0018 note\",\n  \"parse_pad-0019 note\",\n  \"parse_pad-0020 note\",\n  \"parse_pad-0021 note\",\n  \"parse_pad-0022 note\",\n  \"parse_pad-0023 note\",\n  \"parse_pad-0024 note\",\n  \"parse_pad-0025 note\",\n  \"parse_pad-0026 note\",\n  \"parse_pad-0027 note\",\n  \"parse_pad-0028 note\",\n  \"parse_pad-0029 note\",\n  \"parse_pad-0030 note\",\n  \"parse_pad-0031 note\",\n  \"parse_pad-0032 note\",\n  \"parse_pad-0033 note\",\n  \"parse_pad-0034 note\",\n  \"parse_pad-0035 note\",\n  \"parse_pad-0036 note\",\n  \"parse_pad-0037 note\",\n  \"parse_pad-0038 note\",\n  \"parse_pad-0039 note\",\n  \"parse_pad-0040 note\",\n  \"parse_pad-0041 note\",\n  \"parse_pad-0042 note\",\n  \"parse_pad-0043 note\",\n  \"parse_pad-0044 note\",\n  \"parse_pad-0045 note\",\n  \"parse_pad-0046 note\",\n  \"parse_pad-0047 note\",\n  \"parse_pad-0048 note\",\n  \"parse_pad-0049 note\",\n  \"parse_pad-0050 note\",\n  \"parse_pad-0051 note\",\n  \"parse_pad-0052 note\",\n  \"parse_pad-0053 note\",\n  \"parse_pad-0054 note\",\n  \"parse_pad-0055 note\",\n  \"parse_pad-0056 note\",\n  \"parse_pad-0057 note\",\n  \"parse_pad-0058 note\",\n  \"parse_pad-0059 note\"\n];\nexport function parsePort(value) { return Number(value); }\n",
+          "docs/ports.md": "# Port Handbook\n\nport_handbook-0000 long context filler\nport_handbook-0001 long context filler\nport_handbook-0002 long context filler\nport_handbook-0003 long context filler\nport_handbook-0004 long context filler\nport_handbook-0005 long context filler\nport_handbook-0006 long context filler\nport_handbook-0007 long context filler\nport_handbook-0008 long context filler\nport_handbook-0009 long context filler\nport_handbook-0010 long context filler\nport_handbook-0011 long context filler\nport_handbook-0012 long context filler\nport_handbook-0013 long context filler\nport_handbook-0014 long context filler\nport_handbook-0015 long context filler\nport_handbook-0016 long context filler\nport_handbook-0017 long context filler\nport_handbook-0018 long context filler\nport_handbook-0019 long context filler\nport_handbook-0020 long context filler\nport_handbook-0021 long context filler\nport_handbook-0022 long context filler\nport_handbook-0023 long context filler\nport_handbook-0024 long context filler\nport_handbook-0025 long context filler\nport_handbook-0026 long context filler\nport_handbook-0027 long context filler\nport_handbook-0028 long context filler\nport_handbook-0029 long context filler\nport_handbook-0030 long context filler\nport_handbook-0031 long context filler\nport_handbook-0032 long context filler\nport_handbook-0033 long context filler\nport_handbook-0034 long context filler\nport_handbook-0035 long context filler\nport_handbook-0036 long context filler\nport_handbook-0037 long context filler\nport_handbook-0038 long context filler\nport_handbook-0039 long context filler\nport_handbook-0040 long context filler\nport_handbook-0041 long context filler\nport_handbook-0042 long context filler\nport_handbook-0043 long context filler\nport_handbook-0044 long context filler\nport_handbook-0045 long context filler\nport_handbook-0046 long context filler\nport_handbook-0047 long context filler\nport_handbook-0048 long context filler\nport_handbook-0049 long context filler\nport_handbook-0050 long context filler\nport_handbook-0051 long context filler\nport_handbook-0052 long context filler\nport_handbook-0053 long context filler\nport_handbook-0054 long context filler\n"
+        }
+      },
+      "scorers": [
+        {
+          "id": "diff",
+          "type": "workspace_diff",
+          "allowedPaths": [
+            "src/parse.mjs"
+          ],
+          "requiredPaths": [
+            "src/parse.mjs"
+          ]
+        },
+        {
+          "id": "hidden_test",
+          "type": "command",
+          "command": "node --test .eval-hidden/parse.test.mjs",
+          "hiddenFiles": {
+            ".eval-hidden/parse.test.mjs": "import test from 'node:test'; import assert from 'node:assert/strict'; import { parsePort } from '../src/parse.mjs'; test('valid', () => assert.equal(parsePort('443'), 443)); test('invalid', () => assert.throws(() => parsePort('0'))); test('high', () => assert.throws(() => parsePort('70000')));\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "lc_merge_constants",
+      "title": "Create constants file from two padded modules",
+      "input": "Read src/a-constants.mjs and src/b-constants.mjs. Create src/merged.mjs that exports SERVICE_NAME and RETRY_LIMIT with the values defined in those modules. Do not change the source modules.",
+      "category": "coding",
+      "difficulty": "medium",
+      "risk": "low",
+      "timeoutMs": 180000,
+      "capabilities": [
+        "long_context",
+        "coding",
+        "synthesis"
+      ],
+      "workspace": {
+        "files": {
+          "package.json": "{\"type\":\"module\"}\n",
+          "src/a-constants.mjs": "export const notes = [\n  \"a_pad-0000 note\",\n  \"a_pad-0001 note\",\n  \"a_pad-0002 note\",\n  \"a_pad-0003 note\",\n  \"a_pad-0004 note\",\n  \"a_pad-0005 note\",\n  \"a_pad-0006 note\",\n  \"a_pad-0007 note\",\n  \"a_pad-0008 note\",\n  \"a_pad-0009 note\",\n  \"a_pad-0010 note\",\n  \"a_pad-0011 note\",\n  \"a_pad-0012 note\",\n  \"a_pad-0013 note\",\n  \"a_pad-0014 note\",\n  \"a_pad-0015 note\",\n  \"a_pad-0016 note\",\n  \"a_pad-0017 note\",\n  \"a_pad-0018 note\",\n  \"a_pad-0019 note\",\n  \"a_pad-0020 note\",\n  \"a_pad-0021 note\",\n  \"a_pad-0022 note\",\n  \"a_pad-0023 note\",\n  \"a_pad-0024 note\",\n  \"a_pad-0025 note\",\n  \"a_pad-0026 note\",\n  \"a_pad-0027 note\",\n  \"a_pad-0028 note\",\n  \"a_pad-0029 note\",\n  \"a_pad-0030 note\",\n  \"a_pad-0031 note\",\n  \"a_pad-0032 note\",\n  \"a_pad-0033 note\",\n  \"a_pad-0034 note\",\n  \"a_pad-0035 note\",\n  \"a_pad-0036 note\",\n  \"a_pad-0037 note\",\n  \"a_pad-0038 note\",\n  \"a_pad-0039 note\",\n  \"a_pad-0040 note\",\n  \"a_pad-0041 note\",\n  \"a_pad-0042 note\",\n  \"a_pad-0043 note\",\n  \"a_pad-0044 note\",\n  \"a_pad-0045 note\",\n  \"a_pad-0046 note\",\n  \"a_pad-0047 note\",\n  \"a_pad-0048 note\",\n  \"a_pad-0049 note\",\n  \"a_pad-0050 note\",\n  \"a_pad-0051 note\",\n  \"a_pad-0052 note\",\n  \"a_pad-0053 note\",\n  \"a_pad-0054 note\",\n  \"a_pad-0055 note\",\n  \"a_pad-0056 note\",\n  \"a_pad-0057 note\",\n  \"a_pad-0058 note\",\n  \"a_pad-0059 note\",\n  \"a_pad-0060 note\",\n  \"a_pad-0061 note\",\n  \"a_pad-0062 note\",\n  \"a_pad-0063 note\",\n  \"a_pad-0064 note\",\n  \"a_pad-0065 note\",\n  \"a_pad-0066 note\",\n  \"a_pad-0067 note\",\n  \"a_pad-0068 note\",\n  \"a_pad-0069 note\",\n  \"a_pad-0070 note\",\n  \"a_pad-0071 note\",\n  \"a_pad-0072 note\",\n  \"a_pad-0073 note\",\n  \"a_pad-0074 note\",\n  \"a_pad-0075 note\",\n  \"a_pad-0076 note\",\n  \"a_pad-0077 note\",\n  \"a_pad-0078 note\",\n  \"a_pad-0079 note\",\n  \"a_pad-0080 note\",\n  \"a_pad-0081 note\",\n  \"a_pad-0082 note\",\n  \"a_pad-0083 note\",\n  \"a_pad-0084 note\"\n];\nexport const SERVICE_NAME = \"auto-talon\";\n",
+          "src/b-constants.mjs": "export const notes = [\n  \"b_pad-0000 note\",\n  \"b_pad-0001 note\",\n  \"b_pad-0002 note\",\n  \"b_pad-0003 note\",\n  \"b_pad-0004 note\",\n  \"b_pad-0005 note\",\n  \"b_pad-0006 note\",\n  \"b_pad-0007 note\",\n  \"b_pad-0008 note\",\n  \"b_pad-0009 note\",\n  \"b_pad-0010 note\",\n  \"b_pad-0011 note\",\n  \"b_pad-0012 note\",\n  \"b_pad-0013 note\",\n  \"b_pad-0014 note\",\n  \"b_pad-0015 note\",\n  \"b_pad-0016 note\",\n  \"b_pad-0017 note\",\n  \"b_pad-0018 note\",\n  \"b_pad-0019 note\",\n  \"b_pad-0020 note\",\n  \"b_pad-0021 note\",\n  \"b_pad-0022 note\",\n  \"b_pad-0023 note\",\n  \"b_pad-0024 note\",\n  \"b_pad-0025 note\",\n  \"b_pad-0026 note\",\n  \"b_pad-0027 note\",\n  \"b_pad-0028 note\",\n  \"b_pad-0029 note\",\n  \"b_pad-0030 note\",\n  \"b_pad-0031 note\",\n  \"b_pad-0032 note\",\n  \"b_pad-0033 note\",\n  \"b_pad-0034 note\",\n  \"b_pad-0035 note\",\n  \"b_pad-0036 note\",\n  \"b_pad-0037 note\",\n  \"b_pad-0038 note\",\n  \"b_pad-0039 note\",\n  \"b_pad-0040 note\",\n  \"b_pad-0041 note\",\n  \"b_pad-0042 note\",\n  \"b_pad-0043 note\",\n  \"b_pad-0044 note\",\n  \"b_pad-0045 note\",\n  \"b_pad-0046 note\",\n  \"b_pad-0047 note\",\n  \"b_pad-0048 note\",\n  \"b_pad-0049 note\",\n  \"b_pad-0050 note\",\n  \"b_pad-0051 note\",\n  \"b_pad-0052 note\",\n  \"b_pad-0053 note\",\n  \"b_pad-0054 note\",\n  \"b_pad-0055 note\",\n  \"b_pad-0056 note\",\n  \"b_pad-0057 note\",\n  \"b_pad-0058 note\",\n  \"b_pad-0059 note\",\n  \"b_pad-0060 note\",\n  \"b_pad-0061 note\",\n  \"b_pad-0062 note\",\n  \"b_pad-0063 note\",\n  \"b_pad-0064 note\",\n  \"b_pad-0065 note\",\n  \"b_pad-0066 note\",\n  \"b_pad-0067 note\",\n  \"b_pad-0068 note\",\n  \"b_pad-0069 note\",\n  \"b_pad-0070 note\",\n  \"b_pad-0071 note\",\n  \"b_pad-0072 note\",\n  \"b_pad-0073 note\",\n  \"b_pad-0074 note\",\n  \"b_pad-0075 note\",\n  \"b_pad-0076 note\",\n  \"b_pad-0077 note\",\n  \"b_pad-0078 note\",\n  \"b_pad-0079 note\",\n  \"b_pad-0080 note\",\n  \"b_pad-0081 note\",\n  \"b_pad-0082 note\",\n  \"b_pad-0083 note\",\n  \"b_pad-0084 note\"\n];\nexport const RETRY_LIMIT = 3;\n",
+          "README.md": "# Constants Guide\n\nconstants_guide-0000 long context filler\nconstants_guide-0001 long context filler\nconstants_guide-0002 long context filler\nconstants_guide-0003 long context filler\nconstants_guide-0004 long context filler\nconstants_guide-0005 long context filler\nconstants_guide-0006 long context filler\nconstants_guide-0007 long context filler\nconstants_guide-0008 long context filler\nconstants_guide-0009 long context filler\nconstants_guide-0010 long context filler\nconstants_guide-0011 long context filler\nconstants_guide-0012 long context filler\nconstants_guide-0013 long context filler\nconstants_guide-0014 long context filler\nconstants_guide-0015 long context filler\nconstants_guide-0016 long context filler\nconstants_guide-0017 long context filler\nconstants_guide-0018 long context filler\nconstants_guide-0019 long context filler\nconstants_guide-0020 long context filler\nconstants_guide-0021 long context filler\nconstants_guide-0022 long context filler\nconstants_guide-0023 long context filler\nconstants_guide-0024 long context filler\nconstants_guide-0025 long context filler\nconstants_guide-0026 long context filler\nconstants_guide-0027 long context filler\nconstants_guide-0028 long context filler\nconstants_guide-0029 long context filler\nconstants_guide-0030 long context filler\nconstants_guide-0031 long context filler\nconstants_guide-0032 long context filler\nconstants_guide-0033 long context filler\nconstants_guide-0034 long context filler\nconstants_guide-0035 long context filler\nconstants_guide-0036 long context filler\nconstants_guide-0037 long context filler\nconstants_guide-0038 long context filler\nconstants_guide-0039 long context filler\n"
+        }
+      },
+      "scorers": [
+        {
+          "id": "diff",
+          "type": "workspace_diff",
+          "allowedPaths": [
+            "src/merged.mjs"
+          ],
+          "requiredPaths": [
+            "src/merged.mjs"
+          ]
+        },
+        {
+          "id": "hidden_test",
+          "type": "command",
+          "command": "node --test .eval-hidden/merged.test.mjs",
+          "hiddenFiles": {
+            ".eval-hidden/merged.test.mjs": "import test from 'node:test'; import assert from 'node:assert/strict'; import { SERVICE_NAME, RETRY_LIMIT } from '../src/merged.mjs'; test('merged', () => { assert.equal(SERVICE_NAME, 'auto-talon'); assert.equal(RETRY_LIMIT, 3); });\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "lc_format_currency",
+      "title": "Fix currency formatter from padded spec",
+      "input": "Read specs/currency.md and src/format.mjs. Fix formatUsd so it prefixes with $ and keeps two decimal places. Only edit src/format.mjs.",
+      "category": "coding",
+      "difficulty": "medium",
+      "risk": "low",
+      "timeoutMs": 180000,
+      "capabilities": [
+        "long_context",
+        "coding",
+        "formatting"
+      ],
+      "workspace": {
+        "files": {
+          "package.json": "{\"type\":\"module\"}\n",
+          "specs/currency.md": "# Currency Spec\n\ncurrency_spec-0000 long context filler\ncurrency_spec-0001 long context filler\ncurrency_spec-0002 long context filler\ncurrency_spec-0003 long context filler\ncurrency_spec-0004 long context filler\ncurrency_spec-0005 long context filler\ncurrency_spec-0006 long context filler\ncurrency_spec-0007 long context filler\ncurrency_spec-0008 long context filler\ncurrency_spec-0009 long context filler\ncurrency_spec-0010 long context filler\ncurrency_spec-0011 long context filler\ncurrency_spec-0012 long context filler\ncurrency_spec-0013 long context filler\ncurrency_spec-0014 long context filler\ncurrency_spec-0015 long context filler\ncurrency_spec-0016 long context filler\ncurrency_spec-0017 long context filler\ncurrency_spec-0018 long context filler\ncurrency_spec-0019 long context filler\ncurrency_spec-0020 long context filler\ncurrency_spec-0021 long context filler\ncurrency_spec-0022 long context filler\ncurrency_spec-0023 long context filler\ncurrency_spec-0024 long context filler\ncurrency_spec-0025 long context filler\ncurrency_spec-0026 long context filler\ncurrency_spec-0027 long context filler\ncurrency_spec-0028 long context filler\ncurrency_spec-0029 long context filler\ncurrency_spec-0030 long context filler\ncurrency_spec-0031 long context filler\ncurrency_spec-0032 long context filler\ncurrency_spec-0033 long context filler\ncurrency_spec-0034 long context filler\ncurrency_spec-0035 long context filler\ncurrency_spec-0036 long context filler\ncurrency_spec-0037 long context filler\ncurrency_spec-0038 long context filler\ncurrency_spec-0039 long context filler\ncurrency_spec-0040 long context filler\ncurrency_spec-0041 long context filler\ncurrency_spec-0042 long context filler\ncurrency_spec-0043 long context filler\ncurrency_spec-0044 long context filler\ncurrency_spec-0045 long context filler\ncurrency_spec-0046 long context filler\ncurrency_spec-0047 long context filler\ncurrency_spec-0048 long context filler\ncurrency_spec-0049 long context filler\ncurrency_spec-0050 long context filler\ncurrency_spec-0051 long context filler\ncurrency_spec-0052 long context filler\ncurrency_spec-0053 long context filler\ncurrency_spec-0054 long context filler\ncurrency_spec-0055 long context filler\ncurrency_spec-0056 long context filler\ncurrency_spec-0057 long context filler\ncurrency_spec-0058 long context filler\ncurrency_spec-0059 long context filler\ncurrency_spec-0060 long context filler\ncurrency_spec-0061 long context filler\ncurrency_spec-0062 long context filler\ncurrency_spec-0063 long context filler\ncurrency_spec-0064 long context filler\ncurrency_spec-0065 long context filler\ncurrency_spec-0066 long context filler\ncurrency_spec-0067 long context filler\ncurrency_spec-0068 long context filler\ncurrency_spec-0069 long context filler\ncurrency_spec-0070 long context filler\ncurrency_spec-0071 long context filler\ncurrency_spec-0072 long context filler\ncurrency_spec-0073 long context filler\ncurrency_spec-0074 long context filler\ncurrency_spec-0075 long context filler\ncurrency_spec-0076 long context filler\ncurrency_spec-0077 long context filler\ncurrency_spec-0078 long context filler\ncurrency_spec-0079 long context filler\n\n\n## formatUsd\nMust return values like $12.50 with exactly two decimals and a leading $.\n",
+          "src/format.mjs": "export const notes = [\n  \"fmt-0000 note\",\n  \"fmt-0001 note\",\n  \"fmt-0002 note\",\n  \"fmt-0003 note\",\n  \"fmt-0004 note\",\n  \"fmt-0005 note\",\n  \"fmt-0006 note\",\n  \"fmt-0007 note\",\n  \"fmt-0008 note\",\n  \"fmt-0009 note\",\n  \"fmt-0010 note\",\n  \"fmt-0011 note\",\n  \"fmt-0012 note\",\n  \"fmt-0013 note\",\n  \"fmt-0014 note\",\n  \"fmt-0015 note\",\n  \"fmt-0016 note\",\n  \"fmt-0017 note\",\n  \"fmt-0018 note\",\n  \"fmt-0019 note\",\n  \"fmt-0020 note\",\n  \"fmt-0021 note\",\n  \"fmt-0022 note\",\n  \"fmt-0023 note\",\n  \"fmt-0024 note\",\n  \"fmt-0025 note\",\n  \"fmt-0026 note\",\n  \"fmt-0027 note\",\n  \"fmt-0028 note\",\n  \"fmt-0029 note\",\n  \"fmt-0030 note\",\n  \"fmt-0031 note\",\n  \"fmt-0032 note\",\n  \"fmt-0033 note\",\n  \"fmt-0034 note\",\n  \"fmt-0035 note\",\n  \"fmt-0036 note\",\n  \"fmt-0037 note\",\n  \"fmt-0038 note\",\n  \"fmt-0039 note\",\n  \"fmt-0040 note\",\n  \"fmt-0041 note\",\n  \"fmt-0042 note\",\n  \"fmt-0043 note\",\n  \"fmt-0044 note\",\n  \"fmt-0045 note\",\n  \"fmt-0046 note\",\n  \"fmt-0047 note\",\n  \"fmt-0048 note\",\n  \"fmt-0049 note\",\n  \"fmt-0050 note\",\n  \"fmt-0051 note\",\n  \"fmt-0052 note\",\n  \"fmt-0053 note\",\n  \"fmt-0054 note\",\n  \"fmt-0055 note\",\n  \"fmt-0056 note\",\n  \"fmt-0057 note\",\n  \"fmt-0058 note\",\n  \"fmt-0059 note\",\n  \"fmt-0060 note\",\n  \"fmt-0061 note\",\n  \"fmt-0062 note\",\n  \"fmt-0063 note\",\n  \"fmt-0064 note\"\n];\nexport function formatUsd(value) { return String(value); }\n",
+          "src/noise.mjs": "export const notes = [\n  \"noise-0000 note\",\n  \"noise-0001 note\",\n  \"noise-0002 note\",\n  \"noise-0003 note\",\n  \"noise-0004 note\",\n  \"noise-0005 note\",\n  \"noise-0006 note\",\n  \"noise-0007 note\",\n  \"noise-0008 note\",\n  \"noise-0009 note\",\n  \"noise-0010 note\",\n  \"noise-0011 note\",\n  \"noise-0012 note\",\n  \"noise-0013 note\",\n  \"noise-0014 note\",\n  \"noise-0015 note\",\n  \"noise-0016 note\",\n  \"noise-0017 note\",\n  \"noise-0018 note\",\n  \"noise-0019 note\",\n  \"noise-0020 note\",\n  \"noise-0021 note\",\n  \"noise-0022 note\",\n  \"noise-0023 note\",\n  \"noise-0024 note\",\n  \"noise-0025 note\",\n  \"noise-0026 note\",\n  \"noise-0027 note\",\n  \"noise-0028 note\",\n  \"noise-0029 note\",\n  \"noise-0030 note\",\n  \"noise-0031 note\",\n  \"noise-0032 note\",\n  \"noise-0033 note\",\n  \"noise-0034 note\",\n  \"noise-0035 note\",\n  \"noise-0036 note\",\n  \"noise-0037 note\",\n  \"noise-0038 note\",\n  \"noise-0039 note\",\n  \"noise-0040 note\",\n  \"noise-0041 note\",\n  \"noise-0042 note\",\n  \"noise-0043 note\",\n  \"noise-0044 note\",\n  \"noise-0045 note\",\n  \"noise-0046 note\",\n  \"noise-0047 note\",\n  \"noise-0048 note\",\n  \"noise-0049 note\",\n  \"noise-0050 note\",\n  \"noise-0051 note\",\n  \"noise-0052 note\",\n  \"noise-0053 note\",\n  \"noise-0054 note\",\n  \"noise-0055 note\",\n  \"noise-0056 note\",\n  \"noise-0057 note\",\n  \"noise-0058 note\",\n  \"noise-0059 note\",\n  \"noise-0060 note\",\n  \"noise-0061 note\",\n  \"noise-0062 note\",\n  \"noise-0063 note\",\n  \"noise-0064 note\",\n  \"noise-0065 note\",\n  \"noise-0066 note\",\n  \"noise-0067 note\",\n  \"noise-0068 note\",\n  \"noise-0069 note\"\n];\n"
+        }
+      },
+      "scorers": [
+        {
+          "id": "diff",
+          "type": "workspace_diff",
+          "allowedPaths": [
+            "src/format.mjs"
+          ],
+          "requiredPaths": [
+            "src/format.mjs"
+          ]
+        },
+        {
+          "id": "hidden_test",
+          "type": "command",
+          "command": "node --test .eval-hidden/format.test.mjs",
+          "hiddenFiles": {
+            ".eval-hidden/format.test.mjs": "import test from 'node:test'; import assert from 'node:assert/strict'; import { formatUsd } from '../src/format.mjs'; test('usd', () => assert.equal(formatUsd(12.5), '$12.50'));\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "lc_mode_from_policy",
+      "title": "Set runtime mode from padded policy",
+      "input": "Read policy/runtime.md and src/runtime-mode.mjs. Set MODE to \"production\" as required by the policy. Only edit src/runtime-mode.mjs.",
+      "category": "coding",
+      "difficulty": "easy",
+      "risk": "low",
+      "timeoutMs": 180000,
+      "capabilities": [
+        "long_context",
+        "coding",
+        "configuration"
+      ],
+      "workspace": {
+        "files": {
+          "package.json": "{\"type\":\"module\"}\n",
+          "policy/runtime.md": "# Runtime Policy\n\nruntime_policy-0000 long context filler\nruntime_policy-0001 long context filler\nruntime_policy-0002 long context filler\nruntime_policy-0003 long context filler\nruntime_policy-0004 long context filler\nruntime_policy-0005 long context filler\nruntime_policy-0006 long context filler\nruntime_policy-0007 long context filler\nruntime_policy-0008 long context filler\nruntime_policy-0009 long context filler\nruntime_policy-0010 long context filler\nruntime_policy-0011 long context filler\nruntime_policy-0012 long context filler\nruntime_policy-0013 long context filler\nruntime_policy-0014 long context filler\nruntime_policy-0015 long context filler\nruntime_policy-0016 long context filler\nruntime_policy-0017 long context filler\nruntime_policy-0018 long context filler\nruntime_policy-0019 long context filler\nruntime_policy-0020 long context filler\nruntime_policy-0021 long context filler\nruntime_policy-0022 long context filler\nruntime_policy-0023 long context filler\nruntime_policy-0024 long context filler\nruntime_policy-0025 long context filler\nruntime_policy-0026 long context filler\nruntime_policy-0027 long context filler\nruntime_policy-0028 long context filler\nruntime_policy-0029 long context filler\nruntime_policy-0030 long context filler\nruntime_policy-0031 long context filler\nruntime_policy-0032 long context filler\nruntime_policy-0033 long context filler\nruntime_policy-0034 long context filler\nruntime_policy-0035 long context filler\nruntime_policy-0036 long context filler\nruntime_policy-0037 long context filler\nruntime_policy-0038 long context filler\nruntime_policy-0039 long context filler\nruntime_policy-0040 long context filler\nruntime_policy-0041 long context filler\nruntime_policy-0042 long context filler\nruntime_policy-0043 long context filler\nruntime_policy-0044 long context filler\nruntime_policy-0045 long context filler\nruntime_policy-0046 long context filler\nruntime_policy-0047 long context filler\nruntime_policy-0048 long context filler\nruntime_policy-0049 long context filler\nruntime_policy-0050 long context filler\nruntime_policy-0051 long context filler\nruntime_policy-0052 long context filler\nruntime_policy-0053 long context filler\nruntime_policy-0054 long context filler\nruntime_policy-0055 long context filler\nruntime_policy-0056 long context filler\nruntime_policy-0057 long context filler\nruntime_policy-0058 long context filler\nruntime_policy-0059 long context filler\nruntime_policy-0060 long context filler\nruntime_policy-0061 long context filler\nruntime_policy-0062 long context filler\nruntime_policy-0063 long context filler\nruntime_policy-0064 long context filler\nruntime_policy-0065 long context filler\nruntime_policy-0066 long context filler\nruntime_policy-0067 long context filler\nruntime_policy-0068 long context filler\nruntime_policy-0069 long context filler\nruntime_policy-0070 long context filler\nruntime_policy-0071 long context filler\nruntime_policy-0072 long context filler\nruntime_policy-0073 long context filler\nruntime_policy-0074 long context filler\nruntime_policy-0075 long context filler\nruntime_policy-0076 long context filler\nruntime_policy-0077 long context filler\nruntime_policy-0078 long context filler\nruntime_policy-0079 long context filler\nruntime_policy-0080 long context filler\nruntime_policy-0081 long context filler\nruntime_policy-0082 long context filler\nruntime_policy-0083 long context filler\nruntime_policy-0084 long context filler\nruntime_policy-0085 long context filler\nruntime_policy-0086 long context filler\nruntime_policy-0087 long context filler\nruntime_policy-0088 long context filler\nruntime_policy-0089 long context filler\nruntime_policy-0090 long context filler\nruntime_policy-0091 long context filler\nruntime_policy-0092 long context filler\nruntime_policy-0093 long context filler\nruntime_policy-0094 long context filler\n\n\n## Active mode\nMODE must be production.\n",
+          "policy/archive.md": "# Archived Policy\n\narchived_policy-0000 long context filler\narchived_policy-0001 long context filler\narchived_policy-0002 long context filler\narchived_policy-0003 long context filler\narchived_policy-0004 long context filler\narchived_policy-0005 long context filler\narchived_policy-0006 long context filler\narchived_policy-0007 long context filler\narchived_policy-0008 long context filler\narchived_policy-0009 long context filler\narchived_policy-0010 long context filler\narchived_policy-0011 long context filler\narchived_policy-0012 long context filler\narchived_policy-0013 long context filler\narchived_policy-0014 long context filler\narchived_policy-0015 long context filler\narchived_policy-0016 long context filler\narchived_policy-0017 long context filler\narchived_policy-0018 long context filler\narchived_policy-0019 long context filler\narchived_policy-0020 long context filler\narchived_policy-0021 long context filler\narchived_policy-0022 long context filler\narchived_policy-0023 long context filler\narchived_policy-0024 long context filler\narchived_policy-0025 long context filler\narchived_policy-0026 long context filler\narchived_policy-0027 long context filler\narchived_policy-0028 long context filler\narchived_policy-0029 long context filler\narchived_policy-0030 long context filler\narchived_policy-0031 long context filler\narchived_policy-0032 long context filler\narchived_policy-0033 long context filler\narchived_policy-0034 long context filler\narchived_policy-0035 long context filler\narchived_policy-0036 long context filler\narchived_policy-0037 long context filler\narchived_policy-0038 long context filler\narchived_policy-0039 long context filler\narchived_policy-0040 long context filler\narchived_policy-0041 long context filler\narchived_policy-0042 long context filler\narchived_policy-0043 long context filler\narchived_policy-0044 long context filler\narchived_policy-0045 long context filler\narchived_policy-0046 long context filler\narchived_policy-0047 long context filler\narchived_policy-0048 long context filler\narchived_policy-0049 long context filler\n",
+          "src/runtime-mode.mjs": "export const notes = [\n  \"mode_pad-0000 note\",\n  \"mode_pad-0001 note\",\n  \"mode_pad-0002 note\",\n  \"mode_pad-0003 note\",\n  \"mode_pad-0004 note\",\n  \"mode_pad-0005 note\",\n  \"mode_pad-0006 note\",\n  \"mode_pad-0007 note\",\n  \"mode_pad-0008 note\",\n  \"mode_pad-0009 note\",\n  \"mode_pad-0010 note\",\n  \"mode_pad-0011 note\",\n  \"mode_pad-0012 note\",\n  \"mode_pad-0013 note\",\n  \"mode_pad-0014 note\",\n  \"mode_pad-0015 note\",\n  \"mode_pad-0016 note\",\n  \"mode_pad-0017 note\",\n  \"mode_pad-0018 note\",\n  \"mode_pad-0019 note\",\n  \"mode_pad-0020 note\",\n  \"mode_pad-0021 note\",\n  \"mode_pad-0022 note\",\n  \"mode_pad-0023 note\",\n  \"mode_pad-0024 note\",\n  \"mode_pad-0025 note\",\n  \"mode_pad-0026 note\",\n  \"mode_pad-0027 note\",\n  \"mode_pad-0028 note\",\n  \"mode_pad-0029 note\",\n  \"mode_pad-0030 note\",\n  \"mode_pad-0031 note\",\n  \"mode_pad-0032 note\",\n  \"mode_pad-0033 note\",\n  \"mode_pad-0034 note\",\n  \"mode_pad-0035 note\",\n  \"mode_pad-0036 note\",\n  \"mode_pad-0037 note\",\n  \"mode_pad-0038 note\",\n  \"mode_pad-0039 note\",\n  \"mode_pad-0040 note\",\n  \"mode_pad-0041 note\",\n  \"mode_pad-0042 note\",\n  \"mode_pad-0043 note\",\n  \"mode_pad-0044 note\",\n  \"mode_pad-0045 note\",\n  \"mode_pad-0046 note\",\n  \"mode_pad-0047 note\",\n  \"mode_pad-0048 note\",\n  \"mode_pad-0049 note\",\n  \"mode_pad-0050 note\",\n  \"mode_pad-0051 note\",\n  \"mode_pad-0052 note\",\n  \"mode_pad-0053 note\",\n  \"mode_pad-0054 note\"\n];\nexport const MODE = \"development\";\n"
+        }
+      },
+      "scorers": [
+        {
+          "id": "diff",
+          "type": "workspace_diff",
+          "allowedPaths": [
+            "src/runtime-mode.mjs"
+          ],
+          "requiredPaths": [
+            "src/runtime-mode.mjs"
+          ]
+        },
+        {
+          "id": "state",
+          "type": "file_state",
+          "path": "src/runtime-mode.mjs",
+          "contains": [
+            "export const MODE = \"production\""
+          ],
+          "notContains": [
+            "export const MODE = \"development\""
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lc_clamp_with_bounds",
+      "title": "Implement clamp using padded bounds module",
+      "input": "Read src/bounds.mjs and src/math-ops.mjs. Implement clamp(value) so it clamps to [LOWER, UPPER] from bounds. Only edit src/math-ops.mjs.",
+      "category": "coding",
+      "difficulty": "medium",
+      "risk": "low",
+      "timeoutMs": 180000,
+      "capabilities": [
+        "long_context",
+        "coding",
+        "verification"
+      ],
+      "workspace": {
+        "files": {
+          "package.json": "{\"type\":\"module\"}\n",
+          "src/bounds.mjs": "export const notes = [\n  \"bounds-0000 note\",\n  \"bounds-0001 note\",\n  \"bounds-0002 note\",\n  \"bounds-0003 note\",\n  \"bounds-0004 note\",\n  \"bounds-0005 note\",\n  \"bounds-0006 note\",\n  \"bounds-0007 note\",\n  \"bounds-0008 note\",\n  \"bounds-0009 note\",\n  \"bounds-0010 note\",\n  \"bounds-0011 note\",\n  \"bounds-0012 note\",\n  \"bounds-0013 note\",\n  \"bounds-0014 note\",\n  \"bounds-0015 note\",\n  \"bounds-0016 note\",\n  \"bounds-0017 note\",\n  \"bounds-0018 note\",\n  \"bounds-0019 note\",\n  \"bounds-0020 note\",\n  \"bounds-0021 note\",\n  \"bounds-0022 note\",\n  \"bounds-0023 note\",\n  \"bounds-0024 note\",\n  \"bounds-0025 note\",\n  \"bounds-0026 note\",\n  \"bounds-0027 note\",\n  \"bounds-0028 note\",\n  \"bounds-0029 note\",\n  \"bounds-0030 note\",\n  \"bounds-0031 note\",\n  \"bounds-0032 note\",\n  \"bounds-0033 note\",\n  \"bounds-0034 note\",\n  \"bounds-0035 note\",\n  \"bounds-0036 note\",\n  \"bounds-0037 note\",\n  \"bounds-0038 note\",\n  \"bounds-0039 note\",\n  \"bounds-0040 note\",\n  \"bounds-0041 note\",\n  \"bounds-0042 note\",\n  \"bounds-0043 note\",\n  \"bounds-0044 note\",\n  \"bounds-0045 note\",\n  \"bounds-0046 note\",\n  \"bounds-0047 note\",\n  \"bounds-0048 note\",\n  \"bounds-0049 note\",\n  \"bounds-0050 note\",\n  \"bounds-0051 note\",\n  \"bounds-0052 note\",\n  \"bounds-0053 note\",\n  \"bounds-0054 note\",\n  \"bounds-0055 note\",\n  \"bounds-0056 note\",\n  \"bounds-0057 note\",\n  \"bounds-0058 note\",\n  \"bounds-0059 note\",\n  \"bounds-0060 note\",\n  \"bounds-0061 note\",\n  \"bounds-0062 note\",\n  \"bounds-0063 note\",\n  \"bounds-0064 note\",\n  \"bounds-0065 note\",\n  \"bounds-0066 note\",\n  \"bounds-0067 note\",\n  \"bounds-0068 note\",\n  \"bounds-0069 note\",\n  \"bounds-0070 note\",\n  \"bounds-0071 note\",\n  \"bounds-0072 note\",\n  \"bounds-0073 note\",\n  \"bounds-0074 note\",\n  \"bounds-0075 note\",\n  \"bounds-0076 note\",\n  \"bounds-0077 note\",\n  \"bounds-0078 note\",\n  \"bounds-0079 note\",\n  \"bounds-0080 note\",\n  \"bounds-0081 note\",\n  \"bounds-0082 note\",\n  \"bounds-0083 note\",\n  \"bounds-0084 note\",\n  \"bounds-0085 note\",\n  \"bounds-0086 note\",\n  \"bounds-0087 note\",\n  \"bounds-0088 note\",\n  \"bounds-0089 note\"\n];\nexport const LOWER = 0;\nexport const UPPER = 100;\n",
+          "src/math-ops.mjs": "export const notes = [\n  \"ops-0000 note\",\n  \"ops-0001 note\",\n  \"ops-0002 note\",\n  \"ops-0003 note\",\n  \"ops-0004 note\",\n  \"ops-0005 note\",\n  \"ops-0006 note\",\n  \"ops-0007 note\",\n  \"ops-0008 note\",\n  \"ops-0009 note\",\n  \"ops-0010 note\",\n  \"ops-0011 note\",\n  \"ops-0012 note\",\n  \"ops-0013 note\",\n  \"ops-0014 note\",\n  \"ops-0015 note\",\n  \"ops-0016 note\",\n  \"ops-0017 note\",\n  \"ops-0018 note\",\n  \"ops-0019 note\",\n  \"ops-0020 note\",\n  \"ops-0021 note\",\n  \"ops-0022 note\",\n  \"ops-0023 note\",\n  \"ops-0024 note\",\n  \"ops-0025 note\",\n  \"ops-0026 note\",\n  \"ops-0027 note\",\n  \"ops-0028 note\",\n  \"ops-0029 note\",\n  \"ops-0030 note\",\n  \"ops-0031 note\",\n  \"ops-0032 note\",\n  \"ops-0033 note\",\n  \"ops-0034 note\",\n  \"ops-0035 note\",\n  \"ops-0036 note\",\n  \"ops-0037 note\",\n  \"ops-0038 note\",\n  \"ops-0039 note\",\n  \"ops-0040 note\",\n  \"ops-0041 note\",\n  \"ops-0042 note\",\n  \"ops-0043 note\",\n  \"ops-0044 note\",\n  \"ops-0045 note\",\n  \"ops-0046 note\",\n  \"ops-0047 note\",\n  \"ops-0048 note\",\n  \"ops-0049 note\",\n  \"ops-0050 note\",\n  \"ops-0051 note\",\n  \"ops-0052 note\",\n  \"ops-0053 note\",\n  \"ops-0054 note\",\n  \"ops-0055 note\",\n  \"ops-0056 note\",\n  \"ops-0057 note\",\n  \"ops-0058 note\",\n  \"ops-0059 note\",\n  \"ops-0060 note\",\n  \"ops-0061 note\",\n  \"ops-0062 note\",\n  \"ops-0063 note\",\n  \"ops-0064 note\",\n  \"ops-0065 note\",\n  \"ops-0066 note\",\n  \"ops-0067 note\",\n  \"ops-0068 note\",\n  \"ops-0069 note\"\n];\nexport function clamp(value) { return value; }\n",
+          "docs/math.md": "# Math Ops\n\nmath_ops-0000 long context filler\nmath_ops-0001 long context filler\nmath_ops-0002 long context filler\nmath_ops-0003 long context filler\nmath_ops-0004 long context filler\nmath_ops-0005 long context filler\nmath_ops-0006 long context filler\nmath_ops-0007 long context filler\nmath_ops-0008 long context filler\nmath_ops-0009 long context filler\nmath_ops-0010 long context filler\nmath_ops-0011 long context filler\nmath_ops-0012 long context filler\nmath_ops-0013 long context filler\nmath_ops-0014 long context filler\nmath_ops-0015 long context filler\nmath_ops-0016 long context filler\nmath_ops-0017 long context filler\nmath_ops-0018 long context filler\nmath_ops-0019 long context filler\nmath_ops-0020 long context filler\nmath_ops-0021 long context filler\nmath_ops-0022 long context filler\nmath_ops-0023 long context filler\nmath_ops-0024 long context filler\nmath_ops-0025 long context filler\nmath_ops-0026 long context filler\nmath_ops-0027 long context filler\nmath_ops-0028 long context filler\nmath_ops-0029 long context filler\nmath_ops-0030 long context filler\nmath_ops-0031 long context filler\nmath_ops-0032 long context filler\nmath_ops-0033 long context filler\nmath_ops-0034 long context filler\nmath_ops-0035 long context filler\nmath_ops-0036 long context filler\nmath_ops-0037 long context filler\nmath_ops-0038 long context filler\nmath_ops-0039 long context filler\nmath_ops-0040 long context filler\nmath_ops-0041 long context filler\nmath_ops-0042 long context filler\nmath_ops-0043 long context filler\nmath_ops-0044 long context filler\n"
+        }
+      },
+      "scorers": [
+        {
+          "id": "diff",
+          "type": "workspace_diff",
+          "allowedPaths": [
+            "src/math-ops.mjs"
+          ],
+          "requiredPaths": [
+            "src/math-ops.mjs"
+          ]
+        },
+        {
+          "id": "hidden_test",
+          "type": "command",
+          "command": "node --test .eval-hidden/clamp.test.mjs",
+          "hiddenFiles": {
+            ".eval-hidden/clamp.test.mjs": "import test from 'node:test'; import assert from 'node:assert/strict'; import { clamp } from '../src/math-ops.mjs'; test('mid', () => assert.equal(clamp(50), 50)); test('low', () => assert.equal(clamp(-5), 0)); test('high', () => assert.equal(clamp(200), 100));\n"
+          }
+        }
+      ]
+    }
+  ]
+}

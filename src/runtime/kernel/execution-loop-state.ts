@@ -16,6 +16,7 @@ import type {
 
 export interface ExecutionLoopState {
   compactedCount: number;
+  compactCooldownRemaining: number;
   costWarnedToolNames: string[];
   cumulativeToolCallCount: number;
   cwd: string;

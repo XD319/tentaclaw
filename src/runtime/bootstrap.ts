@@ -246,9 +246,11 @@ export interface AppConfig {
   interactionModes: RuntimeConfig["interactionModes"];
   compact: {
     bufferTokens: number;
+    compactCooldownIterations: number;
     hygieneThresholdRatio: number;
     iterationThreshold: number;
     messageThreshold: number;
+    minTokenPressureRatio: number;
     protectFirstN: number;
     protectLastN: number;
     resumeUserTailMessages: number;

@@ -5,7 +5,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
 import { resolveProviderConfigForProvider } from "../providers/index.js";
-import { createApplication, createDefaultRunOptions } from "../runtime/index.js";
+import { createApplication, createDefaultRunOptions, type AppConfig } from "../runtime/index.js";
 import type { Provider, TraceEvent } from "../types/index.js";
 import { changedPaths, evaluateScorer } from "./scorers.js";
 import { loadEvalSuite, type EvalSuiteManifest, type EvalTask } from "./schema.js";
@@ -20,6 +20,17 @@ export interface EvalGateThresholds {
 }
 
 export interface CapabilityEvalOptions {
+  /**
+   * Optional per-trial override for macro-compaction thresholds.
+   * Merged into `createApplication({ config: { compact } })` so A/B harnesses
+   * can force compaction on/off without touching `runtime.config.json`.
+   */
+  compactOverride?: Partial<AppConfig["compact"]>;
+  /**
+   * Optional per-trial partial AppConfig override (contextRetention, tokenBudget, compact, …).
+   * `compactOverride` is merged on top when both are set.
+   */
+  configOverride?: Partial<AppConfig>;
   configCwd?: string;
   gateThresholds?: EvalGateThresholds;
   judge?: Parameters<typeof evaluateScorer>[1]["judge"];
@@ -148,8 +159,35 @@ async function runTrial(
   const workspaceRoot = await fs.mkdtemp(join(tmpdir(), "auto-talon-eval-"));
   await seedWorkspace(workspaceRoot, task.workspace.files);
   const beforeFiles = await snapshotWorkspace(workspaceRoot);
+  const applicationConfig: Partial<AppConfig> = {
+    databasePath: ":memory:",
+    provider: providerConfig,
+    workspaceRoot
+  };
+  if (options.configOverride !== undefined) {
+    if (options.configOverride.compact !== undefined) {
+      applicationConfig.compact = options.configOverride.compact;
+    }
+    if (options.configOverride.contextRetention !== undefined) {
+      applicationConfig.contextRetention = options.configOverride.contextRetention;
+    }
+    if (options.configOverride.tokenBudget !== undefined) {
+      applicationConfig.tokenBudget = options.configOverride.tokenBudget;
+    }
+    if (options.configOverride.tokenBudgetInputLimitExplicit !== undefined) {
+      applicationConfig.tokenBudgetInputLimitExplicit =
+        options.configOverride.tokenBudgetInputLimitExplicit;
+    }
+  }
+  if (options.compactOverride !== undefined) {
+    // mergeCreateApplicationConfig deep-merges compact; partial overrides are intentional.
+    applicationConfig.compact = {
+      ...(applicationConfig.compact ?? {}),
+      ...options.compactOverride
+    } as AppConfig["compact"];
+  }
   const handle = createApplication(workspaceRoot, {
-    config: { databasePath: ":memory:", provider: providerConfig, workspaceRoot },
+    config: applicationConfig,
     ...(options.providerFactory !== undefined ? { provider: options.providerFactory() } : {}),
     scheduler: { autoStart: false }
   });
@@ -223,8 +261,15 @@ export function classifyFailure(status: string, results: EvalTrialResult["scorer
   if (results.some((result) => result.required && !result.passed && result.type === "workspace_diff")) return "verification_failure";
   if (trace.some((event) => event.eventType === "provider_request_failed" && event.payload.errorCategory === "timeout_error")) return "provider_timeout";
   if (hasTraceEvent(trace, "tool_execution_failed")) return "tool_failure";
+  if (
+    status === "failed" &&
+    (hasTraceEvent(trace, "iteration_exhausted") ||
+      hasTraceEvent(trace, "invalid_final_output_rejected") ||
+      hasTraceEvent(trace, "completion_verification_missing"))
+  ) {
+    return "control_flow_failure";
+  }
   if (hasTraceEvent(trace, "environment_command_failed")) return "environment_failure";
-  if (status === "failed" && (hasTraceEvent(trace, "iteration_exhausted") || hasTraceEvent(trace, "completion_verification_missing"))) return "control_flow_failure";
   if (results.some((result) => result.required && !result.passed && ["output", "file_state", "tool_trace", "trace"].includes(result.type))) return "model_or_contract";
   return "unknown";
 }
