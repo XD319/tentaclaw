@@ -52,7 +52,11 @@ Subsystems:
 Maintainer diagnostics for source checkouts:
 
 - `talon replay <task_id> [--dry-run]`
-- `talon eval run --fixture <path> [--explain]`
+- `talon eval run --suite <path>`
+- `talon eval compounding --suite <path>`
+- `talon eval validate-suite`
+- `talon eval compare --current <path> --baseline <path>`
+- `talon eval freeze-memory-state --output <path>`
 - `talon eval smoke --fixture <path>` (compatibility alias)
 - `talon smoke run --fixture <path>`
 - `talon eval beta`

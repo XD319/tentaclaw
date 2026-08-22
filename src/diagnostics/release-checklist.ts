@@ -169,7 +169,7 @@ async function runReliabilityAcceptanceGate(
     });
     return {
       details: report.gate.passed
-        ? `success=${(report.metrics.successRate * 100).toFixed(1)}%, verification=${(((report.metrics.verificationCompletionRate ?? 1) * 100)).toFixed(1)}%`
+        ? `success=${(report.metrics.successRate * 100).toFixed(1)}%, verification=${report.metrics.verificationCompletionRate === null || report.metrics.verificationCompletionRate === undefined ? "n/a" : `${(report.metrics.verificationCompletionRate * 100).toFixed(1)}%`}`
         : report.gate.reasons.join("; "),
       ok: report.gate.passed
     };

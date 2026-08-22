@@ -77,6 +77,7 @@ asserted.
 | Define "performance" as fixed eval metrics (success rate / avg rounds / tokens-per-success) and wire gate thresholds | `maintainer` | — | no | Design decision; sets the baseline everyone reports against. |
 | Self-evolution **compounding eval** runner: run the same task set with an empty vs. accumulated experience/skill state and diff the metrics | `maintainer` | advanced | yes | Landed: `talon eval compounding` plus `src/evaluation/compounding.ts`. Gate: self-evolution must not regress. |
 | Expand the compounding eval **task dataset** (once the runner lands) | `community` | intermediate | no | Landed: `fixtures/eval-suites/compounding-self-evolution.v1.json` (six skill-reuse tasks). |
+| Memory compounding eval (cold/warm/distractor/poisoned) | `maintainer` | advanced | mixed | Landed as `fixtures/eval-suites/memory-compounding.v1.json` with recall probes and `talon eval freeze-memory-state`. |
 
 References: `src/evaluation/`, `fixtures/eval-baselines/`,
 [docs/dev/evaluation.md](docs/dev/evaluation.md),

@@ -5,7 +5,7 @@ import { promisify } from "node:util";
 
 import type { ToolCallRecord, TraceEvent } from "../types/index.js";
 import type { EvalScorer } from "./schema.js";
-import type { EvalScorerResult } from "./types.js";
+import type { EvalScorerResult, EvalScorerStatus } from "./types.js";
 
 const execAsync = promisify(exec);
 
@@ -35,7 +35,7 @@ export async function evaluateScorer(scorer: EvalScorer, context: EvalScorerCont
       case "llm_judge": return await evaluateJudge(scorer, context);
     }
   } catch (error) {
-    return result(scorer, false, 0, `scorer error: ${error instanceof Error ? error.message : String(error)}`);
+    return result(scorer, false, 0, `scorer error: ${error instanceof Error ? error.message : String(error)}`, "error");
   }
 }
 
@@ -112,13 +112,27 @@ function evaluateTrace(scorer: Extract<EvalScorer, { type: "trace" }>, context: 
 }
 
 async function evaluateJudge(scorer: Extract<EvalScorer, { type: "llm_judge" }>, context: EvalScorerContext): Promise<EvalScorerResult> {
-  if (context.judge === undefined) return result(scorer, true, 0, "judge skipped: no judge provider configured");
+  if (context.judge === undefined) return result(scorer, false, 0, "judge skipped: no judge provider configured", "skipped");
   const judged = await context.judge({ output: context.output ?? "", ...(scorer.reference !== undefined ? { reference: scorer.reference } : {}), rubric: scorer.rubric });
   return result(scorer, judged.passed, judged.score, judged.evidence);
 }
 
-function result(scorer: EvalScorer, passed: boolean, score: number, evidence: string): EvalScorerResult {
-  return { evidence, id: scorer.id, passed, required: scorer.required, score, type: scorer.type };
+function result(
+  scorer: EvalScorer,
+  passed: boolean,
+  score: number,
+  evidence: string,
+  status?: EvalScorerStatus
+): EvalScorerResult {
+  return {
+    evidence,
+    id: scorer.id,
+    passed,
+    required: scorer.required,
+    score,
+    status: status ?? (passed ? "passed" : "failed"),
+    type: scorer.type
+  };
 }
 
 export function changedPaths(before: Map<string, string>, after: Map<string, string>): string[] {

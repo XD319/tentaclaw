@@ -10,7 +10,15 @@ const scorer = (
   passed: boolean,
   evidence: string,
   required = true
-): EvalScorerResult => ({ evidence, id: type, passed, required, score: passed ? 1 : 0, type });
+): EvalScorerResult => ({
+  evidence,
+  id: type,
+  passed,
+  required,
+  score: passed ? 1 : 0,
+  status: passed ? "passed" : "failed",
+  type
+});
 
 const runtimeStatus = (passed: boolean): EvalScorerResult =>
   scorer("runtime_status", passed, `task status=${passed ? "succeeded" : "failed"}`);

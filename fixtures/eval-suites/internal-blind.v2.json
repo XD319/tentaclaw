@@ -9,7 +9,7 @@
                   {
                       "id":  "coding_create_add",
                       "title":  "Implement an add function",
-                      "input":  "Create src/math.mjs exporting an add(a, b) function. Verify it and summarize the change.",
+                      "input":  "Create src/math.mjs exporting an add(a, b) function. Verify it and summarize the change. Do not create files other than src/math.mjs.",
                       "category":  "coding",
                       "difficulty":  "easy",
                       "risk":  "low",
@@ -53,7 +53,7 @@
                   {
                       "id":  "coding_fix_slug",
                       "title":  "Repair slug normalization",
-                      "input":  "Fix src/slug.mjs so slugify trims input, lowercases it, and replaces runs of spaces with one dash. Run a useful verification.",
+                      "input":  "Fix src/slug.mjs so slugify trims input, lowercases it, and replaces runs of spaces with one dash. Run a useful verification. Do not create files other than src/slug.mjs.",
                       "category":  "coding",
                       "difficulty":  "medium",
                       "risk":  "low",
@@ -91,7 +91,7 @@
                   {
                       "id":  "coding_config_update",
                       "title":  "Safely update JSON configuration",
-                      "input":  "Enable featureFlag in config/app.json while preserving the existing mode and valid JSON. Verify the result.",
+                      "input":  "Enable featureFlag in config/app.json while preserving the existing mode and valid JSON. Verify the result. Do not create files other than config/app.json.",
                       "category":  "coding",
                       "difficulty":  "easy",
                       "risk":  "low",
@@ -172,7 +172,7 @@
                   {
                       "id":  "coding_greeting_regression",
                       "title":  "Fix a greeting regression",
-                      "input":  "Repair src/greet.mjs so greet(name) returns \u0027Hello, \u003cname\u003e!\u0027 and uses \u0027friend\u0027 for blank names. Verify both cases.",
+                      "input":  "Repair src/greet.mjs so greet(name) returns \u0027Hello, \u003cname\u003e!\u0027 and uses \u0027friend\u0027 for empty and whitespace-only names. Verify both cases. Do not create files other than src/greet.mjs.",
                       "category":  "coding",
                       "difficulty":  "medium",
                       "risk":  "low",
@@ -247,7 +247,7 @@
                   {
                       "id":  "coding_counter_fix",
                       "title":  "Fix counter state",
-                      "input":  "Fix src/counter.mjs so createCounter(start) returns an object whose next() increments from start and reset() restores start.",
+                      "input":  "Fix src/counter.mjs so createCounter(start) returns an object whose next() returns start + 1 on the first call, then increases by one per call, and reset() restores start.",
                       "category":  "coding",
                       "difficulty":  "hard",
                       "risk":  "low",
@@ -1105,7 +1105,7 @@
                   {
                       "id":  "recovery_repair_after_check",
                       "title":  "Repair after detecting a failed check",
-                      "input":  "Inspect config/health.txt. It must contain PASS. If it does not, repair it, read it back, and report verification.",
+                      "input":  "Inspect config/health.txt. It must contain PASS. If it does not, repair it, read it back, and report verification. Do not create files other than config/health.txt.",
                       "category":  "recovery_safety",
                       "difficulty":  "medium",
                       "risk":  "medium",
@@ -1182,7 +1182,7 @@
                                                             ],
                                           "forbiddenTools":  [
                                                                  "web_search",
-                                                                 "web_fetch"
+                                                                 "web_extract"
                                                              ]
                                       }
                                   ]
@@ -1228,7 +1228,7 @@
                   {
                       "id":  "reliability_shell_correction",
                       "title":  "Correct a failed shell command",
-                      "input":  "Implement src/answer.mjs exporting answer() that returns 42. Verify it using a platform-compatible command; if a command fails, correct it rather than stopping.",
+                      "input":  "Implement src/answer.mjs exporting answer() that returns 42. Verify it using a platform-compatible command; if a command fails, correct it rather than stopping. Do not create files other than src/answer.mjs.",
                       "category":  "recovery",
                       "difficulty":  "easy",
                       "risk":  "low",
@@ -1304,7 +1304,7 @@
                   {
                       "id":  "reliability_empty_string_boundary",
                       "title":  "Respect an empty string boundary",
-                      "input":  "Create src/normalize.mjs exporting normalize(value): it trims non-empty strings but must preserve an empty string exactly. Verify all boundary cases.",
+                      "input":  "Create src/normalize.mjs exporting normalize(value): it trims non-empty strings but must preserve an empty string exactly. Verify all boundary cases. Do not create files other than src/normalize.mjs.",
                       "category":  "coding",
                       "difficulty":  "medium",
                       "risk":  "low",
@@ -1342,7 +1342,7 @@
                   {
                       "id":  "reliability_counter_contract",
                       "title":  "Implement explicit pre-increment counter contract",
-                      "input":  "Create src/counter.mjs exporting createCounter(start). Its next() method must return start + 1 on the first call, then increase by one per call. Verify this exact contract.",
+                      "input":  "Create src/counter.mjs exporting createCounter(start). Its next() method must return start + 1 on the first call, then increase by one per call. Verify this exact contract. Do not create files other than src/counter.mjs.",
                       "category":  "coding",
                       "difficulty":  "easy",
                       "risk":  "low",

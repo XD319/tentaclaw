@@ -1,31 +1,44 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { promises as fs, readFileSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
 import { resolveProviderConfigForProvider } from "../providers/index.js";
-import { createApplication, createDefaultRunOptions, type AppConfig } from "../runtime/index.js";
+import { RecallEngine } from "../recall/recall-engine.js";
+import { createApplication, createDefaultRunOptions, type AppConfig, type AppRuntimeHandle } from "../runtime/index.js";
 import type { Provider, TraceEvent } from "../types/index.js";
+import { collectGroupedMetrics } from "./grouped.js";
+import { materializeMemoryState, prepareMemoryEvalWorkspace } from "./memory-state.js";
+import { computePairedMetrics } from "./paired.js";
 import { changedPaths, evaluateScorer } from "./scorers.js";
-import { loadEvalSuite, type EvalSuiteManifest, type EvalTask } from "./schema.js";
+import { loadEvalSuite, type EvalMemoryState, type EvalSuiteManifest, type EvalTask } from "./schema.js";
 import { mean, passAtK, passPowerK, percentile, standardError, wilsonInterval } from "./statistics.js";
-import type { EvalFailureClassification, EvalRunReport, EvalTaskResult, EvalTrialResult } from "./types.js";
+import type {
+  EvalFailureClassification,
+  EvalMemoryArm,
+  EvalRunReport,
+  EvalSamplingManifest,
+  EvalTaskResult,
+  EvalTrialResult
+} from "./types.js";
+import { copyWorkspaceForGrading, listHygieneWrites, seedWorkspace, snapshotWorkspace } from "./workspace.js";
 
 export interface EvalGateThresholds {
-  /** Fail the gate when the verification completion rate drops below this. */
-  minVerificationCompletionRate?: number;
-  /** Fail the gate when the workspace scope violation rate exceeds this. */
+  maxHarnessErrorRate?: number;
   maxWorkspaceScopeViolationRate?: number;
+  minVerificationCompletionRate?: number;
 }
 
 export interface CapabilityEvalOptions {
+  arm?: EvalMemoryArm;
   /**
    * Optional per-trial override for macro-compaction thresholds.
    * Merged into `createApplication({ config: { compact } })` so A/B harnesses
    * can force compaction on/off without touching `runtime.config.json`.
    */
   compactOverride?: Partial<AppConfig["compact"]>;
+  concurrency?: number;
   /**
    * Optional per-trial partial AppConfig override (contextRetention, tokenBudget, compact, …).
    * `compactOverride` is merged on top when both are set.
@@ -34,19 +47,33 @@ export interface CapabilityEvalOptions {
   configCwd?: string;
   gateThresholds?: EvalGateThresholds;
   judge?: Parameters<typeof evaluateScorer>[1]["judge"];
+  maxCostUsd?: number;
+  passAtK?: number;
   providerFactory?: () => Provider;
   providerName: string;
   repetitions?: number;
+  resumeDirectory?: string;
   suitePath: string;
   taskIds?: string[];
   /** Extra workspace files seeded for every trial (not part of the task fixture). */
   workspaceOverlay?: Record<string, string>;
 }
 
+interface WorkItem {
+  arm?: EvalMemoryArm;
+  memoryState?: EvalMemoryState;
+  task: EvalTask;
+  trial: number;
+}
+
 export async function runCapabilityEval(options: CapabilityEvalOptions): Promise<EvalRunReport> {
   const repetitions = options.repetitions ?? 3;
   if (!Number.isInteger(repetitions) || repetitions < 1 || repetitions > 20) {
     throw new Error("Eval repetitions must be an integer between 1 and 20.");
+  }
+  const concurrency = options.concurrency ?? 1;
+  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 32) {
+    throw new Error("Eval concurrency must be an integer between 1 and 32.");
   }
   if (options.providerFactory === undefined && ["scripted-smoke", "mock"].includes(options.providerName)) {
     throw new Error("Capability eval requires a configured real provider; use `talon smoke run` for scripted checks.");
@@ -58,50 +85,82 @@ export async function runCapabilityEval(options: CapabilityEvalOptions): Promise
   if (options.providerFactory === undefined && providerConfig.configured === false) {
     throw new Error(`Provider "${options.providerName}" is not configured.`);
   }
-
-  const taskResults: EvalTaskResult[] = [];
-  for (const task of tasks) {
-    const trials: EvalTrialResult[] = [];
-    for (let trial = 1; trial <= repetitions; trial += 1) {
-      trials.push(await runTrial(task, trial, providerConfig, options));
+  const passAtKSize = options.passAtK ?? repetitions;
+  const completed = await loadCompletedTrials(options.resumeDirectory);
+  const workItems = expandWorkItems(suite, tasks, repetitions, options.arm);
+  const pending = workItems.filter((item) => !completed.has(workKey(item)));
+  const trialResults: EvalTrialResult[] = [...completed.values()];
+  let spent = trialResults.reduce((total, trial) => total + (trial.costUsd ?? 0), 0);
+  let exhausted = options.maxCostUsd !== undefined && spent > options.maxCostUsd;
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(concurrency, Math.max(1, pending.length)) }, async () => {
+    while (cursor < pending.length) {
+      const index = cursor;
+      cursor += 1;
+      const item = pending[index];
+      if (item === undefined) {
+        return;
+      }
+      if (exhausted) {
+        return;
+      }
+      const trial = await runTrial(item, providerConfig, options);
+      trialResults.push(trial);
+      if (options.resumeDirectory !== undefined) {
+        await appendTrial(options.resumeDirectory, item, trial);
+      }
+      spent += trial.costUsd ?? 0;
+      if (options.maxCostUsd !== undefined && spent > options.maxCostUsd) {
+        exhausted = true;
+      }
     }
-    const successes = trials.filter((trial) => trial.success).length;
-    taskResults.push({
-      passAtK: passAtK(successes, repetitions, repetitions),
-      passPowerK: passPowerK(successes, repetitions, repetitions),
-      successRate: successes / repetitions,
-      task: {
-        capabilities: task.capabilities,
-        category: task.category,
-        difficulty: task.difficulty,
-        id: task.id,
-        risk: task.risk,
-        title: task.title
-      },
-      trials
-    });
-  }
+  });
+  await Promise.all(workers);
 
+  const taskResults = assembleTaskResults(workItems, trialResults, repetitions, passAtKSize);
   const allTrials = taskResults.flatMap((task) => task.trials);
+  const harnessTrials = allTrials.filter((trial) => trial.failureClassification === "harness_error");
+  const scorable = allTrials.filter((trial) => trial.failureClassification !== "harness_error");
   const costValues = allTrials.flatMap((trial) => trial.costUsd === null ? [] : [trial.costUsd]);
   const totalCost = costValues.length === 0 ? null : costValues.reduce((total, value) => total + value, 0);
-  const successes = allTrials.filter((trial) => trial.success).length;
-  const successValues = allTrials.map((trial) => trial.success ? 1 : 0);
+  const successes = scorable.filter((trial) => trial.success).length;
+  const successValues = scorable.map((trial) => trial.success ? 1 : 0);
   let gateReasons = collectGateReasons(taskResults);
   const totalTokens = sumTokens(allTrials);
   const failureClassificationCounts = countFailureClassifications(allTrials);
   const providerConfigurationFailures = allTrials.filter((trial) => trial.failureClassification === "provider_configuration_failure");
-  const valid = providerConfigurationFailures.length === 0;
-  if (!valid) gateReasons = [`invalid_run: provider configuration failed in ${providerConfigurationFailures.length} trial(s)`, ...gateReasons];
-  const recoveryAttempts = allTrials.filter((trial) => hasTraceEvent(trial.trace, "task_recovery_started"));
+  const harnessErrorRate = allTrials.length === 0 ? 0 : harnessTrials.length / allTrials.length;
+  const maxHarnessErrorRate = options.gateThresholds?.maxHarnessErrorRate ?? 0.05;
+  let valid = providerConfigurationFailures.length === 0 && harnessErrorRate <= maxHarnessErrorRate;
+  if (providerConfigurationFailures.length > 0) {
+    gateReasons = [`invalid_run: provider configuration failed in ${providerConfigurationFailures.length} trial(s)`, ...gateReasons];
+  }
+  if (harnessErrorRate > maxHarnessErrorRate) {
+    valid = false;
+    gateReasons = [`invalid_run: harness_error rate ${(harnessErrorRate * 100).toFixed(1)}% exceeds ${(maxHarnessErrorRate * 100).toFixed(1)}%`, ...gateReasons];
+  }
+  if (exhausted) {
+    valid = false;
+    gateReasons = [`invalid_run: max cost $${options.maxCostUsd} exceeded`, ...gateReasons];
+  }
+  const recoveryAttempts = scorable.filter((trial) => hasTraceEvent(trial.trace, "task_recovery_started"));
   const recoveredTrials = recoveryAttempts.filter((trial) => trial.success);
-  const verificationTrials = allTrials.filter((trial) => trial.changedPaths.length > 0);
+  const verificationTrials = scorable.filter((trial) => trial.changedPaths.length > 0);
   const verifiedTrials = verificationTrials.filter((trial) => hasTraceEvent(trial.trace, "completion_verification_satisfied"));
-  const scopeFailures = allTrials.filter((trial) => trial.failureClassification === "workspace_scope");
-  const toolFailures = allTrials.filter((trial) => hasTraceEvent(trial.trace, "tool_execution_failed") || trial.failureClassification === "tool_failure");
-  const verificationCompletionRate = verificationTrials.length === 0 ? 1 : verifiedTrials.length / verificationTrials.length;
-  const workspaceScopeViolationRate = allTrials.length === 0 ? 0 : scopeFailures.length / allTrials.length;
+  const scopeFailures = scorable.filter((trial) => trial.failureClassification === "workspace_scope");
+  const toolFailures = scorable.filter((trial) => hasTraceEvent(trial.trace, "tool_execution_failed") || trial.failureClassification === "tool_failure");
+  const unrecoveredToolFailures = toolFailures.filter((trial) => !trial.success);
+  const verificationCompletionRate = verificationTrials.length === 0 ? null : verifiedTrials.length / verificationTrials.length;
+  const workspaceScopeViolationRate = scorable.length === 0 ? 0 : scopeFailures.length / scorable.length;
   gateReasons = [...gateReasons, ...collectReliabilityGateReasons(options.gateThresholds, verificationCompletionRate, workspaceScopeViolationRate)];
+  const paired = computePairedMetrics(taskResults, suite.memoryEval?.expectedRecallTitles ?? [], suite.memoryEval?.poisonMarkers ?? []);
+  const sampling: EvalSamplingManifest = {
+    contextWindowTokens: providerConfig.contextWindowTokens,
+    maxRetries: providerConfig.maxRetries,
+    modelName: providerConfig.model,
+    streamIdleTimeoutMs: providerConfig.streamIdleTimeoutMs,
+    timeoutMs: providerConfig.timeoutMs
+  };
 
   return {
     gate: { passed: valid && gateReasons.length === 0, reasons: gateReasons },
@@ -111,39 +170,48 @@ export async function runCapabilityEval(options: CapabilityEvalOptions): Promise
       generatedAt: new Date().toISOString(),
       modelName: providerConfig.model,
       nodeVersion: process.version,
+      passAtKSize,
       platform: `${process.platform}-${process.arch}`,
       promptVersion: suite.promptVersion,
       providerName: options.providerName,
       repetitions,
+      sampling,
       suiteId: suite.id,
       suiteVersion: suite.version,
       toolSchemaVersion: suite.toolSchemaVersion
     },
     metrics: {
-      averageRounds: mean(allTrials.map((trial) => trial.rounds)),
+      averageRounds: mean(scorable.map((trial) => trial.rounds)),
       costUsd: {
         available: totalCost !== null,
-        average: totalCost === null ? null : totalCost / costValues.length,
+        average: allTrials.length === 0 || totalCost === null ? null : totalCost / allTrials.length,
+        coverage: allTrials.length === 0 ? 0 : costValues.length / allTrials.length,
         total: totalCost
       },
-      averageToolCalls: mean(allTrials.map((trial) => trial.toolCallCount)),
+      averageToolCalls: mean(scorable.map((trial) => trial.toolCallCount)),
       durationMs: {
-        p50: percentile(allTrials.map((trial) => trial.durationMs), 0.5),
-        p95: percentile(allTrials.map((trial) => trial.durationMs), 0.95)
+        p50: percentile(scorable.map((trial) => trial.durationMs), 0.5),
+        p95: percentile(scorable.map((trial) => trial.durationMs), 0.95)
       },
+      grouped: collectGroupedMetrics(taskResults),
+      harnessErrorRate,
       passAtK: mean(taskResults.map((task) => task.passAtK)),
       passPowerK: mean(taskResults.map((task) => task.passPowerK)),
+      ...(paired !== undefined ? { paired, poisonFollowingRate: paired.poisonFollowingRate, recallAtK: paired.recallAtK } : {}),
       standardError: standardError(successValues),
-      successRate: allTrials.length === 0 ? 0 : successes / allTrials.length,
-      successRate95: wilsonInterval(successes, allTrials.length),
+      scorableTrialCount: scorable.length,
+      successRate: scorable.length === 0 ? 0 : successes / scorable.length,
+      successRate95: wilsonInterval(successes, scorable.length),
       tokenUsage: { ...totalTokens, available: totalTokens.totalTokens > 0 },
       failureClassificationCounts,
       providerRecovery: { attempted: recoveryAttempts.length, recovered: recoveredTrials.length, successRate: recoveryAttempts.length === 0 ? 0 : recoveredTrials.length / recoveryAttempts.length },
       recoverySuccessRate: recoveryAttempts.length === 0 ? null : recoveredTrials.length / recoveryAttempts.length,
-      toolFailureRate: allTrials.length === 0 ? 0 : toolFailures.length / allTrials.length,
+      toolFailureOccurrenceRate: scorable.length === 0 ? 0 : toolFailures.length / scorable.length,
+      toolFailureRate: scorable.length === 0 ? 0 : unrecoveredToolFailures.length / scorable.length,
+      toolFailureUnrecoveredRate: scorable.length === 0 ? 0 : unrecoveredToolFailures.length / scorable.length,
       verificationCompletionRate,
       workspaceScopeViolationRate,
-      invalidTrialCount: providerConfigurationFailures.length,
+      invalidTrialCount: providerConfigurationFailures.length + harnessTrials.length,
       providerConfigurationFailureCount: providerConfigurationFailures.length,
       valid
     },
@@ -153,16 +221,20 @@ export async function runCapabilityEval(options: CapabilityEvalOptions): Promise
 }
 
 async function runTrial(
-  task: EvalTask,
-  trial: number,
+  item: WorkItem,
   providerConfig: ReturnType<typeof resolveProviderConfigForProvider>,
   options: CapabilityEvalOptions
 ): Promise<EvalTrialResult> {
+  const { task, trial } = item;
   const workspaceRoot = await fs.mkdtemp(join(tmpdir(), "auto-talon-eval-"));
+  const gradingRoot = await fs.mkdtemp(join(tmpdir(), "auto-talon-eval-grade-"));
   await seedWorkspace(workspaceRoot, {
     ...task.workspace.files,
     ...(options.workspaceOverlay ?? {})
   });
+  if (item.memoryState !== undefined) {
+    await prepareMemoryEvalWorkspace(workspaceRoot, item.memoryState);
+  }
   const beforeFiles = await snapshotWorkspace(workspaceRoot);
   const applicationConfig: Partial<AppConfig> = {
     databasePath: ":memory:",
@@ -191,13 +263,24 @@ async function runTrial(
       ...options.compactOverride
     } as AppConfig["compact"];
   }
-  const handle = createApplication(workspaceRoot, {
-    config: applicationConfig,
-    ...(options.providerFactory !== undefined ? { provider: options.providerFactory() } : {}),
-    scheduler: { autoStart: false }
-  });
+  let handle: AppRuntimeHandle | undefined;
   const startedAt = Date.now();
   try {
+    handle = createApplication(workspaceRoot, {
+      config: applicationConfig,
+      ...(options.providerFactory !== undefined ? { provider: options.providerFactory() } : {}),
+      scheduler: { autoStart: false }
+    });
+    if (item.memoryState !== undefined) {
+      materializeMemoryState(handle, item.memoryState, workspaceRoot);
+    }
+    const recalledTitles = new RecallEngine()
+      .rankMemory(
+        handle.infrastructure.storage.memories.list({ includeExpired: false, scope: "project", scopeKey: workspaceRoot }),
+        task.input,
+        10
+      )
+      .map((candidate) => candidate.memory.title);
     const runOptions = createDefaultRunOptions(task.input, workspaceRoot, handle.config);
     runOptions.agentProfileId = task.profile;
     runOptions.timeoutMs = task.timeoutMs;
@@ -210,6 +293,8 @@ async function runTrial(
     }
     const details = handle.service.showTask(run.task.taskId);
     const afterFiles = await snapshotWorkspace(workspaceRoot);
+    const hygieneWrites = await listHygieneWrites(workspaceRoot);
+    await copyWorkspaceForGrading(workspaceRoot, gradingRoot);
     const scorerResults = [];
     for (const scorer of task.scorers) {
       scorerResults.push(await evaluateScorer(scorer, {
@@ -219,7 +304,7 @@ async function runTrial(
         output: run.output,
         toolCalls: details.toolCalls,
         trace: details.trace,
-        workspaceRoot
+        workspaceRoot: gradingRoot
       }));
     }
     const statusPassed = run.task.status === "succeeded";
@@ -229,18 +314,24 @@ async function runTrial(
       passed: statusPassed,
       required: true,
       score: statusPassed ? 1 : 0,
+      status: statusPassed ? "passed" as const : "failed" as const,
       type: "runtime_status"
     }, ...scorerResults];
+    const harnessError = results.some((score) => score.status === "error");
     const trialCost = details.task?.tokenBudget.usedCostUsd;
     return {
+      ...(item.arm !== undefined ? { arm: item.arm } : {}),
       durationMs: Date.now() - startedAt,
-      failureClassification: classifyFailure(run.task.status, results, details.trace),
+      failureClassification: harnessError ? "harness_error" : classifyFailure(run.task.status, results, details.trace),
       changedPaths: changedPaths(beforeFiles, afterFiles),
       costUsd: trialCost !== undefined && trialCost > 0 ? trialCost : null,
+      fixtureTaskId: task.id,
+      hygieneWrites,
       output: run.output,
+      recalledTitles,
       rounds: details.task?.currentIteration ?? run.task.currentIteration,
       scorerResults: results,
-      success: results.filter((score) => score.required).every((score) => score.passed),
+      success: !harnessError && results.filter((score) => score.required && score.status !== "skipped").every((score) => score.passed),
       taskId: run.task.taskId,
       tokenUsage: computeTokenUsage(details.trace),
       toolCallCount: details.toolCalls.length,
@@ -248,21 +339,48 @@ async function runTrial(
       trace: details.trace,
       trial
     };
+  } catch (error) {
+    return {
+      ...(item.arm !== undefined ? { arm: item.arm } : {}),
+      changedPaths: [],
+      costUsd: null,
+      durationMs: Date.now() - startedAt,
+      failureClassification: "harness_error",
+      fixtureTaskId: task.id,
+      hygieneWrites: [],
+      output: null,
+      recalledTitles: [],
+      rounds: 0,
+      scorerResults: [{
+        evidence: error instanceof Error ? error.message : String(error),
+        id: "harness",
+        passed: false,
+        required: true,
+        score: 0,
+        status: "error",
+        type: "runtime_status"
+      }],
+      success: false,
+      taskId: `harness-${task.id}-${trial}`,
+      tokenUsage: { cachedInputTokens: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      toolCallCount: 0,
+      trace: [],
+      traceEventCount: 0,
+      trial
+    };
   } finally {
-    handle.close();
+    handle?.close();
     await fs.rm(workspaceRoot, { force: true, recursive: true });
+    await fs.rm(gradingRoot, { force: true, recursive: true });
   }
 }
 
 export function classifyFailure(status: string, results: EvalTrialResult["scorerResults"], trace: TraceEvent[]): EvalFailureClassification | null {
-  if (results.filter((result) => result.required).every((result) => result.passed)) return null;
+  if (results.some((result) => result.status === "error")) return "harness_error";
+  if (results.filter((result) => result.required && result.status !== "skipped").every((result) => result.passed)) return null;
   if (trace.some((event) => event.eventType === "provider_request_failed" && /auth|credential|api key/iu.test(String(event.payload.errorMessage ?? "")))) return "provider_configuration_failure";
-  // Hidden command graders are deterministic and take priority over runtime noise.
   if (results.some((result) => result.required && !result.passed && result.type === "workspace_diff" && /outside=\[(?!\])/u.test(result.evidence))) return "workspace_scope";
   if (results.some((result) => result.required && !result.passed && result.type === "command")) return "verification_failure";
-  // A required workspace_diff that failed without an out-of-scope path (missing
-  // required changes or no changes at all) is a verification/hygiene miss, not an
-  // unclassified failure.
   if (results.some((result) => result.required && !result.passed && result.type === "workspace_diff")) return "verification_failure";
   if (trace.some((event) => event.eventType === "provider_request_failed" && event.payload.errorCategory === "timeout_error")) return "provider_timeout";
   if (hasTraceEvent(trace, "tool_execution_failed")) return "tool_failure";
@@ -279,6 +397,109 @@ export function classifyFailure(status: string, results: EvalTrialResult["scorer
   return "unknown";
 }
 
+function expandWorkItems(
+  suite: EvalSuiteManifest,
+  tasks: EvalTask[],
+  repetitions: number,
+  armFilter?: EvalMemoryArm
+): WorkItem[] {
+  const arms: Array<{ arm?: EvalMemoryArm; memoryState?: EvalMemoryState }> = suite.memoryEval === undefined
+    ? [{}]
+    : (["cold", "warm", "distractor", "poisoned"] as EvalMemoryArm[])
+      .filter((arm) => armFilter === undefined || arm === armFilter)
+      .map((arm) => {
+        const memoryState = suite.memoryEval?.arms[arm];
+        return memoryState === undefined ? { arm } : { arm, memoryState };
+      });
+  return tasks.flatMap((task) =>
+    arms.flatMap(({ arm, memoryState }) =>
+      Array.from({ length: repetitions }, (_, index) => ({
+        ...(arm !== undefined ? { arm } : {}),
+        ...(memoryState !== undefined ? { memoryState } : {}),
+        task,
+        trial: index + 1
+      }))
+    )
+  );
+}
+
+function assembleTaskResults(
+  workItems: WorkItem[],
+  trials: EvalTrialResult[],
+  repetitions: number,
+  passAtKSize: number
+): EvalTaskResult[] {
+  const remaining = [...trials];
+  const take = (item: WorkItem): EvalTrialResult | undefined => {
+    const index = remaining.findIndex((trial) =>
+      trial.trial === item.trial && trial.arm === item.arm && trial.fixtureTaskId === item.task.id
+    );
+    if (index < 0) {
+      return undefined;
+    }
+    return remaining.splice(index, 1)[0];
+  };
+  const groups = new Map<string, { item: WorkItem; trials: EvalTrialResult[] }>();
+  for (const item of workItems) {
+    const key = `${item.task.id}::${item.arm ?? "_"}`;
+    const group = groups.get(key) ?? { item, trials: [] };
+    const trial = take(item);
+    if (trial !== undefined) {
+      group.trials.push(trial);
+    }
+    groups.set(key, group);
+  }
+  return [...groups.values()].map(({ item, trials: groupTrials }) => {
+    const ordered = [...groupTrials].sort((left, right) => left.trial - right.trial);
+    const scorable = ordered.filter((trial) => trial.failureClassification !== "harness_error");
+    const successes = scorable.filter((trial) => trial.success).length;
+    const n = Math.max(scorable.length, repetitions);
+    return {
+      ...(item.arm !== undefined ? { arm: item.arm } : {}),
+      passAtK: passAtK(successes, n, passAtKSize),
+      passPowerK: passPowerK(successes, n, passAtKSize),
+      successRate: scorable.length === 0 ? 0 : successes / scorable.length,
+      task: {
+        capabilities: item.task.capabilities,
+        category: item.task.category,
+        difficulty: item.task.difficulty,
+        id: item.task.id,
+        risk: item.task.risk,
+        title: item.task.title
+      },
+      trials: ordered
+    };
+  });
+}
+
+function workKey(item: WorkItem): string {
+  return `${item.task.id}::${item.trial}::${item.arm ?? "_"}`;
+}
+
+async function loadCompletedTrials(directory: string | undefined): Promise<Map<string, EvalTrialResult>> {
+  const completed = new Map<string, EvalTrialResult>();
+  if (directory === undefined) {
+    return completed;
+  }
+  const path = join(resolve(directory), "eval-trials.jsonl");
+  try {
+    const text = await fs.readFile(path, "utf8");
+    for (const line of text.split("\n").filter(Boolean)) {
+      const parsed = JSON.parse(line) as { key: string; trial: EvalTrialResult };
+      completed.set(parsed.key, parsed.trial);
+    }
+  } catch {
+    return completed;
+  }
+  return completed;
+}
+
+async function appendTrial(directory: string, item: WorkItem, trial: EvalTrialResult): Promise<void> {
+  const path = join(resolve(directory), "eval-trials.jsonl");
+  await fs.mkdir(resolve(directory), { recursive: true });
+  await fs.appendFile(path, `${JSON.stringify({ key: workKey(item), trial })}\n`, "utf8");
+}
+
 function countFailureClassifications(trials: EvalTrialResult[]): Partial<Record<EvalFailureClassification, number>> {
   return trials.reduce<Partial<Record<EvalFailureClassification, number>>>((counts, trial) => {
     if (trial.failureClassification !== null && trial.failureClassification !== undefined) {
@@ -292,6 +513,7 @@ function countFailureClassifications(trials: EvalTrialResult[]): Partial<Record<
 function hasTraceEvent(trace: TraceEvent[], eventType: string): boolean {
   return trace.some((event) => event.eventType === eventType);
 }
+
 function selectTasks(suite: EvalSuiteManifest, taskIds: string[] | undefined): EvalTask[] {
   if (taskIds === undefined || taskIds.length === 0) return suite.tasks;
   const byId = new Map(suite.tasks.map((task) => [task.id, task]));
@@ -300,46 +522,23 @@ function selectTasks(suite: EvalSuiteManifest, taskIds: string[] | undefined): E
   return taskIds.map((id) => byId.get(id) as EvalTask);
 }
 
-async function seedWorkspace(workspaceRoot: string, files: Record<string, string>): Promise<void> {
-  for (const [path, content] of Object.entries(files)) {
-    const target = resolve(workspaceRoot, path);
-    const relativePath = relative(workspaceRoot, target);
-    if (relativePath.startsWith("..") || relativePath.includes(":")) throw new Error(`Eval fixture path escapes workspace: ${path}`);
-    await fs.mkdir(dirname(target), { recursive: true });
-    await fs.writeFile(target, content, "utf8");
-  }
-}
-
-async function snapshotWorkspace(workspaceRoot: string): Promise<Map<string, string>> {
-  const snapshot = new Map<string, string>();
-  async function walk(directory: string): Promise<void> {
-    for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
-      if ([".auto-talon", ".git", "node_modules"].includes(entry.name)) continue;
-      const absolute = join(directory, entry.name);
-      if (entry.isDirectory()) await walk(absolute);
-      else if (entry.isFile()) snapshot.set(relative(workspaceRoot, absolute).replaceAll("\\", "/"), await fs.readFile(absolute, "utf8"));
-    }
-  }
-  await walk(workspaceRoot);
-  return snapshot;
-}
-
 function collectReliabilityGateReasons(
   thresholds: EvalGateThresholds | undefined,
-  verificationCompletionRate: number,
+  verificationCompletionRate: number | null,
   workspaceScopeViolationRate: number
 ): string[] {
   if (thresholds === undefined) {
     return [];
   }
   const reasons: string[] = [];
-  if (
-    thresholds.minVerificationCompletionRate !== undefined &&
-    verificationCompletionRate < thresholds.minVerificationCompletionRate
-  ) {
-    reasons.push(
-      `verification_completion_rate ${(verificationCompletionRate * 100).toFixed(1)}% below minimum ${(thresholds.minVerificationCompletionRate * 100).toFixed(1)}%`
-    );
+  if (thresholds.minVerificationCompletionRate !== undefined) {
+    if (verificationCompletionRate === null) {
+      reasons.push("insufficient_evidence: verification_completion_rate");
+    } else if (verificationCompletionRate < thresholds.minVerificationCompletionRate) {
+      reasons.push(
+        `verification_completion_rate ${(verificationCompletionRate * 100).toFixed(1)}% below minimum ${(thresholds.minVerificationCompletionRate * 100).toFixed(1)}%`
+      );
+    }
   }
   if (
     thresholds.maxWorkspaceScopeViolationRate !== undefined &&
@@ -358,7 +557,7 @@ function collectGateReasons(tasks: EvalTaskResult[]): string[] {
       || task.task.capabilities.some((capability) => ["policy", "safety"].includes(capability));
     if (!isSafetyGate) return [];
     return task.trials.flatMap((trial) => trial.scorerResults
-      .filter((scorer) => scorer.required && !scorer.passed)
+      .filter((scorer) => scorer.required && scorer.status !== "skipped" && !scorer.passed)
       .map((scorer) => `${task.task.id}#${trial.trial}:${scorer.id}`));
   });
 }
