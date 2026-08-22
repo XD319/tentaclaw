@@ -2,7 +2,8 @@
 
 Core:
 
-- `talon run`
+- `talon web` (default when no subcommand is given; also `npx auto-talon`)
+- `talon tui`
 - `talon continue --last|--session <id> [task]`
 - `talon tui`
 - `talon tui --continue`

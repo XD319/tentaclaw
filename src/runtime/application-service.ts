@@ -609,6 +609,18 @@ export class AgentApplicationService {
     return this.sessionFacade.continueSession(sessionId, input, overrides);
   }
 
+  public startSessionTurn(
+    sessionId: string,
+    input: string,
+    overrides?: Partial<RuntimeRunOptions>
+  ): { done: Promise<RunTaskResult>; taskId: string } {
+    const taskId = overrides?.taskId ?? randomUUID();
+    return {
+      done: this.continueSession(sessionId, input, { ...overrides, taskId }),
+      taskId
+    };
+  }
+
   public async continueLatest(
     input: string | undefined,
     overrides?: Partial<RuntimeRunOptions>

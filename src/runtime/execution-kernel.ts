@@ -1738,7 +1738,7 @@ function resolveTaskEntrySource(task: TaskRecord): SessionEntrySource {
     }
   }
   const source = task.metadata?.source;
-  if (source === "tui" || source === "cli" || source === "schedule" || source === "gateway") {
+  if (source === "tui" || source === "cli" || source === "schedule" || source === "gateway" || source === "web") {
     return source;
   }
   return "cli";

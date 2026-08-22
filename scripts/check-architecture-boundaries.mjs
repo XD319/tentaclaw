@@ -27,6 +27,11 @@ const rules = [
     description: "TUI presentation must not import storage modules",
     from: new Set(["tui"]),
     to: new Set(["storage"])
+  },
+  {
+    description: "Web HTTP API must not import storage or TUI modules",
+    from: new Set(["session-api"]),
+    to: new Set(["storage", "tui"])
   }
 ];
 

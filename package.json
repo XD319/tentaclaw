@@ -22,6 +22,12 @@
     "mcp"
   ],
   "packageManager": "pnpm@10.11.0",
+  "pnpm": {
+    "overrides": {
+      "react": "19.2.8",
+      "react-dom": "19.2.8"
+    }
+  },
   "engines": {
     "node": ">=22.13.0"
   },
@@ -45,12 +51,13 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.json",
+    "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.json && vite build --config web/vite.config.ts",
     "check": "npm run check:gateway-facade && npm run check:architecture && npm run lint && npm run coverage && npm run build",
     "check:architecture": "node scripts/check-architecture-boundaries.mjs",
     "check:gateway-facade": "node scripts/check-gateway-facade-bypass.mjs",
     "dev": "node --disable-warning=ExperimentalWarning --import tsx src/cli/bin.ts",
     "dev:tui": "node --disable-warning=ExperimentalWarning --import tsx src/cli/bin.ts tui",
+    "dev:web": "node --disable-warning=ExperimentalWarning --import tsx src/cli/bin.ts web",
     "dev:dashboard": "node --disable-warning=ExperimentalWarning --import tsx src/cli/bin.ts dashboard",
     "prepack": "npm run build",
     "release:check": "node --disable-warning=ExperimentalWarning --import tsx src/cli/bin.ts release check",
@@ -68,18 +75,22 @@
     "highlight.js": "^11.11.1",
     "ink": "^7.0.1",
     "node-html-parser": "^6.1.13",
-    "react": "^19.2.5",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "zod": "^4.1.12"
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
     "@types/node": "^24.6.0",
     "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.0.4",
     "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^9.38.0",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.2",
+    "vite": "^7.1.5",
     "vitest": "^3.2.4"
   }
 }

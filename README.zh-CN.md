@@ -59,6 +59,15 @@
 先确认 Node（`node -v` 需为 `>=22.13.0`；不支持 Node 20）。此路径不需要 API key。
 
 ```bash
+npx auto-talon
+# 或全局安装后：
+npm install -g auto-talon
+talon web
+```
+
+启动器会自动初始化 `.auto-talon/`，打开本机浏览器工作区，并在设置里选择 Mock 或真实 provider。`talon tui` 仍可作为终端界面使用。
+
+```bash
 npm install -g auto-talon
 talon init --yes
 talon provider setup mock

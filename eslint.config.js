@@ -22,7 +22,8 @@ export default tseslint.config(
       "dist/**",
       "node_modules/**",
       ".tmp-tests/**",
-      "eslint.config.js"
+      "eslint.config.js",
+      "web/**"
     ]
   },
   js.configs.recommended,
