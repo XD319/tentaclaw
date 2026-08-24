@@ -23,6 +23,9 @@ describe("session-api public lists", () => {
       }))
     ]);
     expect(withRunning.some((task) => task.taskId === "running-now")).toBe(true);
+    expect(publicTaskList([{ input: "run", sessionId: "session-1", status: "running", taskId: "task-1" }])).toEqual([
+      { input: "run", sessionId: "session-1", status: "running", taskId: "task-1" }
+    ]);
 
     const memories = publicMemoryList([
       { content: "secret-body ".repeat(80), memoryId: "m1", title: "Note" }

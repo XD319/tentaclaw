@@ -1,6 +1,6 @@
 {
   "name": "auto-talon",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "CLI-first agent runtime with governance and traceability",
   "type": "module",
   "license": "MIT",

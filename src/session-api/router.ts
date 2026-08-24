@@ -450,7 +450,12 @@ async function dispatchAuthenticated(
   }
 
   if (method === "GET" && url.pathname === "/v1/approvals/pending") {
-    writeJson(response, 200, { approvals: service.listPendingApprovals() });
+    const sessionId = url.searchParams.get("sessionId");
+    const taskIds = sessionId === null
+      ? null
+      : new Set(service.listTasks().filter((task) => task.sessionId === sessionId).map((task) => task.taskId));
+    const approvals = service.listPendingApprovals().filter((approval) => taskIds === null || taskIds.has(approval.taskId));
+    writeJson(response, 200, { approvals });
     return true;
   }
   const approvalMatch = url.pathname.match(APPROVAL_RESOLVE_PATH);
@@ -476,7 +481,12 @@ async function dispatchAuthenticated(
   }
 
   if (method === "GET" && url.pathname === "/v1/clarify/pending") {
-    writeJson(response, 200, { prompts: service.listPendingClarifyPrompts() });
+    const sessionId = url.searchParams.get("sessionId");
+    const taskIds = sessionId === null
+      ? null
+      : new Set(service.listTasks().filter((task) => task.sessionId === sessionId).map((task) => task.taskId));
+    const prompts = service.listPendingClarifyPrompts().filter((prompt) => taskIds === null || taskIds.has(prompt.taskId));
+    writeJson(response, 200, { prompts });
     return true;
   }
   const clarifyAnswer = url.pathname.match(CLARIFY_ANSWER_PATH);

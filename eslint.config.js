@@ -23,7 +23,8 @@ export default tseslint.config(
       "node_modules/**",
       ".tmp-tests/**",
       "eslint.config.js",
-      "web/**"
+      "web/**",
+      "test/web-transcript.test.ts"
     ]
   },
   js.configs.recommended,

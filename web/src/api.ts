@@ -87,3 +87,10 @@ export interface FileChange {
   };
   uri?: string;
 }
+
+export interface TaskListEntry {
+  input?: string;
+  sessionId?: string;
+  status: string;
+  taskId: string;
+}

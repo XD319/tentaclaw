@@ -7,8 +7,10 @@ import {
   type ChatMessage,
   type ClarifyPrompt,
   type FileChange,
-  type SessionIndexEntry
+  type SessionIndexEntry,
+  type TaskListEntry
 } from "./api";
+import { initialLocale, translate, type Locale } from "./i18n";
 import { SLASH_COMMANDS } from "./slash";
 import {
   activityTrace,
@@ -34,6 +36,9 @@ interface UiState {
   messages?: unknown[];
 }
 
+interface RunState { sessionId: string; taskId: string; }
+const ACTIVE_TASK_STATUSES = new Set(["pending", "running", "waiting_tool", "waiting_approval", "waiting_clarification"]);
+
 export function App(): React.ReactElement {
   const [bootstrap, setBootstrap] = useState<BootstrapResponse | null>(null);
   const [sessions, setSessions] = useState<SessionIndexEntry[]>([]);
@@ -41,7 +46,7 @@ export function App(): React.ReactElement {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [mode, setMode] = useState<Mode>("agent");
-  const [activeRun, setActiveRun] = useState<{ sessionId: string; taskId: string } | null>(null);
+  const [runsBySession, setRunsBySession] = useState<Record<string, RunState>>({});
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [rail, setRail] = useState<RailTab>("changes");
@@ -56,12 +61,17 @@ export function App(): React.ReactElement {
   const [experiences, setExperiences] = useState<Array<{ experienceId: string; title?: string }>>([]);
   const [trace, setTrace] = useState<Array<{ eventType: string; summary: string }>>([]);
   const [query, setQuery] = useState("");
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const [locale, setLocale] = useState<Locale>(initialLocale);
+  const [drawer, setDrawer] = useState<"sessions" | "tools" | null>(null);
+  const [showToday, setShowToday] = useState(false);
+  const [retryAction, setRetryAction] = useState<(() => void) | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const visibleMessages = useMemo(() => dialogMessages(messages), [messages]);
-  const busy = activeRun !== null && activeRun.sessionId === sessionId;
-  const taskId = activeRun !== null && activeRun.sessionId === sessionId ? activeRun.taskId : null;
+  const activeRun = sessionId === null ? undefined : runsBySession[sessionId];
+  const busy = activeRun !== undefined;
+  const taskId = activeRun?.taskId ?? null;
+  const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
   sessionIdRef.current = sessionId;
 
   const loadBootstrap = useCallback(async () => {
@@ -87,9 +97,10 @@ export function App(): React.ReactElement {
   }, []);
 
   const loadTurnState = useCallback(async (id: string | null) => {
+    const query = id === null ? "" : `?sessionId=${encodeURIComponent(id)}`;
     const [approvalData, clarifyData] = await Promise.all([
-      api<{ approvals: ApprovalRecord[] }>("/v1/approvals/pending"),
-      api<{ prompts: ClarifyPrompt[] }>("/v1/clarify/pending")
+      api<{ approvals: ApprovalRecord[] }>(`/v1/approvals/pending${query}`),
+      api<{ prompts: ClarifyPrompt[] }>(`/v1/clarify/pending${query}`)
     ]);
     setApprovals(approvalData.approvals);
     setClarifies(clarifyData.prompts);
@@ -137,6 +148,10 @@ export function App(): React.ReactElement {
       try {
         await loadBootstrap();
         const list = await loadSessions();
+        const taskData = await api<{ tasks: TaskListEntry[] }>("/v1/tasks");
+        setRunsBySession(Object.fromEntries(taskData.tasks
+          .filter((task) => task.sessionId !== undefined && ACTIVE_TASK_STATUSES.has(task.status))
+          .map((task) => [task.sessionId as string, { sessionId: task.sessionId as string, taskId: task.taskId }])));
         if (list[0] !== undefined) {
           setSessionId(list[0].sessionId);
         }
@@ -164,58 +179,26 @@ export function App(): React.ReactElement {
   }, [loadRail, rail, sessionId]);
 
   useEffect(() => {
-    if (activeRun === null) {
-      eventSourceRef.current?.close();
-      eventSourceRef.current = null;
-      return;
-    }
-    const run = activeRun;
-    const source = new EventSource(`/v1/tasks/${run.taskId}/events`);
-    eventSourceRef.current = source;
-    source.addEventListener("output", () => {
-      if (sessionIdRef.current === run.sessionId) {
-        void loadMessages(run.sessionId);
-      }
-    });
-    source.addEventListener("trace", (event) => {
-      if (sessionIdRef.current !== run.sessionId) {
-        return;
-      }
-      try {
-        const payload = JSON.parse(event.data) as { eventType?: string; summary?: string };
-        setTrace((current) => [
-          ...current.slice(-80),
-          { eventType: payload.eventType ?? "event", summary: payload.summary ?? "" }
-        ]);
-      } catch {
-        /* ignore malformed SSE */
-      }
-      void loadTurnState(run.sessionId);
-    });
-    source.addEventListener("done", (event) => {
-      try {
-        const payload = JSON.parse(event.data) as { status?: string };
-        if (
-          payload.status === "succeeded" ||
-          payload.status === "failed" ||
-          payload.status === "cancelled" ||
-          payload.status === "timed_out"
-        ) {
-          setActiveRun(null);
+    const sources = Object.values(runsBySession).map((run) => {
+      const source = new EventSource(`/v1/tasks/${run.taskId}/events`);
+      const refresh = () => {
+        if (sessionIdRef.current === run.sessionId) {
+          void loadMessages(run.sessionId);
+          void loadTurnState(run.sessionId);
         }
-      } catch {
-        setActiveRun(null);
-      }
-      if (sessionIdRef.current === run.sessionId) {
-        void loadMessages(run.sessionId);
-        void loadTurnState(run.sessionId);
-      }
+      };
+      source.addEventListener("output", refresh);
+      source.addEventListener("trace", refresh);
+      source.addEventListener("done", () => {
+        setRunsBySession((current) => current[run.sessionId]?.taskId === run.taskId
+          ? Object.fromEntries(Object.entries(current).filter(([id]) => id !== run.sessionId))
+          : current);
+        refresh();
+      });
+      return source;
     });
-    source.onerror = () => undefined;
-    return () => {
-      source.close();
-    };
-  }, [activeRun, loadMessages, loadTurnState]);
+    return () => sources.forEach((source) => source.close());
+  }, [loadMessages, loadTurnState, runsBySession]);
 
   const filteredSessions = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -260,6 +243,7 @@ export function App(): React.ReactElement {
       return true;
     }
     if (value === "/sessions") {
+      setDrawer("sessions");
       return true;
     }
     if (value.startsWith("/mode ")) {
@@ -269,9 +253,9 @@ export function App(): React.ReactElement {
       }
       return true;
     }
-    if (value === "/stop" && activeRun !== null) {
+    if (value === "/stop" && activeRun !== undefined) {
       await api(`/v1/tasks/${activeRun.taskId}/stop`, { method: "POST" });
-      setActiveRun(null);
+      setRunsBySession((current) => Object.fromEntries(Object.entries(current).filter(([id]) => id !== activeRun.sessionId)));
       return true;
     }
     if (value === "/diff") {
@@ -311,7 +295,7 @@ export function App(): React.ReactElement {
       return true;
     }
     if (value === "/today") {
-      setRail("inbox");
+      setShowToday(true);
       return true;
     }
     if (value.startsWith("/model ")) {
@@ -333,34 +317,27 @@ export function App(): React.ReactElement {
     if (text.length === 0 || busy) {
       return;
     }
-    setDraft("");
     setError(null);
-    if (text.startsWith("/")) {
-      const handled = await handleSlash(text);
-      if (handled) {
-        return;
-      }
-    }
-    const id = await ensureSession();
-    setMessages((current) => [
-      ...current,
-      {
-        id: `local:${Date.now()}`,
-        kind: "user",
-        text,
-        timestamp: new Date().toISOString()
-      }
-    ]);
     try {
+      if (text.startsWith("/")) {
+        const handled = await handleSlash(text);
+        if (handled) {
+          setDraft("");
+          return;
+        }
+      }
+      const id = await ensureSession();
+      setMessages((current) => [...current, { id: `local:${Date.now()}`, kind: "user", text, timestamp: new Date().toISOString() }]);
       const turn = await api<{ taskId: string }>(`/v1/sessions/${id}/turns`, {
         body: JSON.stringify({ input: text, interactionMode: mode }),
         method: "POST"
       });
-      setActiveRun({ sessionId: id, taskId: turn.taskId });
+      setRunsBySession((current) => ({ ...current, [id]: { sessionId: id, taskId: turn.taskId } }));
+      setDraft("");
       await loadMessages(id);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
-      setActiveRun(null);
+      setRetryAction(() => () => void send());
     }
   }
 
@@ -373,27 +350,22 @@ export function App(): React.ReactElement {
   }, [sessionId, visibleMessages.length]);
 
   useEffect(() => {
-    if (activeRun === null) {
+    const runs = Object.values(runsBySession);
+    if (runs.length === 0) {
       return;
     }
-    const run = activeRun;
     const timer = window.setInterval(() => {
-      if (sessionIdRef.current === run.sessionId) {
-        void loadMessages(run.sessionId);
-        void loadTurnState(run.sessionId);
-      }
-      void api<{ task: { status: string } }>(`/v1/tasks/${run.taskId}`)
-        .then((data) => {
-          if (["succeeded", "failed", "cancelled", "timed_out"].includes(data.task.status)) {
-            setActiveRun(null);
-          }
-        })
-        .catch(() => undefined);
+      runs.forEach((run) => void api<{ task: { status: string } }>(`/v1/tasks/${run.taskId}`).then((data) => {
+        if (!ACTIVE_TASK_STATUSES.has(data.task.status)) {
+          setRunsBySession((current) => current[run.sessionId]?.taskId === run.taskId
+            ? Object.fromEntries(Object.entries(current).filter(([id]) => id !== run.sessionId)) : current);
+        }
+      }).catch(() => undefined));
     }, 1500);
     return () => {
       window.clearInterval(timer);
     };
-  }, [activeRun, loadMessages, loadTurnState]);
+  }, [runsBySession]);
 
   async function resolveApproval(approvalId: string, action: "allow" | "deny", allowScope?: "once" | "session" | "always"): Promise<void> {
     await api(`/v1/approvals/${approvalId}/resolve`, {
@@ -403,18 +375,25 @@ export function App(): React.ReactElement {
     await loadTurnState(sessionId);
   }
 
+  function reportError(caught: unknown): void {
+    setError(caught instanceof Error ? caught.message : String(caught));
+  }
+
   if (bootstrap === null) {
     return <div className="empty">{error ?? "Loading workspace…"}</div>;
   }
 
   return (
-    <div className="app">
+    <div className={`app ${drawer === "sessions" ? "show-sessions" : ""} ${drawer === "tools" ? "show-tools" : ""}`}>
       <header className="topbar">
         <span className="brand">AutoTalon</span>
         <span className="workspace" title={bootstrap.workspaceRoot}>
           {bootstrap.workspaceRoot}
         </span>
         <span className="spacer" />
+        <button className="ghost drawer-trigger" type="button" onClick={() => setDrawer(drawer === "sessions" ? null : "sessions")}>
+          {t("sessions")}
+        </button>
         <select value={mode} onChange={(event) => setMode(event.target.value as Mode)}>
           <option value="agent">agent</option>
           <option value="plan">plan</option>
@@ -438,18 +417,30 @@ export function App(): React.ReactElement {
             </option>
           ))}
         </select>
+        <label className="sr-only" htmlFor="locale-select">{t("language")}</label>
+        <select id="locale-select" value={locale} onChange={(event) => {
+          const next = event.target.value as Locale;
+          setLocale(next);
+          window.localStorage.setItem("auto-talon.locale", next);
+        }}>
+          <option value="en">EN</option><option value="zh-CN">中文</option>
+        </select>
+        <button className="ghost drawer-trigger" type="button" onClick={() => setDrawer(drawer === "tools" ? null : "tools")}>
+          {t("tools")}
+        </button>
         <button className="ghost" type="button" onClick={() => setShowSettings((value) => !value)}>
-          Settings
+          {t("settings")}
         </button>
       </header>
       <aside className="sidebar">
         <div className="pane-head">
           <button className="primary" type="button" onClick={() => void newChat()}>
-            New chat
+            {t("newChat")}
           </button>
         </div>
         <div className="pane-head">
-          <input placeholder="Search sessions" value={query} onChange={(event) => setQuery(event.target.value)} />
+          <label className="sr-only" htmlFor="session-search">{t("searchSessions")}</label>
+          <input id="session-search" placeholder={t("searchSessions")} value={query} onChange={(event) => setQuery(event.target.value)} />
         </div>
         <div className="list">
           {filteredSessions.map((session) => (
@@ -460,7 +451,7 @@ export function App(): React.ReactElement {
               onClick={() => setSessionId(session.sessionId)}
             >
               <span className="title">{sessionLabel(session)}</span>
-              <span className="meta">{formatSessionTime(session.updatedAt)}</span>
+              <span className={runsBySession[session.sessionId] !== undefined ? "meta is-running" : "meta"}>{runsBySession[session.sessionId] !== undefined ? t("running") : formatSessionTime(session.updatedAt)}</span>
             </button>
           ))}
         </div>
@@ -475,6 +466,8 @@ export function App(): React.ReactElement {
         ) : (
           <>
             <div className="transcript" ref={transcriptRef}>
+              {busy ? <div className="run-status" role="status">{t("running")}: {taskId}</div> : null}
+              {showToday ? <div className="today card"><strong>{t("today")}</strong><p>{inbox.length} {t("inbox")} · {Object.keys(runsBySession).length} {t("tasks")}</p><button className="ghost" type="button" onClick={() => setShowToday(false)}>{t("close")}</button></div> : null}
               {visibleMessages.length === 0 ? (
                 <div className="empty">
                   {messages.some((message) => message.kind === "activity")
@@ -494,16 +487,18 @@ export function App(): React.ReactElement {
                   <h4>Approval required · {approval.toolName ?? "tool"}</h4>
                   <p>{approval.summary ?? approval.reason ?? approval.approvalId}</p>
                   <div className="row">
-                    <button type="button" onClick={() => void resolveApproval(approval.approvalId, "allow", "once")}>
+                    <button type="button" onClick={() => void resolveApproval(approval.approvalId, "allow", "once").catch(reportError)}>
                       Allow once
                     </button>
-                    <button type="button" onClick={() => void resolveApproval(approval.approvalId, "allow", "session")}>
+                    <button type="button" onClick={() => void resolveApproval(approval.approvalId, "allow", "session").catch(reportError)}>
                       Allow session
                     </button>
-                    <button type="button" onClick={() => void resolveApproval(approval.approvalId, "allow", "always")}>
+                    <button type="button" onClick={() => {
+                      if (window.confirm("Allow this command permanently?")) void resolveApproval(approval.approvalId, "allow", "always").catch(reportError);
+                    }}>
                       Allow always
                     </button>
-                    <button className="danger" type="button" onClick={() => void resolveApproval(approval.approvalId, "deny")}>
+                    <button className="danger" type="button" onClick={() => void resolveApproval(approval.approvalId, "deny").catch(reportError)}>
                       Deny
                     </button>
                   </div>
@@ -538,20 +533,21 @@ export function App(): React.ReactElement {
                   </div>
                 </div>
               ))}
-              {error !== null ? <div className="card">{error}</div> : null}
+              {error !== null ? <div className="card error-card" role="alert">{error}<div className="row"><button type="button" onClick={() => retryAction?.()}>{t("retry")}</button><button className="ghost" type="button" onClick={() => setError(null)}>{t("dismiss")}</button></div></div> : null}
             </div>
             <div className="composer">
               {slashHints.length > 0 ? (
                 <div className="hints">
                   {slashHints.slice(0, 8).map((hint) => (
-                    <span className="hint" key={hint.insert} onClick={() => setDraft(hint.insert)}>
+                    <button className="hint" type="button" key={hint.insert} onClick={() => setDraft(hint.insert)}>
                       {hint.insert} — {hint.label}
-                    </span>
+                    </button>
                   ))}
                 </div>
               ) : null}
               <textarea
-                placeholder="Message AutoTalon. Type / for commands."
+                aria-label={t("composer")}
+                placeholder={t("composer")}
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={(event) => {
@@ -563,16 +559,16 @@ export function App(): React.ReactElement {
               />
               <div className="composer-foot">
                 <span className="meta">
-                  {busy ? "Running…" : bootstrap.provider.configured ? bootstrap.provider.displayName : "Configure a provider"}
+                  {busy ? `${t("running")}…` : bootstrap.provider.configured ? bootstrap.provider.displayName : "Configure a provider"}
                 </span>
                 <div className="row">
                   {busy && taskId !== null ? (
                     <button className="danger" type="button" onClick={() => void handleSlash("/stop")}>
-                      Stop
+                      {t("stop")}
                     </button>
                   ) : null}
                   <button className="primary" disabled={busy} type="button" onClick={() => void send()}>
-                    Send
+                    {t("send")}
                   </button>
                 </div>
               </div>
@@ -582,6 +578,7 @@ export function App(): React.ReactElement {
       </main>
       <aside className="rail">
         <div className="tabs">
+          <span className="tab-group">{t("activity")}</span>
           {(
             [
               ["changes", "Changes"],
@@ -658,7 +655,7 @@ export function App(): React.ReactElement {
             )
           ) : null}
           {rail === "tasks" ? (
-            tasks.map((task) => (
+            tasks.length === 0 ? <div className="empty">{t("noTasks")}</div> : tasks.map((task) => (
               <div className="card" key={task.taskId}>
                 <strong>{task.status}</strong>
                 <div>{task.input ?? task.taskId}</div>
@@ -666,14 +663,14 @@ export function App(): React.ReactElement {
             ))
           ) : null}
           {rail === "skills" ? (
-            skills.map((skill, index) => (
+            skills.length === 0 ? <div className="empty">{t("noSkills")}</div> : skills.map((skill, index) => (
               <div className="card" key={skill.metadata?.id ?? skill.id ?? String(index)}>
                 {skill.metadata?.name ?? skill.metadata?.id ?? skill.id ?? "skill"}
               </div>
             ))
           ) : null}
           {rail === "experience" ? (
-            experiences.map((experience) => (
+            experiences.length === 0 ? <div className="empty">{t("noExperience")}</div> : experiences.map((experience) => (
               <div className="card" key={experience.experienceId}>
                 {experience.title ?? experience.experienceId}
               </div>

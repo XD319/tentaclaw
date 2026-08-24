@@ -64,10 +64,10 @@ function previewText(value: string | null | undefined): string | undefined {
 }
 
 export function publicTaskList(
-  tasks: Array<{ input: string; status: string; taskId: string }>
+  tasks: Array<{ input: string; sessionId?: string | null; status: string; taskId: string }>
 ): JsonObject[] {
   const seen = new Set<string>();
-  const picked: Array<{ input: string; status: string; taskId: string }> = [];
+  const picked: Array<{ input: string; sessionId?: string | null; status: string; taskId: string }> = [];
   for (const task of [
     ...tasks.filter((entry) => ACTIVE_TASK_STATUSES.has(entry.status)),
     ...tasks.slice(0, LIST_LIMIT)
@@ -83,6 +83,7 @@ export function publicTaskList(
     return {
       taskId: task.taskId,
       status: task.status,
+      ...(task.sessionId !== undefined && task.sessionId !== null ? { sessionId: task.sessionId } : {}),
       ...(input !== undefined ? { input } : {})
     };
   });
