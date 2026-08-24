@@ -73,6 +73,17 @@ Confirm Node first (`node -v` must be `>=22.13.0`; Node 20 is not supported).
 No API key is required for this path.
 
 ```bash
+npx auto-talon
+# or, after a global install:
+npm install -g auto-talon
+talon web
+```
+
+This auto-inits `.auto-talon/`, opens the local browser workspace, and lets you
+choose Mock or a real provider in Settings. `talon tui` remains available for
+the terminal UI.
+
+```bash
 npm install -g auto-talon
 talon init --yes
 talon provider setup mock

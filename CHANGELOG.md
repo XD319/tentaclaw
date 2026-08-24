@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.1.2
+
+- Improved the local Web workspace with concurrent session-run tracking,
+  session-scoped approvals and clarification prompts, responsive drawers, and
+  persisted English / Simplified Chinese interface language selection.
+- Added session identity to the public task list and hardened Web UI error
+  feedback, retry behavior, and permanent-approval confirmation.
+- Refined the dark developer-workbench hierarchy, keyboard focus treatment,
+  status states, and empty states.
+
 - Anthropic-compatible providers emit `cache_control: { type: "ephemeral" }`
   breakpoints on the stable prefix (last tool schema, system prompt, memory
   recall) and map `cache_read_input_tokens` into `cachedInputTokens`.

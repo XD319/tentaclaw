@@ -15,6 +15,12 @@ API key. Mock replies are deterministic demos for local smoke — not a real mod
 2. Install and initialize:
 
 ```bash
+npx auto-talon
+```
+
+Or the CLI-only walkthrough:
+
+```bash
 npm install -g auto-talon
 talon init --yes
 talon provider setup mock

@@ -18,7 +18,8 @@ export const SESSION_ENTRY_SOURCES = [
   "cli",
   "gateway",
   "schedule",
-  "migration"
+  "migration",
+  "web"
 ] as const;
 
 export type SessionEntrySource = (typeof SESSION_ENTRY_SOURCES)[number];
