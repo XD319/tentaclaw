@@ -65,7 +65,7 @@ npm install -g auto-talon
 talon web
 ```
 
-启动器会自动初始化 `.auto-talon/`，打开本机浏览器工作区，并在设置里选择 Mock 或真实 provider。`talon tui` 仍可作为终端界面使用。
+启动器会自动初始化 `.auto-talon/`，打开本机浏览器工作区，并在设置里选择 Mock 或真实 provider。Web UI 已可使用，但目前属于**测试版预览**：适合本地试用和反馈，仍在持续开发中。日常稳定工作流仍建议优先使用 `talon tui` 或 CLI。
 
 ```bash
 npm install -g auto-talon
@@ -193,6 +193,7 @@ talon doctor
 
 ```bash
 talon tui                              # 日常交互式 agent 界面
+talon web                              # 本机浏览器工作区（测试版预览）
 talon run "review the changed files"   # 可脚本化的一次性执行
 talon continue --last                  # 恢复上一个任务
 talon trace <task_id> --summary        # 检查 agent 做了什么
@@ -256,6 +257,7 @@ AutoTalon 面向需要真实工具权限、同时也需要可见护栏的本地�
 
 - AutoTalon 要求 Node.js `>=22.13.0`，因为运行时存储依赖内置 `node:sqlite` 模块；不支持 Node.js 20。
 - AutoTalon 是本地优先、面向单个操作者的 agent，不是托管 SaaS、团队控制平面或多租户 agent 服务。
+- 本机 Web UI 已可用于测试和收集本地操作者反馈，但当前仍是测试版，功能和交互会继续迭代；稳定使用路径仍是 CLI/TUI。
 - 真实 provider 运行需要用户自行提供凭据。Mock 和 scripted smoke provider 只用于测试和诊断。
 - v0.1.0 包含飞书/Lark 与本地 webhook gateway adapter；Slack、Telegram、Discord、语音、浏览器自动化、图像生成、移动 companion app 仍不在本次发布范围内。**桌面 companion**（Tauri + 本地 `session-api`）已列入 `v0.2.0` 规划，**尚未发布** —— 见 [ROADMAP.zh-CN.md](ROADMAP.zh-CN.md) 与 [docs/dev/desktop-companion.md](docs/dev/desktop-companion.md)。
 
