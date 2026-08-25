@@ -203,6 +203,10 @@ export class ExecutionKernel {
         toolOrchestrator: dependencies.toolOrchestrator,
         traceService: dependencies.traceService,
         workspaceRoot: dependencies.workspaceRoot,
+        compactCooldownIterations: dependencies.compact.compactCooldownIterations,
+        ...(dependencies.contextRetention !== undefined
+          ? { toolResultKeepGroups: dependencies.contextRetention.toolResultKeepGroups }
+          : {}),
         ...(dependencies.getSessionCommitmentState !== undefined
           ? { getSessionCommitmentState: dependencies.getSessionCommitmentState }
           : {}),
@@ -1202,7 +1206,9 @@ export class ExecutionKernel {
       tokenEstimate: computePromptTokens(input.state.tokenCounter, input.messages),
       tokenThreshold,
       toolCallCount: input.state.cumulativeToolCallCount,
-      toolCallThreshold: this.dependencies.compact.toolCallThreshold
+      toolCallThreshold: this.dependencies.compact.toolCallThreshold,
+      minTokenPressureRatio: this.dependencies.compact.minTokenPressureRatio,
+      compactCooldownRemaining: input.state.compactCooldownRemaining
     };
   }
 
@@ -1214,10 +1220,11 @@ export class ExecutionKernel {
 
   private createContextLoopFields(): Pick<
     ExecutionLoopState,
-    "compactedCount" | "microPrunedCount" | "recentFileReadCache" | "tokenCounter" | "toolArtifactsRoot"
+    "compactedCount" | "compactCooldownRemaining" | "microPrunedCount" | "recentFileReadCache" | "tokenCounter" | "toolArtifactsRoot"
   > {
     return {
       compactedCount: 0,
+      compactCooldownRemaining: 0,
       microPrunedCount: 0,
       recentFileReadCache:
         this.dependencies.contextRetention === undefined
@@ -1255,6 +1262,7 @@ export class ExecutionKernel {
       actor: "runtime.context",
       eventType: "compact_evaluated",
       payload: {
+        compactCooldownRemaining: input.compactCooldownRemaining ?? null,
         messageCount: input.messages.length,
         maxMessagesBeforeCompact: input.maxMessagesBeforeCompact,
         reason: decision.reason,
@@ -1730,7 +1738,7 @@ function resolveTaskEntrySource(task: TaskRecord): SessionEntrySource {
     }
   }
   const source = task.metadata?.source;
-  if (source === "tui" || source === "cli" || source === "schedule" || source === "gateway") {
+  if (source === "tui" || source === "cli" || source === "schedule" || source === "gateway" || source === "web") {
     return source;
   }
   return "cli";

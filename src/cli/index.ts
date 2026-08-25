@@ -18,7 +18,9 @@ import {
   RUNTIME_VERSION,
 } from "../runtime/index.js";
 import { runGitReadOnly } from "../runtime/workspace/git-readonly.js";
+import { formatLegacyMigrationGuidance } from "../runtime/sessions/legacy-workspace.js";
 import { startDashboardTui, startTui } from "../tui/index.js";
+import { launchWebUi } from "./web-launch.js";
 import {
   clearSessionModelSelection,
   formatModelList,
@@ -73,6 +75,32 @@ import type { SkillAttachmentKind } from "../types/skill.js";
 export async function main(argv = process.argv): Promise<void> {
   const program = new Command();
   program.name("talon").description("Agent Runtime MVP CLI").version("0.1.1");
+  argv = withDefaultWebCommand(argv);
+
+  program
+    .command("web")
+    .description("Open the local browser workspace")
+    .option("--cwd <path>", "Workspace path", process.cwd())
+    .option("--host <host>", "Bind host", "127.0.0.1")
+    .option("--port <port>", "Bind port", "7080")
+    .option("--no-open", "Do not open the default browser")
+    .option("--insecure", "Allow binding to non-loopback hosts without HTTP token")
+    .action(async (commandOptions: {
+      cwd: string;
+      host?: string;
+      insecure?: boolean;
+      open?: boolean;
+      port?: string;
+    }) => {
+      const port = Number.parseInt(commandOptions.port ?? "7080", 10);
+      await launchWebUi({
+        cwd: commandOptions.cwd,
+        host: commandOptions.host ?? "127.0.0.1",
+        insecure: commandOptions.insecure === true,
+        open: commandOptions.open !== false,
+        port: Number.isFinite(port) ? port : 7080
+      });
+    });
 
   program.command("version").description("Show runtime and environment version").action(() => {
     console.log(`auto-talon v${program.version()}`);
@@ -212,10 +240,9 @@ export async function main(argv = process.argv): Promise<void> {
             );
           }
           if (repair.remainingIssues.length > 0) {
-            console.log("Remaining legacy issues:");
-            for (const issue of repair.remainingIssues) {
-              console.log(`- ${issue}`);
-            }
+            console.log(formatLegacyMigrationGuidance(repair.remainingIssues));
+          } else {
+            console.log("Legacy workspace migration: complete.");
           }
         }
         console.log(formatDoctorReport(await handle.service.configDoctor()));
@@ -253,10 +280,9 @@ export async function main(argv = process.argv): Promise<void> {
             );
           }
           if (repair.remainingIssues.length > 0) {
-            console.log("Remaining legacy issues:");
-            for (const issue of repair.remainingIssues) {
-              console.log(`- ${issue}`);
-            }
+            console.log(formatLegacyMigrationGuidance(repair.remainingIssues));
+          } else {
+            console.log("Legacy workspace migration: complete.");
           }
         }
         console.log(formatDoctorReport(await handle.service.configDoctor()));
@@ -896,6 +922,18 @@ export async function main(argv = process.argv): Promise<void> {
   registerGatewayCommands(program);
 
   await program.parseAsync(argv);
+}
+
+function withDefaultWebCommand(argv: string[]): string[] {
+  const forwarded = argv.slice(2);
+  if (forwarded.includes("-h") || forwarded.includes("--help") || forwarded.includes("-V") || forwarded.includes("--version")) {
+    return argv;
+  }
+  const first = forwarded[0];
+  if (first !== undefined && !first.startsWith("-")) {
+    return argv;
+  }
+  return [...argv.slice(0, 2), "web", ...forwarded];
 }
 
 function createCliOutputListener(jsonEvents: boolean): (event: RuntimeOutputEvent) => void {

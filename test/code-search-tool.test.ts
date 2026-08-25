@@ -173,11 +173,14 @@ describe("CodeSearchTool", () => {
     }
     const output = result.output as {
       matches: Array<{ relativePath: string }>;
+      ripgrepGuidance?: string;
       searchBackend: string;
     };
     expect(output.searchBackend).toBe("node");
     expect(output.matches[0]?.relativePath).toBe("src/fallback.ts");
+    expect(output.ripgrepGuidance).toContain("ripgrep unavailable");
     expect(result.summary).toContain("ripgrep unavailable");
+    expect(result.summary).toMatch(/winget install|brew install|apt install/);
   });
 
   it("does not stop node file discovery at the result limit", async () => {

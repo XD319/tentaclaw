@@ -6,6 +6,7 @@ import { basename, dirname, extname, join, relative, sep } from "node:path";
 import { z } from "zod";
 
 import { AppError } from "../core/app-error.js";
+import { formatRipgrepFallbackSummarySuffix } from "../core/ripgrep.js";
 import type { SandboxService } from "../sandbox/sandbox-service.js";
 import type {
   JsonObject,
@@ -176,7 +177,10 @@ export class CodeSearchTool implements ToolDefinition<typeof codeSearchSchema, P
         query: input.query,
         regex: input.regex,
         searchBackend: searchResult.backend,
-        searchedFileCount: files.length
+        searchedFileCount: files.length,
+        ...(searchResult.backend === "node"
+          ? { ripgrepGuidance: formatRipgrepFallbackSummarySuffix() }
+          : {})
       },
       success: true,
       summary: summarizeSearchResult(input.mode, input.query, modeOutput, searchResult.backend)
@@ -399,7 +403,7 @@ function summarizeSearchResult(
     summary = `Found ${matchCount} content matches and ${filenameMatches} filename matches for "${query}"`;
   }
   if (searchBackend === "node") {
-    return `${summary}; ripgrep unavailable, used Node filesystem scan`;
+    return `${summary}; ${formatRipgrepFallbackSummarySuffix()}`;
   }
   return summary;
 }
@@ -543,6 +547,7 @@ async function defaultRunRgContent(
     if (exitCode === 1 && stdout !== null) {
       return parseRgJsonMatches(stdout, cwd, context.workspaceRoot, input.contextLines);
     }
+    // Missing rg (ENOENT) and other rg failures fall through to the Node walker.
     return null;
   }
 }

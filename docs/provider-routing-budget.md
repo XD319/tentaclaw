@@ -32,6 +32,12 @@ Provider cost uses pricing entries from `runtime.config.json`:
 
 If pricing for a provider is missing, token accounting still works and USD is skipped for that provider call.
 
+When the provider reports cache-hit usage, the runtime records `cachedInputTokens`
+and can price them with `cachedInputPerMillion`. See
+[Prompt cache accounting](dev/prompt-cache.md) for what is measured today, where
+to inspect `cost_report`, and how Anthropic `cache_control` breakpoints are
+emitted on the stable prefix.
+
 ## Trace and Audit Visibility
 
 Routing and budget behavior is observable through:

@@ -1,12 +1,20 @@
-﻿import {
+import {
   readRepeatRemaining,
   readScheduleExecutionMode,
   readScheduleNoAgent,
   readScheduleSkills,
   readScheduleToolsets,
   previewScheduleTiming
-} from "../runtime/scheduler/index.js";
-import { readScheduleDeliveryTargets } from "../runtime/scheduler/schedule-delivery.js";
+} from "../schedule/index.js";
+import { readScheduleDeliveryTargets } from "../schedule/schedule-delivery.js";
+import {
+  formatProviderHealthNextSteps,
+  formatProviderStatusNextSteps
+} from "../providers/provider-setup-guidance.js";
+import {
+  formatLegacyMigrationGuidance,
+  isLegacyMigrationIssue
+} from "../runtime/sessions/legacy-workspace.js";
 import type {
   AgentDoctorReport,
   ContextTraceDebugReport,
@@ -566,8 +574,24 @@ export function formatDoctorReport(report: AgentDoctorReport): string {
     `Shell Backend: ${report.shellBackend} (${report.shellBackendAvailable ? "available" : "missing"})`,
     `Shell Executable: ${report.shellExecutable}`,
     `Shell Timeout Limit (ms): ${report.shellMaxTimeoutMs}`,
-    `Issues: ${report.issues.length === 0 ? "none" : report.issues.join("; ")}`
+    `Issues: ${formatDoctorIssues(report.issues)}`
   ].join("\n");
+}
+
+function formatDoctorIssues(issues: string[]): string {
+  if (issues.length === 0) {
+    return "none";
+  }
+  const legacyIssues = issues.filter(isLegacyMigrationIssue);
+  const otherIssues = issues.filter((issue) => !isLegacyMigrationIssue(issue));
+  const parts: string[] = [];
+  if (otherIssues.length > 0) {
+    parts.push(otherIssues.join("; "));
+  }
+  if (legacyIssues.length > 0) {
+    parts.push(`\n${formatLegacyMigrationGuidance(legacyIssues)}`);
+  }
+  return parts.join("\n");
 }
 
 export function formatProviderCatalog(
@@ -618,10 +642,7 @@ export function formatCurrentProvider(config: {
     `Max Retries: ${config.maxRetries}`
   ];
 
-  if (config.configured === false) {
-    lines.push("Setup Required: yes");
-    lines.push("Setup: talon provider setup <provider> --api-key <key>");
-  }
+  lines.push(...formatProviderStatusNextSteps(config));
 
   if (
     config.timeoutConfigured === true &&
@@ -649,7 +670,7 @@ export function formatProviderHealth(report: {
   ok: boolean;
   providerName: string;
 }): string {
-  return [
+  const lines = [
     `Provider: ${report.providerName}`,
     `Model: ${report.modelName ?? "-"}`,
     `Healthy: ${report.ok ? "yes" : "no"}`,
@@ -660,7 +681,12 @@ export function formatProviderHealth(report: {
     `Latency (ms): ${report.latencyMs ?? "-"}`,
     `Error Category: ${report.errorCategory ?? "-"}`,
     `Message: ${report.message}`
-  ].join("\n");
+  ];
+  const next = formatProviderHealthNextSteps(report);
+  if (next !== null) {
+    lines.push(next);
+  }
+  return lines.join("\n");
 }
 
 export function formatProviderSmoke(report: {

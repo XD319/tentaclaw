@@ -39,6 +39,10 @@ export function wilsonInterval(successes: number, trials: number, z = 1.96): Con
   };
 }
 
+export function wilsonIntervalsOverlap(left: ConfidenceInterval, right: ConfidenceInterval): boolean {
+  return left.low <= right.high && right.low <= left.high;
+}
+
 export function passAtK(successes: number, trials: number, k: number): number {
   if (trials === 0 || k <= 0) {
     return 0;
@@ -58,4 +62,30 @@ export function passPowerK(successes: number, trials: number, k: number): number
     return 0;
   }
   return (successes / trials) ** k;
+}
+
+export function bootstrapMeanInterval(values: number[], iterations = 1_000, quantile = 0.025): ConfidenceInterval & { mean: number } {
+  if (values.length === 0) {
+    return { high: 0, low: 0, mean: 0 };
+  }
+  const observed = mean(values);
+  if (values.length === 1) {
+    return { high: observed, low: observed, mean: observed };
+  }
+  const samples: number[] = [];
+  for (let iteration = 0; iteration < iterations; iteration += 1) {
+    let total = 0;
+    for (let index = 0; index < values.length; index += 1) {
+      total += values[Math.floor(Math.random() * values.length)] ?? 0;
+    }
+    samples.push(total / values.length);
+  }
+  samples.sort((left, right) => left - right);
+  const lowIndex = Math.min(samples.length - 1, Math.max(0, Math.floor(quantile * samples.length)));
+  const highIndex = Math.min(samples.length - 1, Math.max(0, Math.ceil((1 - quantile) * samples.length) - 1));
+  return {
+    high: samples[highIndex] ?? observed,
+    low: samples[lowIndex] ?? observed,
+    mean: observed
+  };
 }

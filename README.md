@@ -69,13 +69,45 @@ Provider setup flags are the same on both paths; only the CLI entrypoint differs
 
 #### Try it in two minutes (no credentials)
 
+Confirm Node first (`node -v` must be `>=22.13.0`; Node 20 is not supported).
+No API key is required for this path.
+
+```bash
+npx auto-talon
+# or, after a global install:
+npm install -g auto-talon
+talon web
+```
+
+This auto-inits `.auto-talon/`, opens the local browser workspace, and lets you
+choose Mock or a real provider in Settings. The Web UI is available as a
+**beta preview**: it is useful for local testing and feedback, but is still
+under active development. Use `talon tui` or the CLI for the most established
+daily workflow.
+
 ```bash
 npm install -g auto-talon
 talon init --yes
 talon provider setup mock
 talon provider test
+talon run "say hello"
 talon tui
 ```
+
+`provider test` and `talon run` should succeed without credentials. Then open
+`talon tui` and send a short message — mock replies are deterministic demos, not
+a real model.
+
+If something fails before the TUI:
+
+| Symptom | What to do |
+| --- | --- |
+| `node:sqlite` / unsupported Node | Upgrade to Node.js `>=22.13.0` |
+| `talon: command not found` after global install | Ensure npm's global bin directory is on `PATH`, then reopen the shell |
+| Provider / missing-key errors | Re-run `talon provider setup mock` (do not set a real provider yet) |
+| Slow or odd code search later | Optional: install `rg` ([Windows tips](docs/user/windows-troubleshooting.md)); mock first-run does not require it |
+
+More detail: [Quickstart](docs/user/quickstart.md#no-credentials-mock-walkthrough).
 
 #### Use a real provider
 
@@ -168,13 +200,23 @@ Git, and PowerShell execution-policy tips. Developers on Windows can use
 ### Upgrading
 
 Upgrading from a preview checkout that still uses the legacy thread→session
-schema requires running `talon doctor --fix` once (or
-`corepack pnpm dev doctor --fix` from a source checkout).
+schema requires a one-shot migration. If commands fail with
+`Legacy workspace migration required`, run:
+
+```bash
+talon doctor --fix
+talon doctor
+```
+
+From a source checkout use `corepack pnpm dev doctor --fix`. The doctor output
+lists the current legacy tables/transcripts, the impact, and the exact fix
+command. Until migration completes, `talon tui` / `talon run` stay blocked.
 
 ## Common commands
 
 ```bash
 talon tui                              # daily interactive agent surface
+talon web                              # local browser workspace (beta preview)
 talon run "review the changed files"   # scriptable one-shot execution
 talon continue --last                  # resume the previous task
 talon trace <task_id> --summary        # inspect what the agent did
@@ -244,6 +286,9 @@ against sensitive project directories.
   built-in `node:sqlite` module. Node.js 20 is not supported.
 - AutoTalon is local-first and single-operator oriented. It is not a hosted
   SaaS, team control plane, or multi-tenant agent service.
+- The local Web UI is a beta preview. It can be used for testing and local
+  operator feedback, but its workflows and surface area will continue to
+  evolve; CLI/TUI remain the recommended stable paths.
 - Real provider runs require user-supplied credentials. Mock and scripted smoke
   providers are for tests and diagnostics.
 - v0.1.0 includes Feishu/Lark and local webhook gateway adapters. Slack,
@@ -259,13 +304,13 @@ against sensitive project directories.
 | --- | --- |
 | Install and first run | [Install](docs/user/install.md), [Quickstart](docs/user/quickstart.md) |
 | Learn CLI/TUI commands | [Commands](docs/user/commands.md) |
-| Configure providers and runtime | [Config reference](docs/user/config-reference.md), [Provider troubleshooting](docs/troubleshooting/provider.md) |
+| Configure providers and runtime | [Config reference](docs/user/config-reference.md), [Provider troubleshooting](docs/troubleshooting/provider.md), [Provider routing and budget](docs/provider-routing-budget.md), [Prompt cache accounting](docs/dev/prompt-cache.md) |
 | Understand approvals and sandboxing | [Approvals](docs/user/approvals.md), [Sandbox troubleshooting](docs/troubleshooting/sandbox.md) |
 | Connect external entry points | [Gateway](docs/user/gateway.md), [Gateway troubleshooting](docs/troubleshooting/gateway.md) |
 | Use memory and skills | [Skills](docs/user/skills.md), [Memory troubleshooting](docs/troubleshooting/memory.md) |
 | Integrate MCP | [MCP](docs/user/mcp.md) |
 | Validate a release | [Replay and eval](docs/user/replay-and-eval.md), [Compatibility matrix](docs/compatibility-matrix.md) |
-| Develop AutoTalon | [Architecture](docs/dev/architecture.md), [Module boundaries](docs/dev/module-boundaries.md), [Testing](docs/dev/testing.md), [Desktop companion](docs/dev/desktop-companion.md) |
+| Develop AutoTalon | [Architecture](docs/dev/architecture.md), [Module boundaries](docs/dev/module-boundaries.md), [Testing](docs/dev/testing.md), [Context window](docs/dev/context-window.md), [Desktop companion](docs/dev/desktop-companion.md) |
 
 See the [Changelog](CHANGELOG.md) for release history.
 

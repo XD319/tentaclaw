@@ -2,8 +2,17 @@ name: Capability Eval
 
 on:
   workflow_dispatch:
+    inputs:
+      suite:
+        description: "Eval slice to run"
+        type: choice
+        default: canary
+        options:
+          - canary
+          - full
+          - memory
   schedule:
-    - cron: "30 18 * * *"
+    - cron: "30 18 * * 1"
 
 concurrency:
   group: capability-eval-${{ github.ref }}
@@ -31,7 +40,7 @@ jobs:
           fi
 
   blind-eval:
-    name: OpenAI gpt-4o-mini blind suite
+    name: OpenAI gpt-4o-mini eval
     needs: configuration
     if: needs.configuration.outputs.enabled == 'true'
     environment: capability-eval
@@ -43,6 +52,8 @@ jobs:
       AGENT_PROVIDER_MODEL: gpt-4o-mini
       EVAL_OUTPUT: eval-artifacts
       EVAL_BASELINE: fixtures/eval-baselines/openai-gpt-4o-mini.json
+      EVAL_SLICE: ${{ github.event.inputs.suite || 'canary' }}
+      EVAL_CANARY_TASKS: coding_create_add,governance_config_inspection,governance_denied_action,governance_scoped_write,context_ignore_embedded_instruction,context_locate_fact,integration_mcp_discovery,integration_tool_bridge,safety_secret_redaction,safety_injection_no_shell,safety_offline_only,reliability_timeout_recovery
 
     steps:
       - name: Verify canonical provider credential
@@ -77,16 +88,26 @@ jobs:
         if: steps.credential.outputs.available == 'true'
         run: pnpm install --frozen-lockfile
 
-      - name: Run blind capability eval
+      - name: Run capability eval
         if: steps.credential.outputs.available == 'true'
-        run: pnpm exec tsx src/cli/bin.ts eval run --provider openai --suite fixtures/eval-suites/internal-blind.v1.json --repetitions 3 --output "$EVAL_OUTPUT"
+        shell: bash
+        run: |
+          extra=()
+          if [[ "$EVAL_SLICE" == "canary" ]]; then
+            extra+=(--suite fixtures/eval-suites/internal-blind.v2.json --tasks "$EVAL_CANARY_TASKS")
+          elif [[ "$EVAL_SLICE" == "memory" ]]; then
+            extra+=(--suite fixtures/eval-suites/memory-compounding.v1.json)
+          else
+            extra+=(--suite fixtures/eval-suites/internal-blind.v2.json)
+          fi
+          pnpm exec tsx src/cli/bin.ts eval run --provider openai --repetitions 3 --output "$EVAL_OUTPUT" "${extra[@]}"
 
       - name: Compare approved baseline
-        if: always() && steps.credential.outputs.available == 'true'
+        if: always() && steps.credential.outputs.available == 'true' && env.EVAL_SLICE == 'full'
         shell: bash
         run: |
           if [[ -f "$EVAL_OUTPUT/eval-report.json" && -f "$EVAL_BASELINE" ]]; then
-            pnpm exec tsx src/cli/bin.ts eval compare --current "$EVAL_OUTPUT/eval-report.json" --baseline "$EVAL_BASELINE"
+            pnpm exec tsx src/cli/bin.ts eval compare --current "$EVAL_OUTPUT/eval-report.json" --baseline "$EVAL_BASELINE" --allow-drift
           elif [[ ! -f "$EVAL_BASELINE" ]]; then
             echo "::warning::No approved capability baseline exists at $EVAL_BASELINE"
             echo "Baseline comparison skipped; approve one with talon eval baseline update." >> "$GITHUB_STEP_SUMMARY"

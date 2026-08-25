@@ -139,8 +139,10 @@ const runtimeConfigFileSchema = z.object({
     .object({
       bufferTokens: z.number().int().nonnegative().optional(), // deprecated: kept for backward compatibility, no runtime effect
       hygieneThresholdRatio: z.number().positive().max(1).optional(),
+      compactCooldownIterations: z.number().int().nonnegative().optional(),
       iterationThreshold: z.number().int().positive().optional(),
       messageThreshold: z.number().int().positive().optional(),
+      minTokenPressureRatio: z.number().min(0).max(1).optional(),
       protectFirstN: z.number().int().nonnegative().optional(),
       protectLastN: z.number().int().positive().optional(),
       resumeUserTailMessages: z.number().int().positive().optional(),
@@ -161,7 +163,8 @@ const runtimeConfigFileSchema = z.object({
       maxFiles: z.number().int().positive().optional(),
       maxTotalBytes: z.number().int().positive().optional(),
       maxTotalBytesUnderGuard: z.number().int().positive().optional(),
-      toolOutputMaxTokens: z.number().int().positive().optional()
+      toolOutputMaxTokens: z.number().int().positive().optional(),
+      toolResultKeepGroups: z.number().int().positive().optional()
     })
     .optional(),
   memory: z
@@ -375,9 +378,11 @@ export interface RuntimeConfig {
   interactionModes: InteractionModesRuntimeConfig;
   compact: {
     bufferTokens: number;
+    compactCooldownIterations: number;
     hygieneThresholdRatio: number;
     iterationThreshold: number;
     messageThreshold: number;
+    minTokenPressureRatio: number;
     protectFirstN: number;
     protectLastN: number;
     resumeUserTailMessages: number;
@@ -533,9 +538,11 @@ const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, "configPath" | "configSource">
   },
   compact: {
     bufferTokens: 0,
+    compactCooldownIterations: 2,
     hygieneThresholdRatio: 0.85,
     iterationThreshold: 24,
     messageThreshold: 100,
+    minTokenPressureRatio: 0.5,
     protectFirstN: 3,
     protectLastN: 20,
     resumeUserTailMessages: 6,
@@ -556,7 +563,8 @@ const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, "configPath" | "configSource">
     maxFiles: 8,
     maxTotalBytes: 128_000,
     maxTotalBytesUnderGuard: 200_000,
-    toolOutputMaxTokens: 2_500
+    toolOutputMaxTokens: 2_500,
+    toolResultKeepGroups: 5
   },
   memory: {
     enabled: false,
@@ -770,6 +778,10 @@ export function resolveRuntimeConfig(cwd = process.cwd()): RuntimeConfig {
         envConfig.compact?.bufferTokens ??
         fileConfig?.compact?.bufferTokens ??
         DEFAULT_RUNTIME_CONFIG.compact.bufferTokens,
+      compactCooldownIterations:
+        envConfig.compact?.compactCooldownIterations ??
+        fileConfig?.compact?.compactCooldownIterations ??
+        DEFAULT_RUNTIME_CONFIG.compact.compactCooldownIterations,
       hygieneThresholdRatio:
         envConfig.compact?.hygieneThresholdRatio ??
         fileConfig?.compact?.hygieneThresholdRatio ??
@@ -782,6 +794,10 @@ export function resolveRuntimeConfig(cwd = process.cwd()): RuntimeConfig {
         envConfig.compact?.messageThreshold ??
         fileConfig?.compact?.messageThreshold ??
         DEFAULT_RUNTIME_CONFIG.compact.messageThreshold,
+      minTokenPressureRatio:
+        envConfig.compact?.minTokenPressureRatio ??
+        fileConfig?.compact?.minTokenPressureRatio ??
+        DEFAULT_RUNTIME_CONFIG.compact.minTokenPressureRatio,
       protectFirstN:
         envConfig.compact?.protectFirstN ??
         fileConfig?.compact?.protectFirstN ??
@@ -990,7 +1006,11 @@ export function resolveRuntimeConfig(cwd = process.cwd()): RuntimeConfig {
       toolOutputMaxTokens:
         envConfig.contextRetention?.toolOutputMaxTokens ??
         fileConfig?.contextRetention?.toolOutputMaxTokens ??
-        DEFAULT_RUNTIME_CONFIG.contextRetention.toolOutputMaxTokens
+        DEFAULT_RUNTIME_CONFIG.contextRetention.toolOutputMaxTokens,
+      toolResultKeepGroups:
+        envConfig.contextRetention?.toolResultKeepGroups ??
+        fileConfig?.contextRetention?.toolResultKeepGroups ??
+        DEFAULT_RUNTIME_CONFIG.contextRetention.toolResultKeepGroups
     },
     tokenBudget,
     tokenBudgetInputLimitExplicit,

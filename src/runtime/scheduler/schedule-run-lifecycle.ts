@@ -4,6 +4,7 @@ const TERMINAL_RUN_STATUSES = new Set<ScheduleRunStatus>(["completed", "failed",
 
 export interface ScheduleRunLifecycleDependencies {
   scheduleRunRepository: ScheduleRunRepository;
+  onCompleted?: (scheduleId: string) => void;
 }
 
 export class ScheduleRunLifecycle {
@@ -50,7 +51,7 @@ export class ScheduleRunLifecycle {
     if (mappedStatus === null) {
       return existing;
     }
-    return this.dependencies.scheduleRunRepository.update(runId, {
+    const next = this.dependencies.scheduleRunRepository.update(runId, {
       errorCode: task.errorCode ?? null,
       errorMessage: task.errorMessage ?? null,
       ...(TERMINAL_RUN_STATUSES.has(mappedStatus)
@@ -60,6 +61,10 @@ export class ScheduleRunLifecycle {
       status: mappedStatus,
       taskId: task.taskId
     });
+    if (existing.status !== "completed" && next.status === "completed") {
+      this.dependencies.onCompleted?.(next.scheduleId);
+    }
+    return next;
   }
 }
 

@@ -31,11 +31,14 @@ talon provider test
 talon tui
 ```
 
-Try without credentials first:
+Try without credentials first (see the
+[no-credentials mock walkthrough](quickstart.md#no-credentials-mock-walkthrough)
+for common blockers):
 
 ```bash
 talon provider setup mock
 talon provider test
+talon run "say hello"
 talon tui
 ```
 

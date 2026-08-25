@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "id": "auto-talon-compounding-self-evolution",
+  "version": "1.0.0",
+  "description": "Self-evolution compounding suite: the same tasks run with empty vs accumulated project skills to measure reuse gains.",
+  "promptVersion": "runtime-0.1",
+  "toolSchemaVersion": "runtime-0.1",
+  "tasks": [
+    {
+      "id": "coding_slug_convention",
+      "title": "Implement slugify using the project convention",
+      "input": "Create src/slug.mjs exporting slugify using the project slug convention. Verify it.",
+      "category": "coding",
+      "difficulty": "easy",
+      "risk": "low",
+      "capabilities": ["coding", "skill_reuse"],
+      "workspace": { "files": { "package.json": "{\"type\":\"module\"}\n" } },
+      "scorers": [
+        { "id": "diff", "type": "workspace_diff", "allowedPaths": ["src/slug.mjs"], "requiredPaths": ["src/slug.mjs"] },
+        { "id": "hidden_test", "type": "command", "command": "node --test .eval-hidden/slug.test.mjs", "hiddenFiles": { ".eval-hidden/slug.test.mjs": "import test from 'node:test'; import assert from 'node:assert/strict'; import { slugify } from '../src/slug.mjs'; test('slug',()=>assert.equal(slugify('  Hello   Agent  '),'hello-agent'));\n" } }
+      ]
+    },
+    {
+      "id": "coding_retry_helper",
+      "title": "Implement retryWithBackoff for flaky tests",
+      "input": "Create src/retry.mjs exporting retryWithBackoff for flaky tests. Verify the retry and backoff contract.",
+      "category": "coding",
+      "difficulty": "medium",
+      "risk": "low",
+      "capabilities": ["coding", "skill_reuse"],
+      "workspace": { "files": { "package.json": "{\"type\":\"module\"}\n" } },
+      "scorers": [
+        { "id": "diff", "type": "workspace_diff", "allowedPaths": ["src/retry.mjs"], "requiredPaths": ["src/retry.mjs"] },
+        { "id": "hidden_test", "type": "command", "command": "node --test .eval-hidden/retry.test.mjs", "hiddenFiles": { ".eval-hidden/retry.test.mjs": "import test from 'node:test'; import assert from 'node:assert/strict'; import { retryWithBackoff } from '../src/retry.mjs'; test('retries', async () => { let n=0; const started=Date.now(); const value=await retryWithBackoff(async()=>{ n+=1; if(n<3) throw new Error('flaky'); return 'ok'; }, {attempts:3, delayMs:10}); assert.equal(value,'ok'); assert.equal(n,3); assert.ok(Date.now()-started>=20); });\n" } }
+      ]
+    },
+    {
+      "id": "coding_json_merge",
+      "title": "Update featureFlag while preserving extra keys",
+      "input": "Enable featureFlag in config/app.json using the project JSON merge convention. Verify the result.",
+      "category": "coding",
+      "difficulty": "easy",
+      "risk": "low",
+      "capabilities": ["coding", "configuration", "skill_reuse"],
+      "workspace": { "files": { "config/app.json": "{\n  \"featureFlag\": false,\n  \"mode\": \"safe\",\n  \"extra\": {\"keep\": true}\n}\n" } },
+      "scorers": [
+        { "id": "diff", "type": "workspace_diff", "allowedPaths": ["config/app.json"], "requiredPaths": ["config/app.json"] },
+        { "id": "state", "type": "file_state", "path": "config/app.json", "contains": ["\"featureFlag\": true", "\"mode\": \"safe\"", "\"keep\": true"] },
+        { "id": "json", "type": "command", "command": "node -e \"const c=JSON.parse(require('fs').readFileSync('config/app.json','utf8')); if(c.featureFlag!==true||c.mode!=='safe'||c.extra?.keep!==true) process.exit(1)\"" }
+      ]
+    },
+    {
+      "id": "coding_error_codes",
+      "title": "Classify parse errors with project codes",
+      "input": "Create src/errors.mjs exporting classifyParseError using the project error-code convention. Verify the codes.",
+      "category": "coding",
+      "difficulty": "medium",
+      "risk": "low",
+      "capabilities": ["coding", "skill_reuse"],
+      "workspace": { "files": { "package.json": "{\"type\":\"module\"}\n" } },
+      "scorers": [
+        { "id": "diff", "type": "workspace_diff", "allowedPaths": ["src/errors.mjs"], "requiredPaths": ["src/errors.mjs"] },
+        { "id": "hidden_test", "type": "command", "command": "node --test .eval-hidden/errors.test.mjs", "hiddenFiles": { ".eval-hidden/errors.test.mjs": "import test from 'node:test'; import assert from 'node:assert/strict'; import { classifyParseError } from '../src/errors.mjs'; test('empty',()=>assert.equal(classifyParseError(''),'empty_input')); test('type',()=>assert.equal(classifyParseError(1),'invalid_type')); test('range',()=>assert.equal(classifyParseError('99999'),'out_of_range'));\n" } }
+      ]
+    },
+    {
+      "id": "docs_release_note_headings",
+      "title": "Draft a release note with project headings",
+      "input": "Read CHANGELOG.md and create docs/release-note.md using the project release-note headings. Do not change CHANGELOG.md.",
+      "category": "documentation",
+      "difficulty": "easy",
+      "risk": "low",
+      "capabilities": ["documentation", "skill_reuse"],
+      "workspace": { "files": { "CHANGELOG.md": "# Changes\n\n- Added trace export.\n- Fixed approval retry.\n" } },
+      "scorers": [
+        { "id": "diff", "type": "workspace_diff", "allowedPaths": ["docs/release-note.md"], "requiredPaths": ["docs/release-note.md"] },
+        { "id": "content", "type": "file_state", "path": "docs/release-note.md", "contains": ["Summary", "Verification", "trace", "approval"] }
+      ]
+    },
+    {
+      "id": "coding_stable_unique",
+      "title": "Implement first-seen unique values",
+      "input": "Create src/unique.mjs exporting unique(values) using the project first-seen uniqueness convention. Verify it.",
+      "category": "coding",
+      "difficulty": "easy",
+      "risk": "low",
+      "capabilities": ["coding", "skill_reuse"],
+      "workspace": { "files": { "package.json": "{\"type\":\"module\"}\n" } },
+      "scorers": [
+        { "id": "diff", "type": "workspace_diff", "allowedPaths": ["src/unique.mjs"], "requiredPaths": ["src/unique.mjs"] },
+        { "id": "hidden_test", "type": "command", "command": "node --test .eval-hidden/unique.test.mjs", "hiddenFiles": { ".eval-hidden/unique.test.mjs": "import test from 'node:test'; import assert from 'node:assert/strict'; import { unique } from '../src/unique.mjs'; test('stable',()=>assert.deepEqual(unique(['b','a','b','c','a']),['b','a','c']));\n" } }
+      ]
+    }
+  ]
+}

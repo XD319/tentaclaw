@@ -201,6 +201,10 @@ export interface SessionCompactInput {
   toolCallThreshold?: number;
   iteration?: number;
   iterationThreshold?: number;
+  /** Count-based triggers fire only when tokenEstimate >= ratio * tokenThreshold. */
+  minTokenPressureRatio?: number;
+  /** Skip proactive compaction while this is > 0 (set after an ineffective compact). */
+  compactCooldownRemaining?: number;
   pendingToolCalls?: Array<{
     toolCallId: string;
     toolName: string;

@@ -10,11 +10,20 @@ import {
   runReleaseChecklist
 } from "../diagnostics/index.js";
 import type { SupportedProviderName } from "../providers/index.js";
+import { createApplication } from "../runtime/index.js";
 import {
   compareEvalReports,
   createEvalJudge,
+  DEFAULT_COMPOUNDING_ACCUMULATED_ROOT,
+  DEFAULT_COMPOUNDING_SUITE,
+  freezeMemoryState,
   runCapabilityEval,
+  runCompoundingEval,
+  validateEvalSuite,
   writeEvalArtifacts,
+  writeFrozenMemoryState,
+  type CompoundingEvalReport,
+  type EvalMemoryArm,
   type EvalRunReport
 } from "../evaluation/public.js";
 
@@ -25,7 +34,7 @@ import {
   formatReleaseChecklistReport,
   formatReplayReport
 } from "./formatters.js";
-import { parsePositiveIntegerOption, parseRatioOption } from "./cli-helpers.js";
+import { parseNonNegativeNumberOption, parsePositiveIntegerOption, parseRatioOption } from "./cli-helpers.js";
 
 interface SmokeCommandOptions {
   autoApprove: boolean;
@@ -80,19 +89,81 @@ export function registerEvalCommands(program: Command): void {
     .option("--suite <path>", "Versioned blind eval suite", "fixtures/eval-suites/internal-blind.v2.json")
     .option("--tasks <taskIds>", "Comma-separated blind task ids")
     .option("--repetitions <number>", "Trials per task", parsePositiveIntegerOption("--repetitions"), 3)
+    .option("--pass-at-k <number>", "k used for pass@k / pass^k", parsePositiveIntegerOption("--pass-at-k"))
+    .option("--concurrency <number>", "Parallel trials", parsePositiveIntegerOption("--concurrency"), 1)
+    .option("--max-cost-usd <number>", "Abort when cumulative cost exceeds this USD amount", parseNonNegativeNumberOption("--max-cost-usd"))
+    .option("--resume <directory>", "Resume from eval-trials.jsonl in this directory")
+    .option("--arm <arm>", "Memory-eval arm: cold | warm | distractor | poisoned")
     .option("--judge-provider <provider>", "Optional non-blocking LLM judge provider")
     .option("--json", "Print JSON instead of text")
-    .option("--output <directory>", "Write JSON, JUnit, and per-task artifacts")
+    .option("--output <directory>", "Write JSON, JUnit, Markdown, and per-task artifacts")
     .action(async (commandOptions: {
+      arm?: string;
+      concurrency: number;
       judgeProvider?: string;
       json?: boolean;
+      maxCostUsd?: number;
+      output?: string;
+      passAtK?: number;
+      provider: string;
+      repetitions: number;
+      resume?: string;
+      suite: string;
+      tasks?: string;
+    }) => {
+      const report = await runCapabilityEval({
+        ...(commandOptions.arm !== undefined ? { arm: parseArm(commandOptions.arm) } : {}),
+        concurrency: commandOptions.concurrency,
+        ...(commandOptions.judgeProvider !== undefined
+          ? { judge: createEvalJudge(process.cwd(), commandOptions.judgeProvider) }
+          : {}),
+        ...(commandOptions.maxCostUsd !== undefined ? { maxCostUsd: commandOptions.maxCostUsd } : {}),
+        ...(commandOptions.passAtK !== undefined ? { passAtK: commandOptions.passAtK } : {}),
+        providerName: commandOptions.provider,
+        repetitions: commandOptions.repetitions,
+        ...(commandOptions.resume !== undefined ? { resumeDirectory: commandOptions.resume } : {}),
+        suitePath: commandOptions.suite,
+        taskIds: parseTaskIds(commandOptions.tasks)
+      });
+      if (commandOptions.output !== undefined) {
+        const artifacts = await writeEvalArtifacts(report, commandOptions.output);
+        console.error(`Eval artifacts: ${artifacts.jsonPath}, ${artifacts.junitPath}`);
+      }
+      console.log(commandOptions.json === true ? JSON.stringify(report, null, 2) : formatCapabilityEvalReport(report));
+      if (!report.gate.passed) process.exitCode = 1;
+    });
+
+  evalCommand
+    .command("compounding")
+    .description("Run the same suite with empty vs accumulated skills and gate self-evolution regressions")
+    .requiredOption("--provider <provider>", "Configured real provider to evaluate")
+    .option("--suite <path>", "Compounding eval suite", DEFAULT_COMPOUNDING_SUITE)
+    .option("--accumulated <path>", "Workspace overlay with accumulated skills", DEFAULT_COMPOUNDING_ACCUMULATED_ROOT)
+    .option("--tasks <taskIds>", "Comma-separated task ids")
+    .option("--repetitions <number>", "Trials per task per phase", parsePositiveIntegerOption("--repetitions"), 1)
+    .option("--max-success-drop <number>", "Maximum allowed success-rate drop", parseRatioOption("--max-success-drop"), 0.05)
+    .option("--max-passk-drop <number>", "Maximum allowed pass^k drop", parseRatioOption("--max-passk-drop"), 0.1)
+    .option("--judge-provider <provider>", "Optional non-blocking LLM judge provider")
+    .option("--json", "Print JSON instead of text")
+    .option("--output <directory>", "Write empty and accumulated JSON artifacts")
+    .action(async (commandOptions: {
+      accumulated: string;
+      judgeProvider?: string;
+      json?: boolean;
+      maxPasskDrop: number;
+      maxSuccessDrop: number;
       output?: string;
       provider: string;
       repetitions: number;
       suite: string;
       tasks?: string;
     }) => {
-      const report = await runCapabilityEval({
+      const report = await runCompoundingEval({
+        accumulatedRoot: commandOptions.accumulated,
+        compoundingThresholds: {
+          maxPassPowerKDrop: commandOptions.maxPasskDrop,
+          maxSuccessRateDrop: commandOptions.maxSuccessDrop
+        },
         ...(commandOptions.judgeProvider !== undefined
           ? { judge: createEvalJudge(process.cwd(), commandOptions.judgeProvider) }
           : {}),
@@ -102,10 +173,11 @@ export function registerEvalCommands(program: Command): void {
         taskIds: commandOptions.tasks?.split(",").map((value) => value.trim()).filter(Boolean) ?? []
       });
       if (commandOptions.output !== undefined) {
-        const artifacts = await writeEvalArtifacts(report, commandOptions.output);
-        console.error(`Eval artifacts: ${artifacts.jsonPath}, ${artifacts.junitPath}`);
+        const emptyArtifacts = await writeEvalArtifacts(report.empty, `${commandOptions.output}/empty`);
+        const accumulatedArtifacts = await writeEvalArtifacts(report.accumulated, `${commandOptions.output}/accumulated`);
+        console.error(`Compounding artifacts: ${emptyArtifacts.jsonPath}, ${accumulatedArtifacts.jsonPath}`);
       }
-      console.log(commandOptions.json === true ? JSON.stringify(report, null, 2) : formatCapabilityEvalReport(report));
+      console.log(commandOptions.json === true ? JSON.stringify(report, null, 2) : formatCompoundingEvalReport(report));
       if (!report.gate.passed) process.exitCode = 1;
     });
 
@@ -143,7 +215,7 @@ export function registerEvalCommands(program: Command): void {
         providerName: commandOptions.provider,
         repetitions: commandOptions.repetitions,
         suitePath: commandOptions.suite,
-        taskIds: commandOptions.tasks?.split(",").map((value) => value.trim()).filter(Boolean) ?? []
+        taskIds: parseTaskIds(commandOptions.tasks)
       });
       if (commandOptions.output !== undefined) {
         const artifacts = await writeEvalArtifacts(report, commandOptions.output);
@@ -154,16 +226,56 @@ export function registerEvalCommands(program: Command): void {
     });
 
   evalCommand
+    .command("validate-suite")
+    .description("Validate oracle solvability and null-agent failure without model calls")
+    .option("--suite <path>", "Suite to validate (repeatable). Defaults to the three first-party suites.")
+    .action(async (commandOptions: { suite?: string | string[] }) => {
+      const suites = normalizeSuitePaths(commandOptions.suite);
+      let failed = false;
+      for (const suitePath of suites) {
+        const report = await validateEvalSuite(suitePath);
+        console.log(`${report.passed ? "PASS" : "FAIL"} ${suitePath} (${report.taskCount} tasks)`);
+        for (const issue of report.issues) {
+          console.log(`  ${issue.kind} ${issue.taskId}${issue.scorerId === undefined ? "" : `#${issue.scorerId}`}: ${issue.evidence}`);
+        }
+        if (!report.passed) failed = true;
+      }
+      if (failed) process.exitCode = 1;
+    });
+
+  evalCommand
+    .command("freeze-memory-state")
+    .description("Export memories, accepted experiences, and project skills as a declarative fixture")
+    .option("--cwd <path>", "Workspace path", process.cwd())
+    .requiredOption("--output <path>", "JSON output path")
+    .action((commandOptions: { cwd: string; output: string }) => {
+      const handle = createApplication(commandOptions.cwd, { scheduler: { autoStart: false } });
+      try {
+        const state = freezeMemoryState(handle, commandOptions.cwd);
+        writeFrozenMemoryState(commandOptions.output, state);
+        console.log(`Frozen memory state: ${commandOptions.output}`);
+      } finally {
+        handle.close();
+      }
+    });
+
+  evalCommand
     .command("compare")
     .requiredOption("--current <path>", "Current eval report")
     .requiredOption("--baseline <path>", "Approved baseline report")
+    .option("--allow-drift", "Compare even when suite version, dataset hash, repetitions, or sampling differ")
     .option("--json", "Print JSON instead of text")
-    .action((commandOptions: { baseline: string; current: string; json?: boolean }) => {
-      const comparison = compareEvalReports(readEvalReport(commandOptions.current), readEvalReport(commandOptions.baseline));
+    .action((commandOptions: { allowDrift?: boolean; baseline: string; current: string; json?: boolean }) => {
+      const comparison = compareEvalReports(
+        readEvalReport(commandOptions.current),
+        readEvalReport(commandOptions.baseline),
+        { allowDrift: commandOptions.allowDrift === true }
+      );
       console.log(commandOptions.json === true ? JSON.stringify(comparison, null, 2) : [
         `Result: ${comparison.failed ? "failed" : "passed"}`,
         `Success delta: ${(comparison.deltas.successRate * 100).toFixed(1)}pp`,
         `Pass^k delta: ${(comparison.deltas.passPowerK * 100).toFixed(1)}pp`,
+        ...comparison.flips.map((flip) => `FLIP ${flip.id}: ${(flip.from * 100).toFixed(0)}% → ${(flip.to * 100).toFixed(0)}%`),
         ...comparison.failures.map((failure) => `FAIL ${failure}`),
         ...comparison.warnings.map((warning) => `WARN ${warning}`)
       ].join("\n"));
@@ -176,9 +288,13 @@ export function registerEvalCommands(program: Command): void {
     .command("update")
     .requiredOption("--report <path>", "Passing eval report")
     .requiredOption("--output <path>", "Baseline output path")
-    .action((commandOptions: { output: string; report: string }) => {
+    .option("--min-success-rate <number>", "Minimum success rate required to approve", parseRatioOption("--min-success-rate"), 0.5)
+    .action((commandOptions: { minSuccessRate: number; output: string; report: string }) => {
       const report = readEvalReport(commandOptions.report);
       if (!report.gate.passed) throw new Error("Cannot approve a failing eval report as baseline.");
+      if (report.metrics.successRate < commandOptions.minSuccessRate) {
+        throw new Error(`Cannot approve a baseline below ${(commandOptions.minSuccessRate * 100).toFixed(0)}% success rate.`);
+      }
       const outputPath = resolve(commandOptions.output);
       mkdirSync(dirname(outputPath), { recursive: true });
       copyFileSync(resolve(commandOptions.report), outputPath);
@@ -326,14 +442,55 @@ function formatCapabilityEvalReport(report: EvalRunReport): string {
     `Pass^k: ${(report.metrics.passPowerK * 100).toFixed(1)}%`,
     `Duration p50/p95: ${report.metrics.durationMs.p50.toFixed(0)}ms/${report.metrics.durationMs.p95.toFixed(0)}ms`,
     `Average rounds/tools: ${report.metrics.averageRounds.toFixed(2)}/${report.metrics.averageToolCalls.toFixed(2)}`,
-    report.metrics.verificationCompletionRate === undefined ? "Verification completion: unavailable" : `Verification completion: ${(report.metrics.verificationCompletionRate * 100).toFixed(1)}%`,
+    report.metrics.verificationCompletionRate === undefined || report.metrics.verificationCompletionRate === null ? "Verification completion: unavailable" : `Verification completion: ${(report.metrics.verificationCompletionRate * 100).toFixed(1)}%`,
     report.metrics.workspaceScopeViolationRate === undefined ? "Workspace scope violations: unavailable" : `Workspace scope violations: ${(report.metrics.workspaceScopeViolationRate * 100).toFixed(1)}%`,
     report.metrics.providerRecovery === undefined ? "Provider recovery: unavailable" : `Provider recovery: ${report.metrics.providerRecovery.recovered}/${report.metrics.providerRecovery.attempted}`,
     report.metrics.failureClassificationCounts === undefined ? "Failure classifications: unavailable" : `Failure classifications: ${Object.entries(report.metrics.failureClassificationCounts).map(([kind, count]) => `${kind}=${count}`).join(", ") || "none"}`,
-
+    `Harness errors: ${((report.metrics.harnessErrorRate ?? 0) * 100).toFixed(1)}%`,
     report.metrics.tokenUsage.available ? `Tokens: ${report.metrics.tokenUsage.totalTokens}` : "Tokens: unavailable",
     report.metrics.costUsd.available ? `Average cost: $${report.metrics.costUsd.average?.toFixed(6)}` : "Cost: unavailable",
     `Gate: ${report.gate.passed ? "passed" : "failed"}`,
     ...report.gate.reasons.map((reason) => `- ${reason}`)
   ].join("\n");
+}
+
+function formatCompoundingEvalReport(report: CompoundingEvalReport): string {
+  return [
+    `Empty ${formatCapabilityEvalReport(report.empty)}`,
+    "",
+    `Accumulated ${formatCapabilityEvalReport(report.accumulated)}`,
+    "",
+    `Success-rate delta: ${(report.deltas.successRate * 100).toFixed(1)}pp`,
+    `Pass^k delta: ${(report.deltas.passPowerK * 100).toFixed(1)}pp`,
+    `Average-rounds delta: ${report.deltas.averageRounds.toFixed(2)}`,
+    report.deltas.tokensPerSuccess === null
+      ? "Tokens-per-success delta: unavailable"
+      : `Tokens-per-success delta: ${report.deltas.tokensPerSuccess.toFixed(1)}`,
+    `Self-evolution gate: ${report.gate.passed ? "passed" : "failed"}`,
+    ...report.gate.reasons.map((reason) => `- ${reason}`)
+  ].join("\n");
+}
+
+function parseTaskIds(value: string | undefined): string[] {
+  return value?.split(",").map((item) => item.trim()).filter(Boolean) ?? [];
+}
+
+function parseArm(value: string): EvalMemoryArm {
+  if (value === "cold" || value === "warm" || value === "distractor" || value === "poisoned") {
+    return value;
+  }
+  throw new Error("Memory eval arm must be cold, warm, distractor, or poisoned.");
+}
+
+function normalizeSuitePaths(value: string | string[] | undefined): string[] {
+  const listed = value === undefined ? [] : Array.isArray(value) ? value : [value];
+  if (listed.length > 0) {
+    return listed;
+  }
+  return [
+    "fixtures/eval-suites/internal-blind.v1.json",
+    "fixtures/eval-suites/internal-blind.v2.json",
+    "fixtures/eval-suites/reliability-acceptance.v1.json",
+    "fixtures/eval-suites/memory-compounding.v1.json"
+  ];
 }

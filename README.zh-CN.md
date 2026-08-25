@@ -56,13 +56,39 @@
 
 #### 两分钟试用（无需凭据）
 
+先确认 Node（`node -v` 需为 `>=22.13.0`；不支持 Node 20）。此路径不需要 API key。
+
+```bash
+npx auto-talon
+# 或全局安装后：
+npm install -g auto-talon
+talon web
+```
+
+启动器会自动初始化 `.auto-talon/`，打开本机浏览器工作区，并在设置里选择 Mock 或真实 provider。Web UI 已可使用，但目前属于**测试版预览**：适合本地试用和反馈，仍在持续开发中。日常稳定工作流仍建议优先使用 `talon tui` 或 CLI。
+
 ```bash
 npm install -g auto-talon
 talon init --yes
 talon provider setup mock
 talon provider test
+talon run "say hello"
 talon tui
 ```
+
+`provider test` 与 `talon run` 应在无凭据时成功。随后打开 `talon tui` 发一条短消息——
+mock 回复是确定性演示，不是真实模型。
+
+若在进入 TUI 前失败：
+
+| 现象 | 处理 |
+| --- | --- |
+| `node:sqlite` / 不支持的 Node | 升级到 Node.js `>=22.13.0` |
+| 全局安装后提示 `talon: command not found` | 确认 npm 全局 bin 已在 `PATH`，然后重新打开终端 |
+| Provider / 缺少 key 报错 | 重新执行 `talon provider setup mock`（先不要配真实 provider） |
+| 之后代码搜索变慢或异常 | 可选安装 `rg`（见 [Windows 排查](docs/user/windows-troubleshooting.md)）；mock 首次试用不必安装 |
+
+更多说明见 [Quickstart](docs/user/quickstart.md#no-credentials-mock-walkthrough)。
 
 #### 使用真实 provider
 
@@ -152,13 +178,22 @@ ripgrep、Git 与 PowerShell 执行策略相关的排查见
 
 ### 升级
 
-从仍使用旧 thread→session schema 的预览检出升级时，需要先运行一次
-`talon doctor --fix`（源码检出则用 `corepack pnpm dev doctor --fix`）。
+从仍使用旧 thread→session schema 的预览检出升级时，需要一次性迁移。若命令失败并提示
+`Legacy workspace migration required`，在工作区根目录执行：
+
+```bash
+talon doctor --fix
+talon doctor
+```
+
+源码检出则用 `corepack pnpm dev doctor --fix`。doctor 输出会列出当前遗留表/转写文件、
+影响范围，以及确切修复命令。迁移完成前，`talon tui` / `talon run` 会保持阻塞。
 
 ## 常用命令
 
 ```bash
 talon tui                              # 日常交互式 agent 界面
+talon web                              # 本机浏览器工作区（测试版预览）
 talon run "review the changed files"   # 可脚本化的一次性执行
 talon continue --last                  # 恢复上一个任务
 talon trace <task_id> --summary        # 检查 agent 做了什么
@@ -222,6 +257,7 @@ AutoTalon 面向需要真实工具权限、同时也需要可见护栏的本地�
 
 - AutoTalon 要求 Node.js `>=22.13.0`，因为运行时存储依赖内置 `node:sqlite` 模块；不支持 Node.js 20。
 - AutoTalon 是本地优先、面向单个操作者的 agent，不是托管 SaaS、团队控制平面或多租户 agent 服务。
+- 本机 Web UI 已可用于测试和收集本地操作者反馈，但当前仍是测试版，功能和交互会继续迭代；稳定使用路径仍是 CLI/TUI。
 - 真实 provider 运行需要用户自行提供凭据。Mock 和 scripted smoke provider 只用于测试和诊断。
 - v0.1.0 包含飞书/Lark 与本地 webhook gateway adapter；Slack、Telegram、Discord、语音、浏览器自动化、图像生成、移动 companion app 仍不在本次发布范围内。**桌面 companion**（Tauri + 本地 `session-api`）已列入 `v0.2.0` 规划，**尚未发布** —— 见 [ROADMAP.zh-CN.md](ROADMAP.zh-CN.md) 与 [docs/dev/desktop-companion.md](docs/dev/desktop-companion.md)。
 
@@ -234,13 +270,13 @@ AutoTalon 面向需要真实工具权限、同时也需要可见护栏的本地�
 | ---------------- | ---------------------------------------------------------------------------------------------- |
 | 安装和首次运行          | [安装](docs/user/install.md)、[快速开始](docs/user/quickstart.md)                                     |
 | 学习 CLI/TUI 命令    | [命令](docs/user/commands.md)                                                                    |
-| 配置 provider 和运行时 | [配置参考](docs/user/config-reference.md)、[Provider 排查](docs/troubleshooting/provider.md)          |
+| 配置 provider 和运行时 | [配置参考](docs/user/config-reference.md)、[Provider 排查](docs/troubleshooting/provider.md)、[Provider 路由与预算](docs/provider-routing-budget.md)、[Prompt cache 计量](docs/dev/prompt-cache.md) |
 | 理解审批和沙箱          | [审批](docs/user/approvals.md)、[Sandbox 排查](docs/troubleshooting/sandbox.md)                     |
 | 接入外部入口           | [Gateway](docs/user/gateway.md)、[Gateway 排查](docs/troubleshooting/gateway.md)                  |
 | 使用记忆和 skills     | [Skills](docs/user/skills.md)、[Memory 排查](docs/troubleshooting/memory.md)                      |
 | 集成 MCP           | [MCP](docs/user/mcp.md)                                                                        |
 | 验证发布             | [Replay 与 eval](docs/user/replay-and-eval.md)、[兼容矩阵](docs/compatibility-matrix.md)             |
-| 开发 AutoTalon     | [架构](docs/dev/architecture.md)、[模块边界](docs/dev/module-boundaries.md)、[测试](docs/dev/testing.md)、[桌面 companion](docs/dev/desktop-companion.md) |
+| 开发 AutoTalon     | [架构](docs/dev/architecture.md)、[模块边界](docs/dev/module-boundaries.md)、[测试](docs/dev/testing.md)、[上下文窗口](docs/dev/context-window.md)、[桌面 companion](docs/dev/desktop-companion.md) |
 
 
 发布历史见 [Changelog](CHANGELOG.md)。

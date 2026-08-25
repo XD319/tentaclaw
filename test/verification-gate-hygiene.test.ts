@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { classifyFailure } from "../src/evaluation/runner.js";
-import { isContentMutatingWrite } from "../src/runtime/kernel/tool-batch-executor.js";
+import { isContentMutatingWrite, writeTargetPath } from "../src/runtime/kernel/tool-batch-executor.js";
 import type { EvalScorerResult } from "../src/evaluation/types.js";
 import type { ProviderToolCall, TraceEvent } from "../src/types/index.js";
 
@@ -10,7 +10,15 @@ const scorer = (
   passed: boolean,
   evidence: string,
   required = true
-): EvalScorerResult => ({ evidence, id: type, passed, required, score: passed ? 1 : 0, type });
+): EvalScorerResult => ({
+  evidence,
+  id: type,
+  passed,
+  required,
+  score: passed ? 1 : 0,
+  status: passed ? "passed" : "failed",
+  type
+});
 
 const runtimeStatus = (passed: boolean): EvalScorerResult =>
   scorer("runtime_status", passed, `task status=${passed ? "succeeded" : "failed"}`);
@@ -61,6 +69,23 @@ describe("classifyFailure", () => {
     ];
     expect(classifyFailure("succeeded", results, [])).toBe("model_or_contract");
   });
+
+  it("prefers control-flow exhaustion over a recovered environment command failure", () => {
+    const results = [runtimeStatus(false)];
+    const trace = [
+      { eventType: "environment_command_failed" } as unknown as TraceEvent,
+      { eventType: "completion_verification_satisfied" } as unknown as TraceEvent,
+      { eventType: "iteration_exhausted" } as unknown as TraceEvent,
+      { eventType: "invalid_final_output_rejected" } as unknown as TraceEvent
+    ];
+    expect(classifyFailure("failed", results, trace)).toBe("control_flow_failure");
+  });
+
+  it("still classifies a terminal environment command failure when control-flow did not exhaust", () => {
+    const results = [runtimeStatus(false)];
+    const trace = [{ eventType: "environment_command_failed" } as unknown as TraceEvent];
+    expect(classifyFailure("failed", results, trace)).toBe("environment_failure");
+  });
 });
 
 describe("isContentMutatingWrite", () => {
@@ -79,5 +104,12 @@ describe("isContentMutatingWrite", () => {
 
   it("ignores read-only tools", () => {
     expect(isContentMutatingWrite(toolCall("read_file"), "filesystem.read")).toBe(false);
+  });
+
+  it("extracts write and rename target paths", () => {
+    expect(writeTargetPath(toolCall("write_file", { path: "src/a.ts" }))).toBe("src/a.ts");
+    expect(
+      writeTargetPath(toolCall("patch", { action: "rename_file", path: "src/a.ts", toPath: "src/b.ts" }))
+    ).toBe("src/b.ts");
   });
 });

@@ -6,14 +6,23 @@
 
 ## Code search (`rg` / ripgrep)
 
-`code_search` prefers **ripgrep** (`rg`) when it is on `PATH`. On Windows, if `rg` is missing, the tool falls back to a slower Node.js directory walk. Tool JSON output includes `searchBackend: "rg" | "node"`; when Node is used, the `summary` notes that ripgrep was unavailable.
+`search_files` prefers **ripgrep** (`rg`) when it is on `PATH`. If `rg` is missing, the tool
+falls back to a slower Node.js directory walk instead of crashing. Tool JSON output includes
+`searchBackend: "rg" | "node"`; when Node is used, the result `summary` and `ripgrepGuidance`
+field include install hints.
+
+`talon doctor` warns on every platform when `rg` is missing. `./scripts/setup.ps1` also warns
+on Windows after bootstrap.
 
 Install ripgrep and ensure `rg --version` works in the same shell you use for `talon`:
 
-- [Ripgrep releases](https://github.com/BurntSushi/ripgrep/releases) — add the install directory to `PATH`
-- Or via package manager: `winget install BurntSushi.ripgrep.MSVC` / `choco install ripgrep`
+- Windows: [Ripgrep releases](https://github.com/BurntSushi/ripgrep/releases) (add the install
+  directory to `PATH`), or `winget install BurntSushi.ripgrep.MSVC` / `choco install ripgrep`
+- macOS: `brew install ripgrep`
+- Linux: `sudo apt install ripgrep` or `sudo dnf install ripgrep` (or your distro equivalent)
 
-Run `talon doctor` (or `talon config doctor`) after installing; the report should no longer warn about missing `rg`.
+Run `talon doctor` (or `talon config doctor`) after installing; the report should no longer warn
+about missing `rg`.
 
 ## Git
 

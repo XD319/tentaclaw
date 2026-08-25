@@ -28,12 +28,14 @@ import {
   resolveOllamaShowUrl
 } from "./context-window-query.js";
 import { composeAbortSignal, ensureTrailingSlash } from "./provider-http.js";
+import { missingApiKeyMessage } from "./provider-setup-guidance.js";
 import {
   parseReasoningContent,
   reasoningContentForReplay
 } from "./reasoning-content.js";
 import { isPrimarilyTextToolCallMarkup, parseTextToolCalls } from "./text-tool-call-parser.js";
 import { normalizeOpenAiCompatibleMessages } from "./openai-message-sanitizer.js";
+import { parseOpenAiCompatibleUsage } from "./openai-usage.js";
 import {
   StreamingFallbackState,
   classifyStreamingFallback,
@@ -86,8 +88,13 @@ interface OpenAiCompatibleResponse {
   id?: string;
   model?: string;
   usage?: {
+    cached_tokens?: number;
     completion_tokens?: number;
+    prompt_cache_hit_tokens?: number;
     prompt_tokens?: number;
+    prompt_tokens_details?: {
+      cached_tokens?: number;
+    };
     total_tokens?: number;
   };
   error?: {
@@ -184,7 +191,7 @@ export class OpenAiCompatibleProvider implements Provider {
       .filter((toolCall): toolCall is ProviderToolCall => toolCall !== null);
     const content = message?.content?.trim() ?? "";
     const reasoningContent = parseReasoningContent(message?.reasoning_content);
-    const usage = toUsage(response.usage);
+    const usage = parseOpenAiCompatibleUsage(response.usage);
     const metadata = {
       finishReason: choice?.finish_reason ?? null,
       modelName: response.model ?? this.model,
@@ -374,13 +381,16 @@ export class OpenAiCompatibleProvider implements Provider {
         progress.sawEvent = true;
         const usageRaw = chunk["usage"] as
           | {
+              cached_tokens?: number;
               completion_tokens?: number;
+              prompt_cache_hit_tokens?: number;
               prompt_tokens?: number;
+              prompt_tokens_details?: { cached_tokens?: number };
               total_tokens?: number;
             }
           | undefined;
         if (usageRaw !== undefined) {
-          lastUsage = toUsage(usageRaw);
+          lastUsage = parseOpenAiCompatibleUsage(usageRaw);
         }
 
         const choices = chunk["choices"] as Array<{ delta?: Record<string, unknown> }> | undefined;
@@ -554,7 +564,7 @@ export class OpenAiCompatibleProvider implements Provider {
       return {
         apiKeyConfigured,
         endpointReachable: null,
-        message: `Missing API key for ${this.describe().displayName}.`,
+        message: missingApiKeyMessage(this.describe().displayName, this.name),
         modelAvailable: null,
         modelConfigured,
         modelName: this.model,
@@ -880,27 +890,6 @@ function parseToolArguments(rawArguments: string, providerName: string): JsonObj
       summary: "The provider returned malformed tool call arguments."
     });
   }
-}
-
-function toUsage(
-  rawUsage:
-    | {
-        completion_tokens?: number;
-        prompt_tokens?: number;
-        total_tokens?: number;
-      }
-    | undefined
-): ProviderUsage {
-  const usage: ProviderUsage = {
-    inputTokens: rawUsage?.prompt_tokens ?? 0,
-    outputTokens: rawUsage?.completion_tokens ?? 0
-  };
-
-  if (rawUsage?.total_tokens !== undefined) {
-    usage.totalTokens = rawUsage.total_tokens;
-  }
-
-  return usage;
 }
 
 function sanitizeRawMetadata(response: OpenAiCompatibleResponse): JsonObject {

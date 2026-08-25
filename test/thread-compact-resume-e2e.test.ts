@@ -331,6 +331,7 @@ describe("session compact resume e2e", () => {
         compact: {
           iterationThreshold: 999,
           messageThreshold: 999,
+          minTokenPressureRatio: 0,
           summarizer: "deterministic",
           tokenThreshold: 999_999,
           toolCallThreshold: 2

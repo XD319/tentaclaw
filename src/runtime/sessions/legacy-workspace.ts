@@ -27,6 +27,35 @@ export function collectLegacyWorkspaceIssues(
   return issues;
 }
 
+export function isLegacyMigrationIssue(issue: string): boolean {
+  return (
+    issue.startsWith("Legacy table still present:") ||
+    issue.startsWith("Legacy column still present:") ||
+    issue.startsWith("Legacy JSON session transcript pending migration:")
+  );
+}
+
+export function formatLegacyMigrationGuidance(issues: string[]): string {
+  if (issues.length === 0) {
+    return "No legacy workspace migration issues detected.";
+  }
+
+  return [
+    "Legacy workspace migration required.",
+    "",
+    "Current state:",
+    ...issues.map((issue) => `- ${issue}`),
+    "",
+    "Impact: talon tui, talon run, talon continue, and other workspace commands stay blocked until this one-time migration finishes.",
+    "",
+    "Fix (run in the workspace root):",
+    "  talon doctor --fix",
+    "Then verify:",
+    "  talon doctor",
+    "From a source checkout use: corepack pnpm dev doctor --fix"
+  ].join("\n");
+}
+
 export function assertLegacyWorkspaceMigrated(
   workspaceRoot: string,
   database: DatabaseSync
@@ -37,10 +66,6 @@ export function assertLegacyWorkspaceMigrated(
   }
   throw new AppError({
     code: "invalid_state",
-    message: [
-      "Workspace requires a one-time legacy migration before use.",
-      ...issues.map((issue) => `- ${issue}`),
-      "Run: talon doctor --fix"
-    ].join("\n")
+    message: formatLegacyMigrationGuidance(issues)
   });
 }

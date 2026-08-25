@@ -34,5 +34,8 @@ jobs:
       - name: Run verification
         run: pnpm check
 
+      - name: Validate eval suites
+        run: pnpm exec tsx src/cli/bin.ts eval validate-suite
+
       - name: Run runtime smoke tests
         run: pnpm exec vitest run test/runtime-smoke.test.ts

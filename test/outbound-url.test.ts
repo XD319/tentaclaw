@@ -8,8 +8,11 @@ describe("outbound url validation", () => {
     expect(validateOutboundUrl("https://example.com/hook").hostname).toBe("example.com");
   });
 
-  it("blocks localhost webhook targets", () => {
+  it("blocks localhost and non-public webhook targets", () => {
     expect(() => validateOutboundUrl("http://127.0.0.1/hook")).toThrow(AppError);
     expect(() => validateOutboundUrl("http://localhost/hook")).toThrow(AppError);
+    expect(() => validateOutboundUrl("http://100.64.0.1/hook")).toThrow(AppError);
+    expect(() => validateOutboundUrl("http://192.0.0.1/hook")).toThrow(AppError);
+    expect(() => validateOutboundUrl("http://[::ffff:127.0.0.1]/hook")).toThrow(AppError);
   });
 });

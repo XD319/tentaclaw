@@ -1,6 +1,9 @@
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
+
+import { resolvePublicOutboundTarget, validateOutboundUrl } from "../../core/outbound-url.js";
 import { readScheduleWebhookUrl } from "../scheduler/schedule-delivery.js";
 import type { ScheduleRecord } from "../../types/index.js";
-import { validateOutboundUrl } from "../../core/outbound-url.js";
 
 export interface ScheduleWebhookPayload {
   category: "task_completed" | "task_failed";
@@ -22,46 +25,52 @@ export interface WebhookDeliveryServiceDependencies {
 export class WebhookDeliveryService {
   public constructor(private readonly dependencies: WebhookDeliveryServiceDependencies) {}
 
-  public async deliverScheduleOutcome(
-    schedule: ScheduleRecord,
-    payload: ScheduleWebhookPayload
-  ): Promise<void> {
+  public async deliverScheduleOutcome(schedule: ScheduleRecord, payload: ScheduleWebhookPayload): Promise<void> {
     const webhookUrl = readScheduleWebhookUrl(schedule);
     if (webhookUrl === null) {
       return;
     }
     try {
-      validateOutboundUrl(webhookUrl);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Schedule webhook URL was blocked";
-      this.dependencies.onFailure?.({
-        errorMessage: message,
-        runId: payload.runId,
-        scheduleId: payload.scheduleId,
-        webhookUrl
-      });
-      return;
-    }
-    const fetchImpl = this.dependencies.fetchImpl ?? fetch;
-    try {
-      const response = await fetchImpl(webhookUrl, {
-        body: JSON.stringify(payload),
-        headers: {
-          "Content-Type": "application/json"
-        },
-        method: "POST"
-      });
-      if (!response.ok) {
-        throw new Error(`Webhook responded with status ${response.status}`);
+      if (this.dependencies.fetchImpl !== undefined) {
+        validateOutboundUrl(webhookUrl);
+        const response = await this.dependencies.fetchImpl(webhookUrl, {
+          body: JSON.stringify(payload),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+          redirect: "manual"
+        });
+        if (!response.ok) {
+          throw new Error(`Webhook responded with status ${response.status}`);
+        }
+      } else {
+        await postToResolvedPublicTarget(webhookUrl, payload);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Schedule webhook delivery failed";
-      this.dependencies.onFailure?.({
-        errorMessage: message,
-        runId: payload.runId,
-        scheduleId: payload.scheduleId,
-        webhookUrl
-      });
+      this.dependencies.onFailure?.({ errorMessage: message, runId: payload.runId, scheduleId: payload.scheduleId, webhookUrl });
     }
   }
+}
+
+async function postToResolvedPublicTarget(webhookUrl: string, payload: ScheduleWebhookPayload): Promise<void> {
+  const target = await resolvePublicOutboundTarget(webhookUrl);
+  const body = JSON.stringify(payload);
+  await new Promise<void>((resolve, reject) => {
+    const request = target.url.protocol === "https:" ? httpsRequest : httpRequest;
+    const outgoing = request(target.url, {
+      headers: { "Content-Length": Buffer.byteLength(body), "Content-Type": "application/json" },
+      lookup: (_hostname, _options, callback) => callback(null, target.address, target.family),
+      method: "POST"
+    }, (response) => {
+      response.resume();
+      const status = response.statusCode ?? 0;
+      if (status >= 200 && status < 300) {
+        resolve();
+      } else {
+        reject(new Error(`Webhook responded with status ${status}`));
+      }
+    });
+    outgoing.once("error", reject);
+    outgoing.end(body);
+  });
 }

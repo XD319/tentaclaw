@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { ScheduleRunLifecycle } from "../src/runtime/scheduler/schedule-run-lifecycle.js";
 import { StorageManager } from "../src/storage/database.js";
@@ -127,6 +127,67 @@ describe("schedule run lifecycle", () => {
 
       const resumed = lifecycle.markResuming(task);
       expect(resumed?.status).toBe("running");
+    } finally {
+      storage.close();
+    }
+  });
+
+  it("invokes onCompleted once when a run transitions to completed", () => {
+    const storage = new StorageManager({ databasePath: ":memory:" });
+    const onCompleted = vi.fn();
+    const lifecycle = new ScheduleRunLifecycle({
+      onCompleted,
+      scheduleRunRepository: storage.scheduleRuns
+    });
+
+    try {
+      storage.schedules.create({
+        agentProfileId: "executor",
+        cwd: "/tmp/ws",
+        input: "work",
+        name: "once",
+        nextFireAt: new Date().toISOString(),
+        ownerUserId: "u1",
+        providerName: "mock",
+        scheduleId: "sched-3"
+      });
+      storage.tasks.create({
+        agentProfileId: "executor",
+        cwd: "/tmp/ws",
+        input: "work",
+        maxIterations: 1,
+        providerName: "mock",
+        requesterUserId: "u1",
+        taskId: "task-3",
+        sessionId: null,
+        tokenBudget: { inputLimit: 1, outputLimit: 1, reservedOutput: 0, usedInput: 0, usedOutput: 0 }
+      });
+      storage.scheduleRuns.create({
+        attemptNumber: 1,
+        runId: "run-3",
+        scheduleId: "sched-3",
+        scheduledAt: new Date().toISOString(),
+        status: "running",
+        trigger: "scheduled"
+      });
+
+      const task = createTask({
+        metadata: {
+          scheduleRunContext: {
+            runId: "run-3",
+            scheduleId: "sched-3"
+          }
+        },
+        sessionId: null,
+        status: "succeeded",
+        taskId: "task-3"
+      });
+
+      lifecycle.syncRunFromTask(task);
+      lifecycle.syncRunFromTask(task);
+
+      expect(onCompleted).toHaveBeenCalledTimes(1);
+      expect(onCompleted).toHaveBeenCalledWith("sched-3");
     } finally {
       storage.close();
     }

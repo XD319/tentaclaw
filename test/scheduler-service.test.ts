@@ -52,6 +52,7 @@ describe("scheduler service", () => {
       const manual = scheduler.runNow(schedule.scheduleId);
       expect(manual.status).toBe("queued");
       expect(manual.trigger).toBe("manual");
+      storage.scheduleRuns.update(manual.runId, { status: "running" });
       storage.scheduleRuns.update(manual.runId, {
         finishedAt: new Date().toISOString(),
         status: "completed"

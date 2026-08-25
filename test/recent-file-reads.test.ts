@@ -14,12 +14,13 @@ import type { ConversationMessage } from "../src/types/index.js";
 describe("RecentFileReadCache", () => {
   it("evicts oldest files when exceeding maxFiles", () => {
     const cache = new RecentFileReadCache({
-      maxFiles: 2,
       maxBytesPerFile: 10_000,
-      maxTotalBytes: 20_000,
       maxBytesPerFileUnderGuard: 10_000,
+      maxFiles: 2,
+      maxTotalBytes: 20_000,
       maxTotalBytesUnderGuard: 20_000,
-      toolOutputMaxTokens: 2_500
+      toolOutputMaxTokens: 2_500,
+      toolResultKeepGroups: 5
     });
     cache.record("/a.txt", "a", null);
     cache.record("/b.txt", "b", null);
@@ -29,12 +30,13 @@ describe("RecentFileReadCache", () => {
 
   it("uses larger per-file budget in write_required mode", () => {
     const cache = new RecentFileReadCache({
-      maxFiles: 1,
       maxBytesPerFile: 20,
-      maxTotalBytes: 100,
       maxBytesPerFileUnderGuard: 80,
+      maxFiles: 1,
+      maxTotalBytes: 100,
       maxTotalBytesUnderGuard: 100,
-      toolOutputMaxTokens: 2_500
+      toolOutputMaxTokens: 2_500,
+      toolResultKeepGroups: 5
     });
     const longContent = "x".repeat(100);
     cache.setMode("normal");
@@ -100,6 +102,65 @@ describe("pinned recent file messages", () => {
     cache.record("/task.js", "console.log(1);", null);
     syncPinnedRecentFilesMessage(messages, cache);
     expect(messages.some((message) => isPinnedRecentFilesMessage(message))).toBe(true);
+  });
+
+  it("orders pinned file blocks by path for stable prefix", () => {
+    const message = buildPinnedRecentFilesMessage([
+      {
+        bytes: 2,
+        content: "b",
+        path: "/b.js",
+        readAt: "2026-01-02T00:00:00.000Z",
+        toolCallId: null,
+        truncated: false
+      },
+      {
+        bytes: 1,
+        content: "a",
+        path: "/a.js",
+        readAt: "2026-01-01T00:00:00.000Z",
+        toolCallId: null,
+        truncated: false
+      }
+    ]);
+    const aIndex = message?.content.indexOf("/a.js") ?? -1;
+    const bIndex = message?.content.indexOf("/b.js") ?? -1;
+    expect(aIndex).toBeGreaterThanOrEqual(0);
+    expect(bIndex).toBeGreaterThanOrEqual(0);
+    expect(aIndex).toBeLessThan(bIndex);
+  });
+
+  it("skips re-sync when pinned content is unchanged", () => {
+    const user: ConversationMessage = { content: "task", role: "user" };
+    const messages: ConversationMessage[] = [user];
+    const cache = new RecentFileReadCache();
+    cache.record("/stable.js", "const x = 1;", null);
+    syncPinnedRecentFilesMessage(messages, cache);
+    const firstPinned = messages.find((message) => isPinnedRecentFilesMessage(message));
+    expect(firstPinned).toBeDefined();
+    const snapshot = messages.map((message) => ({ ...message }));
+    syncPinnedRecentFilesMessage(messages, cache);
+    expect(messages).toEqual(snapshot);
+  });
+});
+
+describe("RecentFileReadCache.retainMatching", () => {
+  it("evicts filler reads after a write target is selected", () => {
+    const cache = new RecentFileReadCache();
+    cache.record("docs/ports.md", "filler", null);
+    cache.record("src/parse.mjs", "export function parsePort() {}", null);
+    cache.record("package.json", "{}", null);
+    const evicted = cache.retainMatching("src/parse.mjs");
+    expect(evicted.sort()).toEqual(["docs/ports.md", "package.json"]);
+    expect(cache.listPaths()).toEqual(["src/parse.mjs"]);
+  });
+
+  it("matches a relative write path against an absolute cached path", () => {
+    const cache = new RecentFileReadCache();
+    cache.record("C:/tmp/workspace/src/parse.mjs", "export function parsePort() {}", null);
+    cache.record("C:/tmp/workspace/docs/ports.md", "filler", null);
+    cache.retainMatching("src/parse.mjs");
+    expect(cache.listPaths()).toEqual(["C:/tmp/workspace/src/parse.mjs"]);
   });
 });
 

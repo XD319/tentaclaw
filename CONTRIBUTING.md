@@ -60,7 +60,7 @@ build. Keep it green.
 These commands are for source checkouts, not installed-package users:
 
 - `talon release check` — end-to-end release gate
-- `talon eval run`, `talon eval acceptance` — blind real-model capability evals
+- `talon eval run`, `talon eval acceptance`, `talon eval compounding` — blind real-model capability evals
 - `talon smoke run` — deterministic scripted smoke suite
 
 Installed-package users should instead start with `talon doctor` and

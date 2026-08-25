@@ -9,6 +9,7 @@ Local commands:
 
 Smoke/eval:
 
+- `talon eval validate-suite`
 - `talon eval run`
 - `talon eval smoke`
 - `talon eval beta`
@@ -17,3 +18,5 @@ Smoke/eval:
 Fixtures:
 
 - `fixtures/runtime-smoke-tasks.json`
+- `fixtures/eval-suites/internal-blind.v2.json`
+- `fixtures/eval-suites/memory-compounding.v1.json`

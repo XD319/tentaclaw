@@ -7,9 +7,11 @@
 - `gateway/`: external ingress adapters.
 - `storage/`: SQLite migrations and repositories only.
 - `tui/`: presentation and interaction only.
+- `session-api/`: loopback HTTP for the web workspace and integrations.
 
 Boundary rules:
 
 - Gateway must not bypass runtime service/repositories.
 - TUI must not query repositories directly.
+- Web UI (`web/`) and `session-api` must not import `storage` or `tui`.
 - Providers do not persist data directly.

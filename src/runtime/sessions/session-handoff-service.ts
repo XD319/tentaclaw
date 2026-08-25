@@ -16,7 +16,7 @@ export interface SessionHandoffRequest {
   ownerUserId: string;
   runtimeSessionId: string;
   runtimeUserId: string;
-  source: "cli" | "gateway" | "tui";
+  source: "cli" | "gateway" | "tui" | "web";
 }
 
 export interface SessionHandoffResult {

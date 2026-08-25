@@ -181,6 +181,8 @@ export async function runSmokeTask(
         hygieneThresholdRatio: 0.85,
         iterationThreshold: expectSessionCompact ? 999 : 24,
         messageThreshold: expectSessionCompact ? 8 : 100,
+        minTokenPressureRatio: expectSessionCompact ? 0 : 0.5,
+        compactCooldownIterations: 2,
         protectFirstN: 3,
         protectLastN: 20,
         resumeUserTailMessages: 6,

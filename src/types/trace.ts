@@ -509,6 +509,7 @@ export interface ContextAssembledPayload extends JsonObject {
 }
 
 export interface CompactEvaluatedPayload extends JsonObject {
+  compactCooldownRemaining: number | null;
   maxMessagesBeforeCompact: number;
   messageCount: number;
   reason: string | null;

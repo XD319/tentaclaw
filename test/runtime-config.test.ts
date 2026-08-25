@@ -34,6 +34,8 @@ describe("runtime config", () => {
     expect(config.compact.protectFirstN).toBe(3);
     expect(config.compact.protectLastN).toBe(20);
     expect(config.compact.hygieneThresholdRatio).toBe(0.85);
+    expect(config.compact.compactCooldownIterations).toBe(2);
+    expect(config.compact.minTokenPressureRatio).toBe(0.5);
     expect(config.context.engine).toBe("hermes_compressor");
     expect(config.contextRetention.toolOutputMaxTokens).toBe(2_500);
     expect(config.tui.statusLine.style).toBe("standard");

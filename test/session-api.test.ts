@@ -176,8 +176,20 @@ describe("session HTTP API", () => {
         headers: withWorkspaceAuthHeaders(workspaceRoot)
       });
       expect(modelsResponse.status).toBe(200);
-      const modelsBody = (await modelsResponse.json()) as { configuredModels: Array<{ selection: string }> };
+      const modelsJson = await modelsResponse.text();
+      expect(modelsJson).not.toContain("vendor-a-key");
+      expect(modelsJson).not.toContain("vendor-b-key");
+      const modelsBody = JSON.parse(modelsJson) as { configuredModels: Array<{ selection: string }> };
       expect(modelsBody.configuredModels.map((entry) => entry.selection)).toContain("vendor-b:vendor-b-model");
+
+      const bootstrapResponse = await fetch(`http://127.0.0.1:${port}/v1/bootstrap`, {
+        headers: withWorkspaceAuthHeaders(workspaceRoot)
+      });
+      expect(bootstrapResponse.status).toBe(200);
+      const bootstrapJson = await bootstrapResponse.text();
+      expect(bootstrapJson).not.toContain("vendor-a-key");
+      expect(bootstrapJson).not.toContain("vendor-b-key");
+      expect(bootstrapJson).not.toMatch(/"apiKey"\s*:/u);
 
       const setResponse = await fetch(`http://127.0.0.1:${port}/v1/sessions/${session.sessionId}/model`, {
         body: JSON.stringify({ selection: "vendor-b:vendor-b-model" }),

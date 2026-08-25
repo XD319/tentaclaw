@@ -131,6 +131,11 @@ const SCHEMA_MIGRATIONS: SchemaMigration[] = [
     description: "add memories_fts full-text index for long-term memory search",
     up: migrateV25,
     version: 25
+  },
+  {
+    description: "enforce one active run per schedule",
+    up: migrateV26,
+    version: 26
   }
 ];
 
@@ -1169,6 +1174,45 @@ function migrateV25(database: DatabaseSync): void {
     return;
   }
   rebuildMemoriesFts(database);
+}
+
+function migrateV26(database: DatabaseSync): void {
+  if (!tableExists(database, "schedule_runs")) {
+    return;
+  }
+  const activeRows = database
+    .prepare(
+      `SELECT run_id, schedule_id
+       FROM schedule_runs
+       WHERE status IN ('queued', 'running', 'waiting_approval', 'blocked')
+       ORDER BY schedule_id ASC, scheduled_at DESC, run_id DESC`
+    )
+    .all() as Array<{ run_id: string; schedule_id: string }>;
+  const keepBySchedule = new Set<string>();
+  const cancelIds: string[] = [];
+  for (const row of activeRows) {
+    if (keepBySchedule.has(row.schedule_id)) {
+      cancelIds.push(row.run_id);
+      continue;
+    }
+    keepBySchedule.add(row.schedule_id);
+  }
+  if (cancelIds.length > 0) {
+    const finishedAt = new Date().toISOString();
+    const cancel = database.prepare(
+      `UPDATE schedule_runs
+       SET status = 'cancelled',
+           finished_at = COALESCE(finished_at, ?),
+           error_message = COALESCE(error_message, 'Cancelled by migrateV26: duplicate active run')
+       WHERE run_id = ?`
+    );
+    for (const runId of cancelIds) {
+      cancel.run(finishedAt, runId);
+    }
+  }
+  database.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_schedule_runs_one_active
+    ON schedule_runs(schedule_id)
+    WHERE status IN ('queued', 'running', 'waiting_approval', 'blocked');`);
 }
 
 function rebuildMemoriesFts(database: DatabaseSync): void {

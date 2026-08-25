@@ -51,6 +51,7 @@
 ## Validation Path
 
 - `talon release check` from the auto-talon repository root
-- `talon eval run --fixture fixtures/runtime-smoke-tasks.json`
+- `talon eval run --suite fixtures/eval-suites/internal-blind.v2.json`
+- `talon eval validate-suite`
 - `talon smoke run --fixture fixtures/runtime-smoke-tasks.json`
 - `talon eval beta`

@@ -61,6 +61,8 @@ export function readBearerToken(authorizationHeader: string | undefined): string
   return token !== undefined && token.length > 0 ? token : null;
 }
 
+export const TALON_HTTP_COOKIE_NAME = "talon_http";
+
 export function validateHttpBearerAuth(
   authorizationHeader: string | undefined,
   expectedToken: string | null
@@ -69,6 +71,44 @@ export function validateHttpBearerAuth(
     return true;
   }
   const provided = readBearerToken(authorizationHeader);
+  return provided === expectedToken;
+}
+
+export function readCookieValue(cookieHeader: string | undefined, cookieName: string): string | null {
+  if (cookieHeader === undefined || cookieHeader.trim().length === 0) {
+    return null;
+  }
+  for (const part of cookieHeader.split(";")) {
+    const separator = part.indexOf("=");
+    if (separator <= 0) {
+      continue;
+    }
+    const name = part.slice(0, separator).trim();
+    if (name !== cookieName) {
+      continue;
+    }
+    const raw = part.slice(separator + 1).trim();
+    try {
+      return decodeURIComponent(raw);
+    } catch {
+      return raw;
+    }
+  }
+  return null;
+}
+
+export function buildHttpAuthSetCookie(token: string): string {
+  return `${TALON_HTTP_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict`;
+}
+
+export function validateHttpCookieAuth(
+  cookieHeader: string | undefined,
+  expectedToken: string | null
+): boolean {
+  if (expectedToken === null) {
+    return true;
+  }
+  const provided = readCookieValue(cookieHeader, TALON_HTTP_COOKIE_NAME);
   return provided === expectedToken;
 }
 
@@ -120,6 +160,16 @@ export function requireHttpAuth(
         ? header[0]
         : undefined;
   if (validateHttpBearerAuth(headerValue, token)) {
+    return { authorized: true };
+  }
+  const cookieHeader = (request.headers as Record<string, unknown>).cookie;
+  const cookieValue =
+    typeof cookieHeader === "string"
+      ? cookieHeader
+      : Array.isArray(cookieHeader) && typeof cookieHeader[0] === "string"
+        ? cookieHeader[0]
+        : undefined;
+  if (validateHttpCookieAuth(cookieValue, token)) {
     return { authorized: true };
   }
   return {

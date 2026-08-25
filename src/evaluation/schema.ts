@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 
 import { z } from "zod";
 
@@ -73,6 +73,66 @@ export const evalScorerSchema = z.discriminatedUnion("type", [
 
 export type EvalScorer = z.infer<typeof evalScorerSchema>;
 
+export const evalOracleSchema = z.object({
+  files: z.record(z.string(), z.string()).default({}),
+  output: z.string().default(""),
+  toolCalls: z.array(z.object({
+    input: z.record(z.string(), z.unknown()).default({}),
+    toolName: z.string().min(1)
+  })).default([]),
+  traceEvents: z.array(z.string().min(1)).default([])
+}).strict();
+
+export type EvalOracle = z.infer<typeof evalOracleSchema>;
+
+export const evalMemoryRecordFixtureSchema = z.object({
+  content: z.string().min(1),
+  keywords: z.array(z.string().min(1)).default([]),
+  scope: z.enum(["profile", "project"]).default("project"),
+  status: z.enum(["candidate", "verified", "stale", "rejected", "archived"]).default("verified"),
+  summary: z.string().min(1).optional(),
+  tier: z.enum(["core", "retrieval"]).default("retrieval"),
+  title: z.string().min(1)
+}).strict();
+
+export const evalExperienceFixtureSchema = z.object({
+  content: z.string().min(1),
+  status: z.enum(["candidate", "accepted", "promoted", "rejected", "stale", "archived"]).default("accepted"),
+  summary: z.string().min(1),
+  title: z.string().min(1),
+  type: z.enum([
+    "decision",
+    "pattern",
+    "convention",
+    "gotcha",
+    "task_outcome",
+    "review_feedback",
+    "failure_lesson",
+    "preference_signal"
+  ]).default("failure_lesson")
+}).strict();
+
+export const evalMemoryStateSchema = z.object({
+  experiences: z.array(evalExperienceFixtureSchema).default([]),
+  memories: z.array(evalMemoryRecordFixtureSchema).default([]),
+  skills: z.record(z.string(), z.string()).default({})
+}).strict();
+
+export type EvalMemoryState = z.infer<typeof evalMemoryStateSchema>;
+
+export const evalMemoryEvalSchema = z.object({
+  arms: z.object({
+    cold: evalMemoryStateSchema.default({ experiences: [], memories: [], skills: {} }),
+    distractor: evalMemoryStateSchema,
+    poisoned: evalMemoryStateSchema,
+    warm: evalMemoryStateSchema
+  }).strict(),
+  expectedRecallTitles: z.array(z.string().min(1)).default([]),
+  poisonMarkers: z.array(z.string().min(1)).default([])
+}).strict();
+
+export type EvalMemoryEval = z.infer<typeof evalMemoryEvalSchema>;
+
 const evalTaskSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
@@ -87,6 +147,7 @@ const evalTaskSchema = z.object({
   workspace: z.object({
     files: z.record(z.string(), z.string()).default({})
   }).strict().default({ files: {} }),
+  oracle: evalOracleSchema.optional(),
   scorers: z.array(evalScorerSchema).min(1)
 }).strict().superRefine((task, context) => {
   if (!task.scorers.some((scorer) => scorer.type !== "llm_judge" && scorer.required)) {
@@ -115,6 +176,7 @@ export const evalSuiteManifestSchema = z.object({
   description: z.string().min(1),
   promptVersion: z.string().min(1).default("runtime-default"),
   toolSchemaVersion: z.string().min(1).default("runtime-default"),
+  memoryEval: evalMemoryEvalSchema.optional(),
   tasks: z.array(evalTaskSchema).min(1)
 }).strict().superRefine((suite, context) => {
   const ids = suite.tasks.map((task) => task.id);
@@ -129,7 +191,44 @@ export const evalSuiteManifestSchema = z.object({
 
 export type EvalSuiteManifest = z.infer<typeof evalSuiteManifestSchema>;
 
+export const EVAL_CANARY_TASK_IDS = [
+  "coding_create_add",
+  "governance_config_inspection",
+  "governance_denied_action",
+  "governance_scoped_write",
+  "context_ignore_embedded_instruction",
+  "context_locate_fact",
+  "integration_mcp_discovery",
+  "integration_tool_bridge",
+  "safety_secret_redaction",
+  "safety_injection_no_shell",
+  "safety_offline_only",
+  "reliability_timeout_recovery"
+] as const;
+
 export function loadEvalSuite(path: string): EvalSuiteManifest {
   const absolutePath = resolve(path);
-  return evalSuiteManifestSchema.parse(JSON.parse(readFileSync(absolutePath, "utf8")));
+  const parsed = evalSuiteManifestSchema.parse(JSON.parse(readFileSync(absolutePath, "utf8")));
+  const overlay = loadOracleOverlay(dirname(absolutePath));
+  if (Object.keys(overlay).length === 0) {
+    return parsed;
+  }
+  return {
+    ...parsed,
+    tasks: parsed.tasks.map((task) => {
+      if (task.oracle !== undefined || overlay[task.id] === undefined) {
+        return task;
+      }
+      return { ...task, oracle: overlay[task.id] };
+    })
+  };
+}
+
+function loadOracleOverlay(directory: string): Record<string, EvalOracle> {
+  const overlayPath = join(directory, "task-oracles.json");
+  if (!existsSync(overlayPath)) {
+    return {};
+  }
+  const raw = JSON.parse(readFileSync(overlayPath, "utf8")) as unknown;
+  return z.record(z.string(), evalOracleSchema).parse(raw);
 }
