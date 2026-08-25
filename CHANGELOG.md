@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## v0.1.2
+## v0.2.0
 
 - Improved the local Web workspace with concurrent session-run tracking,
   session-scoped approvals and clarification prompts, responsive drawers, and
