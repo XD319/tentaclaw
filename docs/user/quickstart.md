@@ -5,6 +5,14 @@ Install first: pick the **user (npm)** or **developer (from source)** path in th
 This quickstart assumes the user path (`talon ...`). From a source checkout,
 replace `talon` with `corepack pnpm dev`.
 
+## Web UI beta preview
+
+Run `talon web` to open the local browser workspace. It shares the same local
+sessions, providers, sandbox rules, approvals, and workspace as the CLI/TUI.
+The Web UI is available for testing and feedback, but remains a beta preview
+under active development. Prefer `talon tui` or CLI commands for the most
+established daily workflow.
+
 ## No-credentials mock walkthrough
 
 Use this path on a fresh machine when you want to reach `talon tui` without an

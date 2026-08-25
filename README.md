@@ -80,8 +80,10 @@ talon web
 ```
 
 This auto-inits `.auto-talon/`, opens the local browser workspace, and lets you
-choose Mock or a real provider in Settings. `talon tui` remains available for
-the terminal UI.
+choose Mock or a real provider in Settings. The Web UI is available as a
+**beta preview**: it is useful for local testing and feedback, but is still
+under active development. Use `talon tui` or the CLI for the most established
+daily workflow.
 
 ```bash
 npm install -g auto-talon
@@ -214,6 +216,7 @@ command. Until migration completes, `talon tui` / `talon run` stay blocked.
 
 ```bash
 talon tui                              # daily interactive agent surface
+talon web                              # local browser workspace (beta preview)
 talon run "review the changed files"   # scriptable one-shot execution
 talon continue --last                  # resume the previous task
 talon trace <task_id> --summary        # inspect what the agent did
@@ -283,6 +286,9 @@ against sensitive project directories.
   built-in `node:sqlite` module. Node.js 20 is not supported.
 - AutoTalon is local-first and single-operator oriented. It is not a hosted
   SaaS, team control plane, or multi-tenant agent service.
+- The local Web UI is a beta preview. It can be used for testing and local
+  operator feedback, but its workflows and surface area will continue to
+  evolve; CLI/TUI remain the recommended stable paths.
 - Real provider runs require user-supplied credentials. Mock and scripted smoke
   providers are for tests and diagnostics.
 - v0.1.0 includes Feishu/Lark and local webhook gateway adapters. Slack,
